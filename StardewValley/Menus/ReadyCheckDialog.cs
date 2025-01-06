@@ -1,72 +1,65 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.ReadyCheckDialog
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 
 namespace StardewValley.Menus
 {
-	public class ReadyCheckDialog : ConfirmationDialog
-	{
-		public string checkName;
+  public class ReadyCheckDialog : ConfirmationDialog
+  {
+    public string checkName;
+    private bool allowCancel;
 
-		private bool allowCancel;
+    public ReadyCheckDialog(
+      string checkName,
+      bool allowCancel,
+      ConfirmationDialog.behavior onConfirm = null,
+      ConfirmationDialog.behavior onCancel = null)
+      : base(Game1.content.LoadString("Strings\\UI:ReadyCheck", (object) "N", (object) "M"), onConfirm, onCancel)
+    {
+      this.checkName = checkName;
+      this.allowCancel = allowCancel;
+      this.okButton.visible = false;
+      this.cancelButton.visible = this.isCancelable();
+      this.updateMessage();
+      this.exitFunction = (IClickableMenu.onExit) (() => this.closeDialog(Game1.player));
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.populateClickableComponentList();
+      this.snapToDefaultClickableComponent();
+    }
 
-		public ReadyCheckDialog(string checkName, bool allowCancel, behavior onConfirm = null, behavior onCancel = null)
-			: base(Game1.content.LoadString("Strings\\UI:ReadyCheck", "N", "M"), onConfirm, onCancel)
-		{
-			this.checkName = checkName;
-			this.allowCancel = allowCancel;
-			okButton.visible = false;
-			cancelButton.visible = isCancelable();
-			updateMessage();
-			exitFunction = delegate
-			{
-				closeDialog(Game1.player);
-			};
-			if (Game1.options.SnappyMenus)
-			{
-				populateClickableComponentList();
-				snapToDefaultClickableComponent();
-			}
-		}
+    public bool isCancelable() => this.allowCancel && Game1.player.team.IsReadyCheckCancelable(this.checkName);
 
-		public bool isCancelable()
-		{
-			if (allowCancel)
-			{
-				return Game1.player.team.IsReadyCheckCancelable(checkName);
-			}
-			return false;
-		}
+    public override bool readyToClose() => this.isCancelable();
 
-		public override bool readyToClose()
-		{
-			return isCancelable();
-		}
+    public override void closeDialog(Farmer who)
+    {
+      base.closeDialog(who);
+      if (!this.isCancelable())
+        return;
+      Game1.player.team.SetLocalReady(this.checkName, false);
+    }
 
-		public override void closeDialog(Farmer who)
-		{
-			base.closeDialog(who);
-			if (isCancelable())
-			{
-				Game1.player.team.SetLocalReady(checkName, ready: false);
-			}
-		}
+    private void updateMessage()
+    {
+      int numberReady = Game1.player.team.GetNumberReady(this.checkName);
+      int numberRequired = Game1.player.team.GetNumberRequired(this.checkName);
+      this.message = Game1.content.LoadString("Strings\\UI:ReadyCheck", (object) numberReady, (object) numberRequired);
+    }
 
-		private void updateMessage()
-		{
-			int readyNum = Game1.player.team.GetNumberReady(checkName);
-			int requiredNum = Game1.player.team.GetNumberRequired(checkName);
-			message = Game1.content.LoadString("Strings\\UI:ReadyCheck", readyNum, requiredNum);
-		}
-
-		public override void update(GameTime time)
-		{
-			base.update(time);
-			cancelButton.visible = isCancelable();
-			updateMessage();
-			Game1.player.team.SetLocalReady(checkName, ready: true);
-			if (Game1.player.team.IsReady(checkName))
-			{
-				confirm();
-			}
-		}
-	}
+    public override void update(GameTime time)
+    {
+      base.update(time);
+      this.cancelButton.visible = this.isCancelable();
+      this.updateMessage();
+      Game1.player.team.SetLocalReady(this.checkName, true);
+      if (!Game1.player.team.IsReady(this.checkName))
+        return;
+      this.confirm();
+    }
+  }
 }

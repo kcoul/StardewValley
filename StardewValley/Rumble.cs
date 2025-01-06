@@ -1,99 +1,85 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Rumble
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
 namespace StardewValley
 {
-	[InstanceStatics]
-	public static class Rumble
-	{
-		private static float rumbleStrength;
+  [InstanceStatics]
+  public static class Rumble
+  {
+    private static float rumbleStrength;
+    private static float rumbleTimerMax;
+    private static float rumbleTimerCurrent;
+    private static float rumbleDuringFade;
+    private static float maxRumbleDuringFade;
+    private static bool isRumbling;
+    private static bool fade;
 
-		private static float rumbleTimerMax;
+    public static void update(float milliseconds)
+    {
+      float num = 0.0f;
+      if (Rumble.isRumbling)
+      {
+        num = Rumble.rumbleStrength;
+        Rumble.rumbleTimerCurrent += milliseconds;
+        if ((double) Rumble.rumbleTimerCurrent > (double) Rumble.rumbleTimerMax)
+          num = 0.0f;
+        else if (Rumble.fade)
+        {
+          if ((double) Rumble.rumbleTimerCurrent > (double) Rumble.rumbleTimerMax - 1000.0)
+            Rumble.rumbleDuringFade = Utility.Lerp(Rumble.maxRumbleDuringFade, 0.0f, (float) (((double) Rumble.rumbleTimerCurrent - ((double) Rumble.rumbleTimerMax - 1000.0)) / 1000.0));
+          num = Rumble.rumbleDuringFade;
+        }
+      }
+      if ((double) num <= 0.0)
+      {
+        num = 0.0f;
+        Rumble.isRumbling = false;
+      }
+      if ((double) num > 1.0)
+        num = 1f;
+      if (!Game1.options.gamepadControls || !Game1.options.rumble)
+        num = 0.0f;
+      if (Game1.playerOneIndex == ~PlayerIndex.One)
+        return;
+      GamePad.SetVibration(Game1.playerOneIndex, num, num);
+    }
 
-		private static float rumbleTimerCurrent;
+    public static void stopRumbling()
+    {
+      Rumble.rumbleStrength = 0.0f;
+      Rumble.isRumbling = false;
+    }
 
-		private static float rumbleDuringFade;
+    public static void rumble(float leftPower, float rightPower, float milliseconds) => Rumble.rumble(leftPower, milliseconds);
 
-		private static float maxRumbleDuringFade;
+    public static void rumble(float power, float milliseconds)
+    {
+      if (Rumble.isRumbling || !Game1.options.gamepadControls || !Game1.options.rumble)
+        return;
+      Rumble.fade = false;
+      Rumble.rumbleTimerCurrent = 0.0f;
+      Rumble.rumbleTimerMax = milliseconds;
+      Rumble.isRumbling = true;
+      Rumble.rumbleStrength = power;
+    }
 
-		private static bool isRumbling;
-
-		private static bool fade;
-
-		public static void update(float milliseconds)
-		{
-			float rumble_amount = 0f;
-			if (isRumbling)
-			{
-				rumble_amount = rumbleStrength;
-				rumbleTimerCurrent += milliseconds;
-				if (rumbleTimerCurrent > rumbleTimerMax)
-				{
-					rumble_amount = 0f;
-				}
-				else if (fade)
-				{
-					if (rumbleTimerCurrent > rumbleTimerMax - 1000f)
-					{
-						rumbleDuringFade = Utility.Lerp(maxRumbleDuringFade, 0f, (rumbleTimerCurrent - (rumbleTimerMax - 1000f)) / 1000f);
-					}
-					rumble_amount = rumbleDuringFade;
-				}
-			}
-			if (rumble_amount <= 0f)
-			{
-				rumble_amount = 0f;
-				isRumbling = false;
-			}
-			if ((double)rumble_amount > 1.0)
-			{
-				rumble_amount = 1f;
-			}
-			if (!Game1.options.gamepadControls || !Game1.options.rumble)
-			{
-				rumble_amount = 0f;
-			}
-			if (Game1.playerOneIndex != (PlayerIndex)(-1))
-			{
-				GamePad.SetVibration(Game1.playerOneIndex, rumble_amount, rumble_amount);
-			}
-		}
-
-		public static void stopRumbling()
-		{
-			rumbleStrength = 0f;
-			isRumbling = false;
-		}
-
-		public static void rumble(float leftPower, float rightPower, float milliseconds)
-		{
-			rumble(leftPower, milliseconds);
-		}
-
-		public static void rumble(float power, float milliseconds)
-		{
-			if (!isRumbling && Game1.options.gamepadControls && Game1.options.rumble)
-			{
-				fade = false;
-				rumbleTimerCurrent = 0f;
-				rumbleTimerMax = milliseconds;
-				isRumbling = true;
-				rumbleStrength = power;
-			}
-		}
-
-		public static void rumbleAndFade(float power, float milliseconds)
-		{
-			if (!isRumbling && Game1.options.gamepadControls && Game1.options.rumble)
-			{
-				rumbleTimerCurrent = 0f;
-				rumbleTimerMax = milliseconds;
-				isRumbling = true;
-				fade = true;
-				rumbleDuringFade = power;
-				maxRumbleDuringFade = power;
-				rumbleStrength = power;
-			}
-		}
-	}
+    public static void rumbleAndFade(float power, float milliseconds)
+    {
+      if (Rumble.isRumbling || !Game1.options.gamepadControls || !Game1.options.rumble)
+        return;
+      Rumble.rumbleTimerCurrent = 0.0f;
+      Rumble.rumbleTimerMax = milliseconds;
+      Rumble.isRumbling = true;
+      Rumble.fade = true;
+      Rumble.rumbleDuringFade = power;
+      Rumble.maxRumbleDuringFade = power;
+      Rumble.rumbleStrength = power;
+    }
+  }
 }

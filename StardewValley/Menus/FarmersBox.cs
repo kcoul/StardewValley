@@ -1,96 +1,98 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.FarmersBox
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Netcode;
 using System.Collections.Generic;
 
 namespace StardewValley.Menus
 {
-	internal class FarmersBox : IClickableMenu
-	{
-		private readonly List<Farmer> _farmers = new List<Farmer>();
+  internal class FarmersBox : IClickableMenu
+  {
+    private readonly List<Farmer> _farmers = new List<Farmer>();
+    private readonly Texture2D _iconTex;
+    public float _updateTimer;
+    private readonly List<FarmerBoxButton> _profileButtons;
+    private readonly List<FarmerBoxButton> _muteButtons;
 
-		private readonly Texture2D _iconTex;
+    public FarmersBox()
+      : base(0, 200, 528, 400)
+    {
+      this._muteButtons = new List<FarmerBoxButton>();
+      this._profileButtons = new List<FarmerBoxButton>();
+    }
 
-		public float _updateTimer;
+    private void UpdateFarmers(List<ClickableComponent> parentComponents)
+    {
+      if ((double) this._updateTimer > 0.0)
+        return;
+      this._farmers.Clear();
+      foreach (Farmer onlineFarmer in Game1.getOnlineFarmers())
+        this._farmers.Add(onlineFarmer);
+      this._updateTimer = 1f;
+    }
 
-		private readonly List<FarmerBoxButton> _profileButtons;
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+    }
 
-		private readonly List<FarmerBoxButton> _muteButtons;
+    public override void update(GameTime time) => this._updateTimer -= (float) time.ElapsedGameTime.TotalSeconds;
 
-		public FarmersBox()
-			: base(0, 200, 528, 400)
-		{
-			_muteButtons = new List<FarmerBoxButton>();
-			_profileButtons = new List<FarmerBoxButton>();
-		}
-
-		private void UpdateFarmers(List<ClickableComponent> parentComponents)
-		{
-			if (!(_updateTimer > 0f))
-			{
-				_farmers.Clear();
-				foreach (Farmer farmer in Game1.getOnlineFarmers())
-				{
-					_farmers.Add(farmer);
-				}
-				_updateTimer = 1f;
-			}
-		}
-
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-		}
-
-		public override void update(GameTime time)
-		{
-			_updateTimer -= (float)time.ElapsedGameTime.TotalSeconds;
-		}
-
-		public void draw(SpriteBatch b, int left, int bottom, ClickableComponent current, List<ClickableComponent> parentComponents)
-		{
-			UpdateFarmers(parentComponents);
-			if (_farmers.Count == 0)
-			{
-				return;
-			}
-			int sizeY = 100;
-			height = sizeY * _farmers.Count;
-			xPositionOnScreen = left;
-			yPositionOnScreen = bottom - height;
-			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(301, 288, 15, 15), xPositionOnScreen, yPositionOnScreen, width, height, Color.White, 4f, drawShadow: false);
-			b.End();
-			b.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp, null, Utility.ScissorEnabled);
-			Rectangle origClip = b.GraphicsDevice.ScissorRectangle;
-			int x = xPositionOnScreen + 16;
-			int y = yPositionOnScreen;
-			for (int i = 0; i < _farmers.Count; i++)
-			{
-				Farmer farmer = _farmers[i];
-				Rectangle newClip = origClip;
-				newClip.X = x;
-				newClip.Y = y;
-				newClip.Height = sizeY - 8;
-				newClip.Width = 200;
-				b.GraphicsDevice.ScissorRectangle = newClip;
-				FarmerRenderer.isDrawingForUI = true;
-				farmer.FarmerRenderer.draw(b, new FarmerSprite.AnimationFrame(farmer.bathingClothes ? 108 : 0, 0, secondaryArm: false, flip: false), farmer.bathingClothes ? 108 : 0, new Rectangle(0, farmer.bathingClothes ? 576 : 0, 16, 32), new Vector2(x, y), Vector2.Zero, 0.8f, 2, Color.White, 0f, 1f, farmer);
-				FarmerRenderer.isDrawingForUI = false;
-				b.GraphicsDevice.ScissorRectangle = origClip;
-				int textX = x + 80;
-				int textY2 = y + 12;
-				string farmerName = ChatBox.formattedUserName(farmer);
-				b.DrawString(Game1.dialogueFont, farmerName, new Vector2(textX, textY2), Color.White);
-				string platformUserName = Game1.multiplayer.getUserName(farmer.UniqueMultiplayerID);
-				if (!string.IsNullOrEmpty(platformUserName))
-				{
-					textY2 += Game1.dialogueFont.LineSpacing + 4;
-					string userName = "(" + platformUserName + ")";
-					b.DrawString(Game1.smallFont, userName, new Vector2(textX, textY2), Color.White);
-				}
-				y += sizeY;
-			}
-			b.GraphicsDevice.ScissorRectangle = origClip;
-			b.End();
-			b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-		}
-	}
+    public void draw(
+      SpriteBatch b,
+      int left,
+      int bottom,
+      ClickableComponent current,
+      List<ClickableComponent> parentComponents)
+    {
+      this.UpdateFarmers(parentComponents);
+      if (this._farmers.Count == 0)
+        return;
+      int num = 100;
+      this.height = num * this._farmers.Count;
+      this.xPositionOnScreen = left;
+      this.yPositionOnScreen = bottom - this.height;
+      IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(301, 288, 15, 15), this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height, Color.White, 4f, false);
+      b.End();
+      b.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp, rasterizerState: Utility.ScissorEnabled);
+      Rectangle scissorRectangle = b.GraphicsDevice.ScissorRectangle;
+      int x1 = this.xPositionOnScreen + 16;
+      int positionOnScreen = this.yPositionOnScreen;
+      for (int index = 0; index < this._farmers.Count; ++index)
+      {
+        Farmer farmer = this._farmers[index];
+        Rectangle rectangle = scissorRectangle with
+        {
+          X = x1,
+          Y = positionOnScreen,
+          Height = num - 8,
+          Width = 200
+        };
+        b.GraphicsDevice.ScissorRectangle = rectangle;
+        FarmerRenderer.isDrawingForUI = true;
+        farmer.FarmerRenderer.draw(b, new FarmerSprite.AnimationFrame((bool) (NetFieldBase<bool, NetBool>) farmer.bathingClothes ? 108 : 0, 0, false, false), (bool) (NetFieldBase<bool, NetBool>) farmer.bathingClothes ? 108 : 0, new Rectangle(0, (bool) (NetFieldBase<bool, NetBool>) farmer.bathingClothes ? 576 : 0, 16, 32), new Vector2((float) x1, (float) positionOnScreen), Vector2.Zero, 0.8f, 2, Color.White, 0.0f, 1f, farmer);
+        FarmerRenderer.isDrawingForUI = false;
+        b.GraphicsDevice.ScissorRectangle = scissorRectangle;
+        int x2 = x1 + 80;
+        int y1 = positionOnScreen + 12;
+        string text1 = ChatBox.formattedUserName(farmer);
+        b.DrawString(Game1.dialogueFont, text1, new Vector2((float) x2, (float) y1), Color.White);
+        string userName = Game1.multiplayer.getUserName(farmer.UniqueMultiplayerID);
+        if (!string.IsNullOrEmpty(userName))
+        {
+          int y2 = y1 + (Game1.dialogueFont.LineSpacing + 4);
+          string text2 = "(" + userName + ")";
+          b.DrawString(Game1.smallFont, text2, new Vector2((float) x2, (float) y2), Color.White);
+        }
+        positionOnScreen += num;
+      }
+      b.GraphicsDevice.ScissorRectangle = scissorRectangle;
+      b.End();
+      b.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+    }
+  }
 }

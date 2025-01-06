@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Locations.Cabin
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using StardewValley.Buildings;
@@ -13,242 +19,190 @@ using xTile.Dimensions;
 
 namespace StardewValley.Locations
 {
-	public class Cabin : FarmHouse
-	{
-		private static Random farmhandIDRandom = new Random();
+  public class Cabin : FarmHouse
+  {
+    private static Random farmhandIDRandom = new Random();
+    [XmlElement("farmhand")]
+    public readonly NetRef<Farmer> farmhand = new NetRef<Farmer>();
+    [XmlIgnore]
+    public readonly NetMutex inventoryMutex = new NetMutex();
 
-		[XmlElement("farmhand")]
-		public readonly NetRef<Farmer> farmhand = new NetRef<Farmer>();
+    [XmlIgnore]
+    public override Farmer owner => this.getFarmhand().Value.isActive() ? Game1.otherFarmers[this.getFarmhand().Value.UniqueMultiplayerID] : this.getFarmhand().Value;
 
-		[XmlIgnore]
-		public readonly NetMutex inventoryMutex = new NetMutex();
+    [XmlIgnore]
+    public override int upgradeLevel
+    {
+      get => this.farmhand.Value == null ? 0 : (int) (NetFieldBase<int, NetInt>) this.owner.houseUpgradeLevel;
+      set => this.owner.houseUpgradeLevel.Value = value;
+    }
 
-		[XmlIgnore]
-		public override Farmer owner
-		{
-			get
-			{
-				if (getFarmhand().Value.isActive())
-				{
-					return Game1.otherFarmers[getFarmhand().Value.UniqueMultiplayerID];
-				}
-				return getFarmhand().Value;
-			}
-		}
+    public Cabin()
+    {
+    }
 
-		[XmlIgnore]
-		public override int upgradeLevel
-		{
-			get
-			{
-				if (farmhand.Value == null)
-				{
-					return 0;
-				}
-				return owner.houseUpgradeLevel;
-			}
-			set
-			{
-				owner.houseUpgradeLevel.Value = value;
-			}
-		}
+    public Cabin(string map)
+      : base(map, nameof (Cabin))
+    {
+    }
 
-		public Cabin()
-		{
-		}
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.farmhand, (INetSerializable) this.inventoryMutex.NetFields);
+    }
 
-		public Cabin(string map)
-			: base(map, "Cabin")
-		{
-		}
+    public NetRef<Farmer> getFarmhand()
+    {
+      if (this.farmhand.Value == null)
+      {
+        this.farmhand.Value = new Farmer(new FarmerSprite((string) null), new Vector2(0.0f, 0.0f), 1, "", Farmer.initialTools(), true);
+        this.farmhand.Value.UniqueMultiplayerID = Utility.RandomLong(Cabin.farmhandIDRandom);
+        this.farmhand.Value.questLog.Add((Quest) (Quest.getQuestFromId(9) as SocializeQuest));
+        this.resetFarmhandState();
+      }
+      return this.farmhand;
+    }
 
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(farmhand, inventoryMutex.NetFields);
-		}
+    public void resetFarmhandState()
+    {
+      if (this.farmhand.Value == null)
+        return;
+      this.farmhand.Value.farmName.Value = Game1.MasterPlayer.farmName.Value;
+      this.farmhand.Value.homeLocation.Value = (string) (NetFieldBase<string, NetString>) this.uniqueName;
+      if (this.farmhand.Value.lastSleepLocation.Value == null || this.farmhand.Value.lastSleepLocation.Value == (string) (NetFieldBase<string, NetString>) this.uniqueName)
+      {
+        this.farmhand.Value.currentLocation = (GameLocation) this;
+        this.farmhand.Value.Position = Utility.PointToVector2(this.GetPlayerBedSpot()) * 64f;
+      }
+      this.farmhand.Value.resetState();
+    }
 
-		public NetRef<Farmer> getFarmhand()
-		{
-			if (farmhand.Value == null)
-			{
-				farmhand.Value = new Farmer(new FarmerSprite(null), new Vector2(0f, 0f), 1, "", Farmer.initialTools(), isMale: true);
-				farmhand.Value.UniqueMultiplayerID = Utility.RandomLong(farmhandIDRandom);
-				SocializeQuest quest = Quest.getQuestFromId(9) as SocializeQuest;
-				farmhand.Value.questLog.Add(quest);
-				resetFarmhandState();
-			}
-			return farmhand;
-		}
+    public void saveFarmhand(NetFarmerRoot farmhand)
+    {
+      farmhand.CloneInto(this.farmhand);
+      this.resetFarmhandState();
+    }
 
-		public void resetFarmhandState()
-		{
-			if (farmhand.Value != null)
-			{
-				farmhand.Value.farmName.Value = Game1.MasterPlayer.farmName.Value;
-				farmhand.Value.homeLocation.Value = uniqueName;
-				if (farmhand.Value.lastSleepLocation.Value == null || farmhand.Value.lastSleepLocation.Value == (string)uniqueName)
-				{
-					farmhand.Value.currentLocation = this;
-					farmhand.Value.Position = Utility.PointToVector2(GetPlayerBedSpot()) * 64f;
-				}
-				farmhand.Value.resetState();
-			}
-		}
+    public override bool checkAction(Location tileLocation, xTile.Dimensions.Rectangle viewport, Farmer who)
+    {
+      if (this.map.GetLayer("Buildings").Tiles[tileLocation] != null)
+      {
+        switch (this.map.GetLayer("Buildings").Tiles[tileLocation].TileIndex)
+        {
+          case 647:
+          case 648:
+            if (!this.getFarmhand().Value.isActive())
+            {
+              this.inventoryMutex.RequestLock((Action) (() =>
+              {
+                this.playSound("Ship");
+                this.openFarmhandInventory();
+              }));
+              return true;
+            }
+            break;
+        }
+      }
+      return base.checkAction(tileLocation, viewport, who);
+    }
 
-		public void saveFarmhand(NetFarmerRoot farmhand)
-		{
-			farmhand.CloneInto(this.farmhand);
-			resetFarmhandState();
-		}
+    public override void updateEvenIfFarmerIsntHere(GameTime time, bool skipWasUpdatedFlush = false)
+    {
+      base.updateEvenIfFarmerIsntHere(time, skipWasUpdatedFlush);
+      this.inventoryMutex.Update(Game1.getOnlineFarmers());
+      if (!this.inventoryMutex.IsLockHeld() || Game1.activeClickableMenu is ItemGrabMenu)
+        return;
+      this.inventoryMutex.ReleaseLock();
+    }
 
-		public override bool checkAction(Location tileLocation, xTile.Dimensions.Rectangle viewport, Farmer who)
-		{
-			if (map.GetLayer("Buildings").Tiles[tileLocation] != null)
-			{
-				int tileIndex = map.GetLayer("Buildings").Tiles[tileLocation].TileIndex;
-				if ((uint)(tileIndex - 647) <= 1u && !getFarmhand().Value.isActive())
-				{
-					inventoryMutex.RequestLock(delegate
-					{
-						playSound("Ship");
-						openFarmhandInventory();
-					});
-					return true;
-				}
-			}
-			if (base.checkAction(tileLocation, viewport, who))
-			{
-				return true;
-			}
-			return false;
-		}
+    public NetObjectList<Item> getInventory() => this.getFarmhand().Value.items;
 
-		public override void updateEvenIfFarmerIsntHere(GameTime time, bool skipWasUpdatedFlush = false)
-		{
-			base.updateEvenIfFarmerIsntHere(time, skipWasUpdatedFlush);
-			inventoryMutex.Update(Game1.getOnlineFarmers());
-			if (inventoryMutex.IsLockHeld() && !(Game1.activeClickableMenu is ItemGrabMenu))
-			{
-				inventoryMutex.ReleaseLock();
-			}
-		}
+    public void openFarmhandInventory() => Game1.activeClickableMenu = (IClickableMenu) new ItemGrabMenu((IList<Item>) this.getInventory(), false, true, new InventoryMenu.highlightThisItem(InventoryMenu.highlightAllItems), new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromPlayerInventory), (string) null, new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromFarmhandInventory), canBeExitedWithKey: true, showOrganizeButton: true, source: 1, context: ((object) this));
 
-		public NetObjectList<Item> getInventory()
-		{
-			return getFarmhand().Value.items;
-		}
+    public bool isInventoryOpen() => this.inventoryMutex.IsLocked();
 
-		public void openFarmhandInventory()
-		{
-			Game1.activeClickableMenu = new ItemGrabMenu(getInventory(), reverseGrab: false, showReceivingMenu: true, InventoryMenu.highlightAllItems, grabItemFromPlayerInventory, null, grabItemFromFarmhandInventory, snapToBottom: false, canBeExitedWithKey: true, playRightClickSound: true, allowRightClick: true, showOrganizeButton: true, 1, null, -1, this);
-		}
+    private void grabItemFromPlayerInventory(Item item, Farmer who)
+    {
+      if (item.Stack == 0)
+        item.Stack = 1;
+      Item inventory = this.getFarmhand().Value.addItemToInventory(item);
+      if (inventory == null)
+        who.removeItemFromInventory(item);
+      else
+        who.addItemToInventory(inventory);
+      int id = Game1.activeClickableMenu.currentlySnappedComponent != null ? Game1.activeClickableMenu.currentlySnappedComponent.myID : -1;
+      this.openFarmhandInventory();
+      if (id == -1)
+        return;
+      Game1.activeClickableMenu.currentlySnappedComponent = Game1.activeClickableMenu.getComponentWithID(id);
+      Game1.activeClickableMenu.snapCursorToCurrentSnappedComponent();
+    }
 
-		public bool isInventoryOpen()
-		{
-			return inventoryMutex.IsLocked();
-		}
+    private void grabItemFromFarmhandInventory(Item item, Farmer who)
+    {
+      if (!who.couldInventoryAcceptThisItem(item))
+        return;
+      this.getInventory().Remove(item);
+      this.openFarmhandInventory();
+    }
 
-		private void grabItemFromPlayerInventory(Item item, Farmer who)
-		{
-			if (item.Stack == 0)
-			{
-				item.Stack = 1;
-			}
-			Item tmp = getFarmhand().Value.addItemToInventory(item);
-			if (tmp == null)
-			{
-				who.removeItemFromInventory(item);
-			}
-			else
-			{
-				who.addItemToInventory(tmp);
-			}
-			int oldID = (Game1.activeClickableMenu.currentlySnappedComponent != null) ? Game1.activeClickableMenu.currentlySnappedComponent.myID : (-1);
-			openFarmhandInventory();
-			if (oldID != -1)
-			{
-				Game1.activeClickableMenu.currentlySnappedComponent = Game1.activeClickableMenu.getComponentWithID(oldID);
-				Game1.activeClickableMenu.snapCursorToCurrentSnappedComponent();
-			}
-		}
+    public override void updateWarps()
+    {
+      base.updateWarps();
+      if (Game1.getFarm() == null)
+        return;
+      foreach (Building building in Game1.getFarm().buildings)
+      {
+        if (building.indoors.Value == this)
+          building.updateInteriorWarps();
+      }
+    }
 
-		private void grabItemFromFarmhandInventory(Item item, Farmer who)
-		{
-			if (who.couldInventoryAcceptThisItem(item))
-			{
-				getInventory().Remove(item);
-				openFarmhandInventory();
-			}
-		}
+    public List<Item> demolish()
+    {
+      List<Item> list = new List<Item>((IEnumerable<Item>) this.getInventory()).Where<Item>((Func<Item, bool>) (item => item != null)).ToList<Item>();
+      this.getInventory().Clear();
+      Farmer.removeInitialTools(list);
+      Dictionary<string, string> dictionary = Game1.content.Load<Dictionary<string, string>>("Data\\NPCDispositions");
+      foreach (NPC character in new List<NPC>((IEnumerable<NPC>) this.characters))
+      {
+        if (character.isVillager() && dictionary.ContainsKey(character.Name))
+        {
+          character.reloadDefaultLocation();
+          character.clearSchedule();
+          Game1.warpCharacter(character, character.DefaultMap, character.DefaultPosition / 64f);
+        }
+        if (character is Pet)
+          (character as Pet).warpToFarmHouse(Game1.MasterPlayer);
+      }
+      if (Game1.getLocationFromName(this.GetCellarName()) is Cellar locationFromName)
+      {
+        locationFromName.objects.Clear();
+        locationFromName.setUpAgingBoards();
+      }
+      if (this.farmhand.Value != null)
+        Game1.player.team.DeleteFarmhand(this.farmhand.Value);
+      Game1.updateCellarAssignments();
+      return list;
+    }
 
-		public override void updateWarps()
-		{
-			base.updateWarps();
-			if (Game1.getFarm() != null)
-			{
-				foreach (Building building in Game1.getFarm().buildings)
-				{
-					if (building.indoors.Value == this)
-					{
-						building.updateInteriorWarps();
-					}
-				}
-			}
-		}
+    public override void DayUpdate(int dayOfMonth)
+    {
+      base.DayUpdate(dayOfMonth);
+      if (this.farmhand.Value == null)
+        return;
+      this.farmhand.Value.stamina = (float) this.farmhand.Value.maxStamina.Value;
+    }
 
-		public List<Item> demolish()
-		{
-			List<Item> items = new List<Item>(getInventory()).Where((Item item) => item != null).ToList();
-			getInventory().Clear();
-			Farmer.removeInitialTools(items);
-			Dictionary<string, string> NPCDispositions = Game1.content.Load<Dictionary<string, string>>("Data\\NPCDispositions");
-			foreach (NPC npc in new List<NPC>(characters))
-			{
-				if (npc.isVillager() && NPCDispositions.ContainsKey(npc.Name))
-				{
-					npc.reloadDefaultLocation();
-					npc.clearSchedule();
-					Game1.warpCharacter(npc, npc.DefaultMap, npc.DefaultPosition / 64f);
-				}
-				if (npc is Pet)
-				{
-					(npc as Pet).warpToFarmHouse(Game1.MasterPlayer);
-				}
-			}
-			Cellar cellar = Game1.getLocationFromName(GetCellarName()) as Cellar;
-			if (cellar != null)
-			{
-				cellar.objects.Clear();
-				cellar.setUpAgingBoards();
-			}
-			if (farmhand.Value != null)
-			{
-				Game1.player.team.DeleteFarmhand(farmhand.Value);
-			}
-			Game1.updateCellarAssignments();
-			return items;
-		}
-
-		public override void DayUpdate(int dayOfMonth)
-		{
-			base.DayUpdate(dayOfMonth);
-			if (farmhand.Value != null)
-			{
-				farmhand.Value.stamina = farmhand.Value.maxStamina.Value;
-			}
-		}
-
-		public override Point getPorchStandingSpot()
-		{
-			foreach (Building building in Game1.getFarm().buildings)
-			{
-				if (building.isCabin && this == building.indoors.Value)
-				{
-					return building.getPorchStandingSpot();
-				}
-			}
-			return base.getPorchStandingSpot();
-		}
-	}
+    public override Point getPorchStandingSpot()
+    {
+      foreach (Building building in Game1.getFarm().buildings)
+      {
+        if (building.isCabin && this == building.indoors.Value)
+          return building.getPorchStandingSpot();
+      }
+      return base.getPorchStandingSpot();
+    }
+  }
 }

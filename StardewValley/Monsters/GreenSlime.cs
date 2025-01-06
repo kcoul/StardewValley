@@ -1,6 +1,13 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Monsters.GreenSlime
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
+using StardewValley.Network;
 using StardewValley.Objects;
 using StardewValley.Projectiles;
 using System;
@@ -10,967 +17,885 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Monsters
 {
-	public class GreenSlime : Monster
-	{
-		public const float mutationFactor = 0.25f;
+  public class GreenSlime : Monster
+  {
+    public const float mutationFactor = 0.25f;
+    public const int matingInterval = 120000;
+    public const int childhoodLength = 120000;
+    public const int durationOfMating = 2000;
+    public const double chanceToMate = 0.001;
+    public static int matingRange = 192;
+    public const int AQUA_SLIME = 9999899;
+    public NetIntDelta stackedSlimes = new NetIntDelta(0);
+    public float randomStackOffset;
+    [XmlIgnore]
+    public NetEvent1Field<Vector2, NetVector2> attackedEvent = new NetEvent1Field<Vector2, NetVector2>();
+    [XmlElement("leftDrift")]
+    public readonly NetBool leftDrift = new NetBool();
+    [XmlElement("cute")]
+    public readonly NetBool cute = new NetBool(true);
+    private int readyToJump = -1;
+    private int matingCountdown;
+    private int yOffset;
+    private int wagTimer;
+    public int readyToMate = 120000;
+    [XmlElement("ageUntilFullGrown")]
+    public readonly NetInt ageUntilFullGrown = new NetInt();
+    public int animateTimer;
+    public int timeSinceLastJump;
+    [XmlElement("specialNumber")]
+    public readonly NetInt specialNumber = new NetInt();
+    [XmlElement("firstGeneration")]
+    public readonly NetBool firstGeneration = new NetBool();
+    [XmlElement("color")]
+    public readonly NetColor color = new NetColor();
+    private readonly NetBool pursuingMate = new NetBool();
+    private readonly NetBool avoidingMate = new NetBool();
+    private GreenSlime mate;
+    public readonly NetBool prismatic = new NetBool();
+    private readonly NetVector2 facePosition = new NetVector2();
+    private readonly NetEvent1Field<Vector2, NetVector2> jumpEvent = new NetEvent1Field<Vector2, NetVector2>();
 
-		public const int matingInterval = 120000;
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.leftDrift, (INetSerializable) this.cute, (INetSerializable) this.ageUntilFullGrown, (INetSerializable) this.specialNumber, (INetSerializable) this.firstGeneration, (INetSerializable) this.color, (INetSerializable) this.pursuingMate, (INetSerializable) this.avoidingMate, (INetSerializable) this.facePosition, (INetSerializable) this.jumpEvent, (INetSerializable) this.prismatic, (INetSerializable) this.stackedSlimes, this.attackedEvent.NetFields);
+      this.stackedSlimes.Minimum = new int?(0);
+      this.attackedEvent.onEvent += new AbstractNetEvent1<Vector2>.Event(this.OnAttacked);
+      this.jumpEvent.onEvent += new AbstractNetEvent1<Vector2>.Event(this.doJump);
+      this.jumpEvent.InterpolationWait = false;
+    }
 
-		public const int childhoodLength = 120000;
+    public GreenSlime()
+    {
+    }
 
-		public const int durationOfMating = 2000;
+    public GreenSlime(Vector2 position)
+      : base("Green Slime", position)
+    {
+      if (Game1.random.NextDouble() < 0.5)
+        this.leftDrift.Value = true;
+      this.Slipperiness = 4;
+      this.readyToMate = Game1.random.Next(1000, 120000);
+      int num = Game1.random.Next(200, 256);
+      this.color.Value = new Color(num / Game1.random.Next(2, 10), Game1.random.Next(180, 256), Game1.random.NextDouble() < 0.1 ? (int) byte.MaxValue : (int) byte.MaxValue - num);
+      this.firstGeneration.Value = true;
+      this.flip = Game1.random.NextDouble() < 0.5;
+      this.cute.Value = Game1.random.NextDouble() < 0.49;
+      this.HideShadow = true;
+    }
 
-		public const double chanceToMate = 0.001;
+    public GreenSlime(Vector2 position, int mineLevel)
+      : base("Green Slime", position)
+    {
+      this.randomStackOffset = Utility.RandomFloat(0.0f, 100f);
+      this.cute.Value = Game1.random.NextDouble() < 0.49;
+      this.flip = Game1.random.NextDouble() < 0.5;
+      this.specialNumber.Value = Game1.random.Next(100);
+      if (mineLevel < 40)
+      {
+        this.parseMonsterInfo("Green Slime");
+        int g = Game1.random.Next(200, 256);
+        this.color.Value = new Color(g / Game1.random.Next(2, 10), g, Game1.random.NextDouble() < 0.01 ? (int) byte.MaxValue : (int) byte.MaxValue - g);
+        if (Game1.random.NextDouble() < 0.01 && mineLevel % 5 != 0 && mineLevel % 5 != 1)
+        {
+          this.color.Value = new Color(205, (int) byte.MaxValue, 0) * 0.7f;
+          this.hasSpecialItem.Value = true;
+          this.Health *= 3;
+          this.DamageToFarmer *= 2;
+        }
+        if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
+          this.objectsToDrop.Add(680);
+      }
+      else if (mineLevel < 80)
+      {
+        this.Name = "Frost Jelly";
+        this.parseMonsterInfo("Frost Jelly");
+        int b = Game1.random.Next(200, 256);
+        this.color.Value = new Color(Game1.random.NextDouble() < 0.01 ? 180 : b / Game1.random.Next(2, 10), Game1.random.NextDouble() < 0.1 ? (int) byte.MaxValue : (int) byte.MaxValue - b / 3, b);
+        if (Game1.random.NextDouble() < 0.01 && mineLevel % 5 != 0 && mineLevel % 5 != 1)
+        {
+          this.color.Value = new Color(0, 0, 0) * 0.7f;
+          this.hasSpecialItem.Value = true;
+          this.Health *= 3;
+          this.DamageToFarmer *= 2;
+        }
+        if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
+          this.objectsToDrop.Add(413);
+      }
+      else if (mineLevel >= 77377 && mineLevel < 77387)
+      {
+        this.Name = "Sludge";
+        this.parseMonsterInfo("Sludge");
+      }
+      else if (mineLevel > 120)
+      {
+        this.Name = "Sludge";
+        this.parseMonsterInfo("Sludge");
+        this.color.Value = Color.BlueViolet;
+        this.Health *= 2;
+        int r = (int) this.color.R;
+        int g = (int) this.color.G;
+        int b = (int) this.color.B;
+        int val2_1 = r + Game1.random.Next(-20, 21);
+        int val2_2 = g + Game1.random.Next(-20, 21);
+        int val2_3 = b + Game1.random.Next(-20, 21);
+        this.color.R = (byte) Math.Max(Math.Min((int) byte.MaxValue, val2_1), 0);
+        this.color.G = (byte) Math.Max(Math.Min((int) byte.MaxValue, val2_2), 0);
+        this.color.B = (byte) Math.Max(Math.Min((int) byte.MaxValue, val2_3), 0);
+        while (Game1.random.NextDouble() < 0.08)
+          this.objectsToDrop.Add(386);
+        if (Game1.random.NextDouble() < 0.009)
+          this.objectsToDrop.Add(337);
+        if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
+          this.objectsToDrop.Add(439);
+      }
+      else
+      {
+        this.Name = "Sludge";
+        this.parseMonsterInfo("Sludge");
+        int r = Game1.random.Next(200, 256);
+        this.color.Value = new Color(r, Game1.random.NextDouble() < 0.01 ? (int) byte.MaxValue : (int) byte.MaxValue - r, r / Game1.random.Next(2, 10));
+        if (Game1.random.NextDouble() < 0.01 && mineLevel % 5 != 0 && mineLevel % 5 != 1)
+        {
+          this.color.Value = new Color(50, 10, 50) * 0.7f;
+          this.hasSpecialItem.Value = true;
+          this.Health *= 3;
+          this.DamageToFarmer *= 2;
+        }
+        if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
+          this.objectsToDrop.Add(437);
+      }
+      if ((bool) (NetFieldBase<bool, NetBool>) this.cute)
+      {
+        this.Health += this.Health / 4;
+        ++this.DamageToFarmer;
+      }
+      if (Game1.random.NextDouble() < 0.5)
+        this.leftDrift.Value = true;
+      this.Slipperiness = 3;
+      this.readyToMate = Game1.random.Next(1000, 120000);
+      if (Game1.random.NextDouble() < 0.001)
+      {
+        this.color.Value = new Color((int) byte.MaxValue, (int) byte.MaxValue, 50);
+        this.coinsToDrop.Value = 10;
+      }
+      if (mineLevel == 9999899)
+      {
+        this.color.Value = new Color(0, (int) byte.MaxValue, 200);
+        this.Health *= 2;
+        this.objectsToDrop.Clear();
+        if (Game1.random.NextDouble() < 0.02)
+          this.objectsToDrop.Add(394);
+        if (Game1.random.NextDouble() < 0.02)
+          this.objectsToDrop.Add(60);
+        if (Game1.random.NextDouble() < 0.02)
+          this.objectsToDrop.Add(62);
+        if (Game1.random.NextDouble() < 0.01)
+          this.objectsToDrop.Add(797);
+        if (Game1.random.NextDouble() < 0.03 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
+          this.objectsToDrop.Add(413);
+        while (Game1.random.NextDouble() < 0.5)
+          this.objectsToDrop.Add(766);
+      }
+      this.firstGeneration.Value = true;
+      this.HideShadow = true;
+    }
 
-		public static int matingRange = 192;
+    public GreenSlime(Vector2 position, Color color)
+      : base("Green Slime", position)
+    {
+      this.color.Value = color;
+      this.firstGeneration.Value = true;
+      this.HideShadow = true;
+    }
 
-		public const int AQUA_SLIME = 9999899;
+    public void makeTigerSlime()
+    {
+      this.Name = "Tiger Slime";
+      base.reloadSprite();
+      this.Sprite.SpriteHeight = 24;
+      this.Sprite.UpdateSourceRect();
+      this.parseMonsterInfo("Tiger Slime");
+      this.color.Value = Color.White;
+    }
 
-		public NetIntDelta stackedSlimes = new NetIntDelta(0);
+    public void makePrismatic()
+    {
+      this.prismatic.Value = true;
+      this.Name = "Prismatic Slime";
+      this.Health = 1000;
+      this.damageToFarmer.Value = 35;
+      this.hasSpecialItem.Value = false;
+    }
 
-		public float randomStackOffset;
+    public override void reloadSprite()
+    {
+      if (this.Name == "Tiger Slime")
+      {
+        this.makeTigerSlime();
+      }
+      else
+      {
+        this.HideShadow = true;
+        string name = (string) (NetFieldBase<string, NetString>) this.name;
+        this.Name = "Green Slime";
+        base.reloadSprite();
+        this.Name = name;
+        this.Sprite.SpriteHeight = 24;
+        this.Sprite.UpdateSourceRect();
+      }
+    }
 
-		[XmlIgnore]
-		public NetEvent1Field<Vector2, NetVector2> attackedEvent = new NetEvent1Field<Vector2, NetVector2>();
+    public virtual void OnAttacked(Vector2 trajectory)
+    {
+      if (!Game1.IsMasterGame || this.stackedSlimes.Value <= 0)
+        return;
+      --this.stackedSlimes.Value;
+      if ((double) trajectory.LengthSquared() == 0.0)
+        trajectory = new Vector2(0.0f, -1f);
+      else
+        trajectory.Normalize();
+      trajectory *= 16f;
+      BasicProjectile basicProjectile = new BasicProjectile(this.DamageToFarmer / 3 * 2, 13, 3, 0, 0.1963495f, trajectory.X, trajectory.Y, this.Position, "", "", true, location: this.currentLocation, firer: ((Character) this));
+      basicProjectile.height.Value = 24f;
+      basicProjectile.color.Value = this.color.Value;
+      basicProjectile.ignoreMeleeAttacks.Value = true;
+      basicProjectile.hostTimeUntilAttackable = 0.1f;
+      if (Game1.random.NextDouble() < 0.5)
+        basicProjectile.debuff.Value = 13;
+      this.currentLocation.projectiles.Add((Projectile) basicProjectile);
+    }
 
-		[XmlElement("leftDrift")]
-		public readonly NetBool leftDrift = new NetBool();
+    public override int takeDamage(
+      int damage,
+      int xTrajectory,
+      int yTrajectory,
+      bool isBomb,
+      double addedPrecision,
+      Farmer who)
+    {
+      if (this.stackedSlimes.Value > 0)
+      {
+        this.attackedEvent.Fire(new Vector2((float) xTrajectory, (float) -yTrajectory));
+        xTrajectory = 0;
+        yTrajectory = 0;
+        damage = 1;
+      }
+      int damage1 = Math.Max(1, damage - (int) (NetFieldBase<int, NetInt>) this.resilience);
+      if (Game1.random.NextDouble() < (double) (NetFieldBase<double, NetDouble>) this.missChance - (double) (NetFieldBase<double, NetDouble>) this.missChance * addedPrecision)
+      {
+        damage1 = -1;
+      }
+      else
+      {
+        if (Game1.random.NextDouble() < 0.025 && (bool) (NetFieldBase<bool, NetBool>) this.cute)
+        {
+          if (!this.focusedOnFarmers)
+          {
+            this.DamageToFarmer += this.DamageToFarmer / 2;
+            this.shake(1000);
+          }
+          this.focusedOnFarmers = true;
+        }
+        this.Slipperiness = 3;
+        this.Health -= damage1;
+        this.setTrajectory(xTrajectory, yTrajectory);
+        this.currentLocation.playSound("slimeHit");
+        this.readyToJump = -1;
+        this.IsWalkingTowardPlayer = true;
+        if (this.Health <= 0)
+        {
+          this.currentLocation.playSound("slimedead");
+          ++Game1.stats.SlimesKilled;
+          if (this.mate != null)
+            this.mate.mate = (GreenSlime) null;
+          if (Game1.gameMode == (byte) 3 && (double) (float) (NetFieldBase<float, NetFloat>) this.scale > 1.79999995231628)
+          {
+            this.Health = 10;
+            int num = (double) (float) (NetFieldBase<float, NetFloat>) this.scale > 1.79999995231628 ? Game1.random.Next(3, 5) : 1;
+            this.Scale *= 0.6666667f;
+            for (int index = 0; index < num; ++index)
+            {
+              this.currentLocation.characters.Add((NPC) new GreenSlime(this.Position + new Vector2((float) (index * this.GetBoundingBox().Width), 0.0f), Game1.CurrentMineLevel));
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].setTrajectory(xTrajectory + Game1.random.Next(-20, 20), yTrajectory + Game1.random.Next(-20, 20));
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].willDestroyObjectsUnderfoot = false;
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].moveTowardPlayer(4);
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].Scale = (float) (0.75 + (double) Game1.random.Next(-5, 10) / 100.0);
+            }
+          }
+          else
+          {
+            Game1.multiplayer.broadcastSprites(this.currentLocation, new TemporaryAnimatedSprite(44, this.Position, this.color.Value * 0.66f, 10)
+            {
+              interval = 70f,
+              holdLastFrame = true,
+              alphaFade = 0.01f
+            });
+            Game1.multiplayer.broadcastSprites(this.currentLocation, new TemporaryAnimatedSprite(44, this.Position + new Vector2(-16f, 0.0f), this.color.Value * 0.66f, 10)
+            {
+              interval = 70f,
+              delayBeforeAnimationStart = 0,
+              holdLastFrame = true,
+              alphaFade = 0.01f
+            });
+            Game1.multiplayer.broadcastSprites(this.currentLocation, new TemporaryAnimatedSprite(44, this.Position + new Vector2(0.0f, 16f), this.color.Value * 0.66f, 10)
+            {
+              interval = 70f,
+              delayBeforeAnimationStart = 100,
+              holdLastFrame = true,
+              alphaFade = 0.01f
+            });
+            Game1.multiplayer.broadcastSprites(this.currentLocation, new TemporaryAnimatedSprite(44, this.Position + new Vector2(16f, 0.0f), this.color.Value * 0.66f, 10)
+            {
+              interval = 70f,
+              delayBeforeAnimationStart = 200,
+              holdLastFrame = true,
+              alphaFade = 0.01f
+            });
+          }
+        }
+      }
+      return damage1;
+    }
 
-		[XmlElement("cute")]
-		public readonly NetBool cute = new NetBool(value: true);
+    public override void shedChunks(int number, float scale)
+    {
+      GameLocation currentLocation = this.currentLocation;
+      string textureName = (string) (NetFieldBase<string, NetString>) this.Sprite.textureName;
+      Rectangle sourcerectangle = new Rectangle(0, 120, 16, 16);
+      Rectangle boundingBox = this.GetBoundingBox();
+      int xPosition = boundingBox.Center.X + 32;
+      boundingBox = this.GetBoundingBox();
+      int y1 = boundingBox.Center.Y;
+      int numberOfChunks = number;
+      int y2 = (int) this.getTileLocation().Y;
+      Color color = (Color) (NetFieldBase<Color, NetColor>) this.color;
+      double scale1 = 4.0 * (double) scale;
+      Game1.createRadialDebris(currentLocation, textureName, sourcerectangle, 8, xPosition, y1, numberOfChunks, y2, color, (float) scale1);
+    }
 
-		private int readyToJump = -1;
+    public override void collisionWithFarmerBehavior() => this.farmerPassesThrough = this.Player.isWearingRing(520);
 
-		private int matingCountdown;
+    public override void onDealContactDamage(Farmer who)
+    {
+      if (Game1.random.NextDouble() < 0.3 && this.Player == Game1.player && !this.Player.temporarilyInvincible && !this.Player.isWearingRing(520) && Game1.random.Next(11) >= who.immunity && !this.Player.hasBuff(28) && Game1.buffsDisplay.addOtherBuff(new Buff(13)))
+        this.currentLocation.playSound("slime");
+      base.onDealContactDamage(who);
+    }
 
-		private new int yOffset;
+    public override void draw(SpriteBatch b)
+    {
+      if (this.IsInvisible || !Utility.isOnScreen(this.Position, 128))
+        return;
+      for (int index = 0; index <= this.stackedSlimes.Value; ++index)
+      {
+        bool flag = index == this.stackedSlimes.Value;
+        Vector2 zero = Vector2.Zero;
+        TimeSpan totalGameTime;
+        if (this.stackedSlimes.Value > 0)
+        {
+          ref Vector2 local = ref zero;
+          double randomStackOffset = (double) this.randomStackOffset;
+          totalGameTime = Game1.currentGameTime.TotalGameTime;
+          double num = totalGameTime.TotalSeconds * Math.PI * 2.0;
+          double x = Math.Sin(randomStackOffset + num + (double) (index * 30)) * 8.0;
+          double y = (double) (-30 * index);
+          local = new Vector2((float) x, (float) y);
+        }
+        b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + new Vector2(32f, (float) (this.GetBoundingBox().Height / 2 + this.yOffset)) + zero, new Rectangle?(this.Sprite.SourceRect), (bool) (NetFieldBase<bool, NetBool>) this.prismatic ? Utility.GetPrismaticColor(348 + (int) (NetFieldBase<int, NetInt>) this.specialNumber, 5f) : (Color) (NetFieldBase<Color, NetColor>) this.color, 0.0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale - (float) (0.400000005960464 * ((double) (int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown / 120000.0))), SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) (this.getStandingY() + index * 2) / 10000f));
+        b.Draw(Game1.shadowTexture, this.getLocalPosition(Game1.viewport) + new Vector2(32f, (float) ((double) (this.GetBoundingBox().Height / 2 * 7) / 4.0 + (double) this.yOffset + 8.0 * (double) (float) (NetFieldBase<float, NetFloat>) this.scale - ((int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown > 0 ? 8.0 : 0.0))) + zero, new Rectangle?(Game1.shadowTexture.Bounds), Color.White, 0.0f, new Vector2((float) Game1.shadowTexture.Bounds.Center.X, (float) Game1.shadowTexture.Bounds.Center.Y), (float) (3.0 + (double) (float) (NetFieldBase<float, NetFloat>) this.scale - (double) (int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown / 120000.0 - (this.Sprite.currentFrame % 4 % 3 != 0 || index != 0 ? 1.0 : 0.0) + (double) this.yOffset / 30.0), SpriteEffects.None, (float) (this.getStandingY() - 1 + index * 2) / 10000f);
+        if ((int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown <= 0)
+        {
+          if (flag && ((bool) (NetFieldBase<bool, NetBool>) this.cute || (bool) (NetFieldBase<bool, NetBool>) this.hasSpecialItem))
+          {
+            int num1;
+            if (!this.isMoving() && this.wagTimer <= 0)
+            {
+              num1 = 48;
+            }
+            else
+            {
+              int num2;
+              if (this.wagTimer <= 0)
+              {
+                totalGameTime = Game1.currentGameTime.TotalGameTime;
+                num2 = totalGameTime.Milliseconds % 992;
+              }
+              else
+                num2 = 992 - this.wagTimer;
+              num1 = 16 * Math.Min(7, Math.Abs(num2 - 496) / 62) % 64;
+            }
+            int x = num1;
+            int num3;
+            if (!this.isMoving() && this.wagTimer <= 0)
+            {
+              num3 = 24;
+            }
+            else
+            {
+              int num4;
+              if (this.wagTimer <= 0)
+              {
+                totalGameTime = Game1.currentGameTime.TotalGameTime;
+                num4 = totalGameTime.Milliseconds % 992;
+              }
+              else
+                num4 = 992 - this.wagTimer;
+              num3 = 24 * Math.Min(1, Math.Max(1, Math.Abs(num4 - 496) / 62) / 4);
+            }
+            int num5 = num3;
+            if ((bool) (NetFieldBase<bool, NetBool>) this.hasSpecialItem)
+              num5 += 48;
+            b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + zero + new Vector2(32f, (float) (this.GetBoundingBox().Height - 16 + (this.readyToJump <= 0 ? 4 * (Math.Abs(this.Sprite.currentFrame % 4 - 2) - 2) : 4 + 4 * (this.Sprite.currentFrame % 4 % 3)) + this.yOffset)) * (float) (NetFieldBase<float, NetFloat>) this.scale, new Rectangle?(new Rectangle(x, 168 + num5, 16, 24)), (bool) (NetFieldBase<bool, NetBool>) this.hasSpecialItem ? Color.White : (Color) (NetFieldBase<Color, NetColor>) this.color, 0.0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale - (float) (0.400000005960464 * ((double) (int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown / 120000.0))), this.flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) ((double) this.getStandingY() / 10000.0 + 9.99999974737875E-05)));
+          }
+          b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + zero + (new Vector2(32f, (float) (this.GetBoundingBox().Height / 2 + (this.readyToJump <= 0 ? 4 * (Math.Abs(this.Sprite.currentFrame % 4 - 2) - 2) : 4 - 4 * (this.Sprite.currentFrame % 4 % 3)) + this.yOffset)) + (Vector2) (NetFieldBase<Vector2, NetVector2>) this.facePosition) * Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale - (float) (0.400000005960464 * ((double) (int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown / 120000.0))), new Rectangle?(new Rectangle(32 + (this.readyToJump > 0 || this.focusedOnFarmers ? 16 : 0), 120 + (this.readyToJump >= 0 || !this.focusedOnFarmers && this.invincibleCountdown <= 0 ? 0 : 24), 16, 24)), Color.White * (this.FacingDirection == 0 ? 0.5f : 1f), 0.0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale - (float) (0.400000005960464 * ((double) (int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown / 120000.0))), SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) ((double) (this.getStandingY() + index * 2) / 10000.0 + 9.99999974737875E-05)));
+        }
+        if (this.isGlowing)
+          b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + zero + new Vector2(32f, (float) (this.GetBoundingBox().Height / 2 + this.yOffset)), new Rectangle?(this.Sprite.SourceRect), this.glowingColor * this.glowingTransparency, 0.0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale), SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.99f : (float) ((double) this.getStandingY() / 10000.0 + 1.0 / 1000.0)));
+      }
+      if ((bool) (NetFieldBase<bool, NetBool>) this.pursuingMate)
+      {
+        b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + new Vector2(32f, (float) (this.yOffset - 32)), new Rectangle?(new Rectangle(16, 120, 8, 8)), Color.White, 0.0f, new Vector2(3f, 3f), 4f, SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) this.getStandingY() / 10000f));
+      }
+      else
+      {
+        if (!(bool) (NetFieldBase<bool, NetBool>) this.avoidingMate)
+          return;
+        b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + new Vector2(32f, (float) (this.yOffset - 32)), new Rectangle?(new Rectangle(24, 120, 8, 8)), Color.White, 0.0f, new Vector2(4f, 4f), 4f, SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) this.getStandingY() / 10000f));
+      }
+    }
 
-		private int wagTimer;
+    public void moveTowardOtherSlime(GreenSlime other, bool moveAway, GameTime time)
+    {
+      int num1 = Math.Abs(other.getStandingX() - this.getStandingX());
+      int num2 = Math.Abs(other.getStandingY() - this.getStandingY());
+      if (num1 > 4 || num2 > 4)
+      {
+        int num3 = other.getStandingX() > this.getStandingX() ? 1 : -1;
+        int num4 = other.getStandingY() > this.getStandingY() ? 1 : -1;
+        if (moveAway)
+        {
+          num3 = -num3;
+          num4 = -num4;
+        }
+        double num5 = (double) num1 / (double) (num1 + num2);
+        if (Game1.random.NextDouble() < num5)
+          this.tryToMoveInDirection(num3 > 0 ? 1 : 3, false, this.DamageToFarmer, false);
+        else
+          this.tryToMoveInDirection(num4 > 0 ? 2 : 0, false, this.DamageToFarmer, false);
+      }
+      this.Sprite.AnimateDown(time);
+      if (this.invincibleCountdown <= 0)
+        return;
+      this.invincibleCountdown -= time.ElapsedGameTime.Milliseconds;
+      if (this.invincibleCountdown > 0)
+        return;
+      this.stopGlowing();
+    }
 
-		public int readyToMate = 120000;
+    public void doneMating()
+    {
+      this.readyToMate = 120000;
+      this.matingCountdown = 2000;
+      this.mate = (GreenSlime) null;
+      this.pursuingMate.Value = false;
+      this.avoidingMate.Value = false;
+    }
 
-		[XmlElement("ageUntilFullGrown")]
-		public readonly NetInt ageUntilFullGrown = new NetInt();
+    public override void noMovementProgressNearPlayerBehavior() => this.faceGeneralDirection(this.Player.getStandingPosition());
 
-		public int animateTimer;
+    public void mateWith(GreenSlime mateToPursue, GameLocation location)
+    {
+      if (location.canSlimeMateHere())
+      {
+        GreenSlime c = new GreenSlime(Vector2.Zero);
+        Utility.recursiveFindPositionForCharacter((NPC) c, location, this.getTileLocation(), 30);
+        Random random = new Random((int) Game1.stats.DaysPlayed + (int) Game1.uniqueIDForThisGame / 10 + (int) ((double) (float) (NetFieldBase<float, NetFloat>) this.scale * 100.0) + (int) ((double) (float) (NetFieldBase<float, NetFloat>) mateToPursue.scale * 100.0));
+        switch (random.Next(4))
+        {
+          case 0:
+            c.color.Value = new Color(Math.Min((int) byte.MaxValue, Math.Max(0, (int) this.color.R + random.Next((int) ((double) -this.color.R * 0.25), (int) ((double) this.color.R * 0.25)))), Math.Min((int) byte.MaxValue, Math.Max(0, (int) this.color.G + random.Next((int) ((double) -this.color.G * 0.25), (int) ((double) this.color.G * 0.25)))), Math.Min((int) byte.MaxValue, Math.Max(0, (int) this.color.B + random.Next((int) ((double) -this.color.B * 0.25), (int) ((double) this.color.B * 0.25)))));
+            break;
+          case 1:
+          case 2:
+            c.color.Value = Utility.getBlendedColor((Color) (NetFieldBase<Color, NetColor>) this.color, (Color) (NetFieldBase<Color, NetColor>) mateToPursue.color);
+            break;
+          case 3:
+            c.color.Value = new Color(Math.Min((int) byte.MaxValue, Math.Max(0, (int) mateToPursue.color.R + random.Next((int) ((double) -mateToPursue.color.R * 0.25), (int) ((double) mateToPursue.color.R * 0.25)))), Math.Min((int) byte.MaxValue, Math.Max(0, (int) mateToPursue.color.G + random.Next((int) ((double) -mateToPursue.color.G * 0.25), (int) ((double) mateToPursue.color.G * 0.25)))), Math.Min((int) byte.MaxValue, Math.Max(0, (int) mateToPursue.color.B + random.Next((int) ((double) -mateToPursue.color.B * 0.25), (int) ((double) mateToPursue.color.B * 0.25)))));
+            break;
+        }
+        int r = (int) c.color.R;
+        int g = (int) c.color.G;
+        int b = (int) c.color.B;
+        c.Name = (string) (NetFieldBase<string, NetString>) this.name;
+        if (c.Name == "Tiger Slime")
+          c.makeTigerSlime();
+        else if (r > 100 && b > 100 && g < 50)
+        {
+          c.parseMonsterInfo("Sludge");
+          while (random.NextDouble() < 0.1)
+            c.objectsToDrop.Add(386);
+          if (random.NextDouble() < 0.01)
+            c.objectsToDrop.Add(337);
+        }
+        else if (r >= 200 && g < 75)
+          c.parseMonsterInfo("Sludge");
+        else if (b >= 200 && r < 100)
+          c.parseMonsterInfo("Frost Jelly");
+        c.Health = random.NextDouble() < 0.5 ? this.Health : mateToPursue.Health;
+        c.Health = Math.Max(1, this.Health + random.Next(-4, 5));
+        c.DamageToFarmer = random.NextDouble() < 0.5 ? this.DamageToFarmer : mateToPursue.DamageToFarmer;
+        c.DamageToFarmer = Math.Max(0, this.DamageToFarmer + random.Next(-1, 2));
+        c.resilience.Value = (int) (random.NextDouble() < 0.5 ? (NetFieldBase<int, NetInt>) this.resilience : (NetFieldBase<int, NetInt>) mateToPursue.resilience);
+        c.resilience.Value = Math.Max(0, (int) (NetFieldBase<int, NetInt>) this.resilience + random.Next(-1, 2));
+        c.missChance.Value = (double) (random.NextDouble() < 0.5 ? (NetFieldBase<double, NetDouble>) this.missChance : (NetFieldBase<double, NetDouble>) mateToPursue.missChance);
+        c.missChance.Value = Math.Max(0.0, (double) (NetFieldBase<double, NetDouble>) this.missChance + (double) random.Next(-1, 2) / 100.0);
+        c.Scale = (float) (random.NextDouble() < 0.5 ? (NetFieldBase<float, NetFloat>) this.scale : (NetFieldBase<float, NetFloat>) mateToPursue.scale);
+        c.Scale = Math.Max(0.6f, Math.Min(1.5f, (float) (NetFieldBase<float, NetFloat>) this.scale + (float) random.Next(-2, 3) / 100f));
+        c.Slipperiness = 8;
+        this.speed = random.NextDouble() < 0.5 ? this.speed : mateToPursue.speed;
+        if (random.NextDouble() < 0.015)
+          this.speed = Math.Max(1, Math.Min(6, this.speed + random.Next(-1, 2)));
+        c.setTrajectory(Utility.getAwayFromPositionTrajectory(c.GetBoundingBox(), this.getStandingPosition()) / 2f);
+        c.ageUntilFullGrown.Value = 120000;
+        c.Halt();
+        c.firstGeneration.Value = false;
+        if (Utility.isOnScreen(this.Position, 128))
+          this.currentLocation.playSound("slime");
+      }
+      mateToPursue.doneMating();
+      this.doneMating();
+    }
 
-		public int timeSinceLastJump;
+    public override List<Item> getExtraDropItems()
+    {
+      List<Item> extraDropItems = new List<Item>();
+      if ((string) (NetFieldBase<string, NetString>) this.name != "Tiger Slime")
+      {
+        if (this.color.R < (byte) 80 && this.color.G < (byte) 80 && this.color.B < (byte) 80)
+        {
+          extraDropItems.Add((Item) new StardewValley.Object(382, 1));
+          Random random = new Random((int) this.Position.X * 777 + (int) this.Position.Y * 77 + (int) Game1.stats.DaysPlayed);
+          if (random.NextDouble() < 0.05)
+            extraDropItems.Add((Item) new StardewValley.Object(553, 1));
+          if (random.NextDouble() < 0.05)
+            extraDropItems.Add((Item) new StardewValley.Object(539, 1));
+        }
+        else if (this.color.R > (byte) 200 && this.color.G > (byte) 180 && this.color.B < (byte) 50)
+          extraDropItems.Add((Item) new StardewValley.Object(384, 2));
+        else if (this.color.R > (byte) 220 && this.color.G > (byte) 90 && this.color.G < (byte) 150 && this.color.B < (byte) 50)
+          extraDropItems.Add((Item) new StardewValley.Object(378, 2));
+        else if (this.color.R > (byte) 230 && this.color.G > (byte) 230 && this.color.B > (byte) 230)
+        {
+          if ((int) this.color.R % 2 == 1)
+          {
+            extraDropItems.Add((Item) new StardewValley.Object(338, 1));
+            if ((int) this.color.G % 2 == 1)
+              extraDropItems.Add((Item) new StardewValley.Object(338, 1));
+          }
+          else
+            extraDropItems.Add((Item) new StardewValley.Object(380, 1));
+          if ((int) this.color.R % 2 == 0 && (int) this.color.G % 2 == 0 && (int) this.color.B % 2 == 0 || this.color.Equals(Color.White))
+            extraDropItems.Add((Item) new StardewValley.Object(72, 1));
+        }
+        else if (this.color.R > (byte) 150 && this.color.G > (byte) 150 && this.color.B > (byte) 150)
+          extraDropItems.Add((Item) new StardewValley.Object(390, 2));
+        else if (this.color.R > (byte) 150 && this.color.B > (byte) 180 && this.color.G < (byte) 50 && (int) (NetFieldBase<int, NetInt>) this.specialNumber % ((bool) (NetFieldBase<bool, NetBool>) this.firstGeneration ? 4 : 2) == 0)
+        {
+          extraDropItems.Add((Item) new StardewValley.Object(386, 2));
+          if ((bool) (NetFieldBase<bool, NetBool>) this.firstGeneration && Game1.random.NextDouble() < 0.005)
+            extraDropItems.Add((Item) new StardewValley.Object(485, 1));
+        }
+      }
+      if (Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt") && (int) (NetFieldBase<int, NetInt>) this.specialNumber == 1)
+      {
+        string name = this.Name;
+        if (!(name == "Green Slime"))
+        {
+          if (!(name == "Frost Jelly"))
+          {
+            if (name == "Tiger Slime")
+              extraDropItems.Add((Item) new StardewValley.Object(857, 1));
+          }
+          else
+            extraDropItems.Add((Item) new StardewValley.Object(413, 1));
+        }
+        else
+          extraDropItems.Add((Item) new StardewValley.Object(680, 1));
+      }
+      if (this.Name == "Tiger Slime")
+      {
+        if (Game1.random.NextDouble() < 0.001)
+          extraDropItems.Add((Item) new Hat(91));
+        if (Game1.random.NextDouble() < 0.1)
+        {
+          extraDropItems.Add((Item) new StardewValley.Object(831, 1));
+          while (Game1.random.NextDouble() < 0.5)
+            extraDropItems.Add((Item) new StardewValley.Object(831, 1));
+        }
+        else if (Game1.random.NextDouble() < 0.1)
+          extraDropItems.Add((Item) new StardewValley.Object(829, 1));
+        else if (Game1.random.NextDouble() < 0.02)
+        {
+          extraDropItems.Add((Item) new StardewValley.Object(833, 1));
+          while (Game1.random.NextDouble() < 0.5)
+            extraDropItems.Add((Item) new StardewValley.Object(833, 1));
+        }
+        else if (Game1.random.NextDouble() < 0.006)
+          extraDropItems.Add((Item) new StardewValley.Object(835, 1));
+      }
+      if (!this.prismatic.Value || Game1.player.team.specialOrders.Where<SpecialOrder>((Func<SpecialOrder, bool>) (x => (string) (NetFieldBase<string, NetString>) x.questKey == "Wizard2")) == null)
+        return extraDropItems;
+      StardewValley.Object object1 = new StardewValley.Object(876, 1);
+      object1.specialItem = true;
+      StardewValley.Object object2 = object1;
+      object2.questItem.Value = true;
+      return new List<Item>() { (Item) object2 };
+    }
 
-		[XmlElement("specialNumber")]
-		public readonly NetInt specialNumber = new NetInt();
+    public override void dayUpdate(int dayOfMonth)
+    {
+      if ((int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown > 0)
+        this.ageUntilFullGrown.Value /= 2;
+      if (this.readyToMate > 0)
+        this.readyToMate /= 2;
+      base.dayUpdate(dayOfMonth);
+    }
 
-		[XmlElement("firstGeneration")]
-		public readonly NetBool firstGeneration = new NetBool();
+    protected override void updateAnimation(GameTime time)
+    {
+      TimeSpan elapsedGameTime;
+      if (this.wagTimer > 0)
+      {
+        int wagTimer = this.wagTimer;
+        elapsedGameTime = time.ElapsedGameTime;
+        int totalMilliseconds = (int) elapsedGameTime.TotalMilliseconds;
+        this.wagTimer = wagTimer - totalMilliseconds;
+      }
+      this.yOffset = Math.Max(this.yOffset - (int) Math.Abs(this.xVelocity + this.yVelocity) / 2, -64);
+      if (this.yOffset < 0)
+        this.yOffset = Math.Min(0, this.yOffset + 4 + (this.yOffset <= -64 ? (int) ((double) -this.yOffset / 8.0) : (int) ((double) -this.yOffset / 16.0)));
+      int timeSinceLastJump = this.timeSinceLastJump;
+      elapsedGameTime = time.ElapsedGameTime;
+      int milliseconds1 = elapsedGameTime.Milliseconds;
+      this.timeSinceLastJump = timeSinceLastJump + milliseconds1;
+      if (Game1.random.NextDouble() < 0.01 && this.wagTimer <= 0)
+        this.wagTimer = 992;
+      if ((double) Math.Abs(this.xVelocity) >= 0.5 || (double) Math.Abs(this.yVelocity) >= 0.5)
+        this.Sprite.AnimateDown(time);
+      else if (!this.Position.Equals(this.lastPosition))
+        this.animateTimer = 500;
+      if (this.animateTimer > 0 && this.readyToJump <= 0)
+      {
+        int animateTimer = this.animateTimer;
+        elapsedGameTime = time.ElapsedGameTime;
+        int milliseconds2 = elapsedGameTime.Milliseconds;
+        this.animateTimer = animateTimer - milliseconds2;
+        this.Sprite.AnimateDown(time);
+      }
+      this.resetAnimationSpeed();
+    }
 
-		[XmlElement("color")]
-		public readonly NetColor color = new NetColor();
+    public override void update(GameTime time, GameLocation location)
+    {
+      base.update(time, location);
+      this.jumpEvent.Poll();
+      this.attackedEvent.Poll();
+    }
 
-		private readonly NetBool pursuingMate = new NetBool();
+    public override void behaviorAtGameTick(GameTime time)
+    {
+      if (this.mate == null)
+      {
+        this.pursuingMate.Value = false;
+        this.avoidingMate.Value = false;
+      }
+      switch (this.FacingDirection)
+      {
+        case 0:
+          if ((double) this.facePosition.X > 0.0)
+            this.facePosition.X -= 2f;
+          else if ((double) this.facePosition.X < 0.0)
+            this.facePosition.X += 2f;
+          if ((double) this.facePosition.Y > -8.0)
+          {
+            this.facePosition.Y -= 2f;
+            break;
+          }
+          break;
+        case 1:
+          if ((double) this.facePosition.X < 8.0)
+            this.facePosition.X += 2f;
+          if ((double) this.facePosition.Y < 0.0)
+          {
+            this.facePosition.Y += 2f;
+            break;
+          }
+          break;
+        case 2:
+          if ((double) this.facePosition.X > 0.0)
+            this.facePosition.X -= 2f;
+          else if ((double) this.facePosition.X < 0.0)
+            this.facePosition.X += 2f;
+          if ((double) this.facePosition.Y < 0.0)
+          {
+            this.facePosition.Y += 2f;
+            break;
+          }
+          break;
+        case 3:
+          if ((double) this.facePosition.X > -8.0)
+            this.facePosition.X -= 2f;
+          if ((double) this.facePosition.Y < 0.0)
+          {
+            this.facePosition.Y += 2f;
+            break;
+          }
+          break;
+      }
+      TimeSpan elapsedGameTime;
+      if (this.stackedSlimes.Value <= 0)
+      {
+        if ((int) (NetFieldBase<int, NetInt>) this.ageUntilFullGrown <= 0)
+        {
+          int readyToMate = this.readyToMate;
+          elapsedGameTime = time.ElapsedGameTime;
+          int milliseconds = elapsedGameTime.Milliseconds;
+          this.readyToMate = readyToMate - milliseconds;
+        }
+        else
+          this.ageUntilFullGrown.Value -= time.ElapsedGameTime.Milliseconds;
+      }
+      if ((bool) (NetFieldBase<bool, NetBool>) this.pursuingMate && this.mate != null)
+      {
+        if (this.readyToMate <= -35000)
+        {
+          this.mate.doneMating();
+          this.doneMating();
+        }
+        else
+        {
+          this.moveTowardOtherSlime(this.mate, false, time);
+          if (this.mate.mate != null && (bool) (NetFieldBase<bool, NetBool>) this.mate.pursuingMate && !this.mate.mate.Equals((object) this))
+            this.doneMating();
+          else if ((double) Vector2.Distance(this.getStandingPosition(), this.mate.getStandingPosition()) < (double) (this.GetBoundingBox().Width + 4))
+          {
+            if (this.mate.mate != null && (bool) (NetFieldBase<bool, NetBool>) this.mate.avoidingMate && this.mate.mate.Equals((object) this))
+            {
+              this.mate.avoidingMate.Value = false;
+              this.mate.matingCountdown = 2000;
+              this.mate.pursuingMate.Value = true;
+            }
+            int matingCountdown = this.matingCountdown;
+            elapsedGameTime = time.ElapsedGameTime;
+            int milliseconds = elapsedGameTime.Milliseconds;
+            this.matingCountdown = matingCountdown - milliseconds;
+            if (this.currentLocation == null || this.matingCountdown > 0 || !(bool) (NetFieldBase<bool, NetBool>) this.pursuingMate || (bool) (NetFieldBase<bool, NetBool>) this.currentLocation.isOutdoors && Utility.getNumberOfCharactersInRadius(this.currentLocation, Utility.Vector2ToPoint(this.Position), 1) > 4)
+              return;
+            this.mateWith(this.mate, this.currentLocation);
+          }
+          else
+          {
+            if ((double) Vector2.Distance(this.getStandingPosition(), this.mate.getStandingPosition()) <= (double) (GreenSlime.matingRange * 2))
+              return;
+            this.mate.mate = (GreenSlime) null;
+            this.mate.avoidingMate.Value = false;
+            this.mate = (GreenSlime) null;
+          }
+        }
+      }
+      else if ((bool) (NetFieldBase<bool, NetBool>) this.avoidingMate && this.mate != null)
+      {
+        this.moveTowardOtherSlime(this.mate, true, time);
+      }
+      else
+      {
+        if (this.readyToMate < 0 && (bool) (NetFieldBase<bool, NetBool>) this.cute)
+        {
+          this.readyToMate = -1;
+          if (Game1.random.NextDouble() < 0.001)
+          {
+            GreenSlime greenSlime = (GreenSlime) Utility.checkForCharacterWithinArea(this.GetType(), this.Position, this.currentLocation, new Rectangle(this.getStandingX() - GreenSlime.matingRange, this.getStandingY() - GreenSlime.matingRange, GreenSlime.matingRange * 2, GreenSlime.matingRange * 2));
+            if (greenSlime != null && greenSlime.readyToMate <= 0 && !(bool) (NetFieldBase<bool, NetBool>) greenSlime.cute && greenSlime.stackedSlimes.Value <= 0)
+            {
+              this.matingCountdown = 2000;
+              this.mate = greenSlime;
+              this.pursuingMate.Value = true;
+              greenSlime.mate = this;
+              greenSlime.avoidingMate.Value = true;
+              this.addedSpeed = 1;
+              this.mate.addedSpeed = 1;
+              return;
+            }
+          }
+        }
+        else if (!this.isGlowing)
+          this.addedSpeed = 0;
+        base.behaviorAtGameTick(time);
+        if (this.readyToJump != -1)
+        {
+          this.Halt();
+          this.IsWalkingTowardPlayer = false;
+          int readyToJump = this.readyToJump;
+          elapsedGameTime = time.ElapsedGameTime;
+          int milliseconds = elapsedGameTime.Milliseconds;
+          this.readyToJump = readyToJump - milliseconds;
+          this.Sprite.currentFrame = 16 + (800 - this.readyToJump) / 200;
+          if (this.readyToJump > 0)
+            return;
+          this.timeSinceLastJump = this.timeSinceLastJump;
+          this.Slipperiness = 10;
+          this.IsWalkingTowardPlayer = true;
+          this.readyToJump = -1;
+          this.invincibleCountdown = 0;
+          Vector2 playerTrajectory = Utility.getAwayFromPlayerTrajectory(this.GetBoundingBox(), this.Player);
+          playerTrajectory.X = (float) (-(double) playerTrajectory.X / 2.0);
+          playerTrajectory.Y = (float) (-(double) playerTrajectory.Y / 2.0);
+          this.jumpEvent.Fire(playerTrajectory);
+          this.setTrajectory((int) playerTrajectory.X, (int) playerTrajectory.Y);
+        }
+        else if (Game1.random.NextDouble() < 0.1 && !this.focusedOnFarmers)
+        {
+          if (this.FacingDirection == 0 || this.FacingDirection == 2)
+          {
+            if ((bool) (NetFieldBase<bool, NetBool>) this.leftDrift && !this.currentLocation.isCollidingPosition(this.nextPosition(3), Game1.viewport, false, 1, false, (Character) this))
+              this.position.X -= (float) this.speed;
+            else if (!(bool) (NetFieldBase<bool, NetBool>) this.leftDrift && !this.currentLocation.isCollidingPosition(this.nextPosition(1), Game1.viewport, false, 1, false, (Character) this))
+              this.position.X += (float) this.speed;
+          }
+          else if ((bool) (NetFieldBase<bool, NetBool>) this.leftDrift && !this.currentLocation.isCollidingPosition(this.nextPosition(0), Game1.viewport, false, 1, false, (Character) this))
+            this.position.Y -= (float) this.speed;
+          else if (!(bool) (NetFieldBase<bool, NetBool>) this.leftDrift && !this.currentLocation.isCollidingPosition(this.nextPosition(2), Game1.viewport, false, 1, false, (Character) this))
+            this.position.Y += (float) this.speed;
+          if (Game1.random.NextDouble() >= 0.08)
+            return;
+          this.leftDrift.Value = !(bool) (NetFieldBase<bool, NetBool>) this.leftDrift;
+        }
+        else
+        {
+          if (!this.withinPlayerThreshold() || this.timeSinceLastJump <= (this.focusedOnFarmers ? 1000 : 4000) || Game1.random.NextDouble() >= 0.01 || this.stackedSlimes.Value > 0)
+            return;
+          if (this.Name.Equals("Frost Jelly") && Game1.random.NextDouble() < 0.25)
+          {
+            this.addedSpeed = 2;
+            this.startGlowing(Color.Cyan, false, 0.15f);
+          }
+          else
+          {
+            this.addedSpeed = 0;
+            this.stopGlowing();
+            this.readyToJump = 800;
+          }
+        }
+      }
+    }
 
-		private readonly NetBool avoidingMate = new NetBool();
-
-		private GreenSlime mate;
-
-		public readonly NetBool prismatic = new NetBool();
-
-		private readonly NetVector2 facePosition = new NetVector2();
-
-		private readonly NetEvent1Field<Vector2, NetVector2> jumpEvent = new NetEvent1Field<Vector2, NetVector2>();
-
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(leftDrift, cute, ageUntilFullGrown, specialNumber, firstGeneration, color, pursuingMate, avoidingMate, facePosition, jumpEvent, prismatic, stackedSlimes, attackedEvent.NetFields);
-			stackedSlimes.Minimum = 0;
-			attackedEvent.onEvent += OnAttacked;
-			jumpEvent.onEvent += doJump;
-			jumpEvent.InterpolationWait = false;
-		}
-
-		public GreenSlime()
-		{
-		}
-
-		public GreenSlime(Vector2 position)
-			: base("Green Slime", position)
-		{
-			if (Game1.random.NextDouble() < 0.5)
-			{
-				leftDrift.Value = true;
-			}
-			base.Slipperiness = 4;
-			readyToMate = Game1.random.Next(1000, 120000);
-			int green = Game1.random.Next(200, 256);
-			color.Value = new Color(green / Game1.random.Next(2, 10), Game1.random.Next(180, 256), (Game1.random.NextDouble() < 0.1) ? 255 : (255 - green));
-			firstGeneration.Value = true;
-			flip = (Game1.random.NextDouble() < 0.5);
-			cute.Value = (Game1.random.NextDouble() < 0.49);
-			base.HideShadow = true;
-		}
-
-		public GreenSlime(Vector2 position, int mineLevel)
-			: base("Green Slime", position)
-		{
-			randomStackOffset = Utility.RandomFloat(0f, 100f);
-			cute.Value = (Game1.random.NextDouble() < 0.49);
-			flip = (Game1.random.NextDouble() < 0.5);
-			specialNumber.Value = Game1.random.Next(100);
-			if (mineLevel < 40)
-			{
-				parseMonsterInfo("Green Slime");
-				int green = Game1.random.Next(200, 256);
-				color.Value = new Color(green / Game1.random.Next(2, 10), green, (Game1.random.NextDouble() < 0.01) ? 255 : (255 - green));
-				if (Game1.random.NextDouble() < 0.01 && mineLevel % 5 != 0 && mineLevel % 5 != 1)
-				{
-					color.Value = new Color(205, 255, 0) * 0.7f;
-					hasSpecialItem.Value = true;
-					base.Health *= 3;
-					base.DamageToFarmer *= 2;
-				}
-				if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
-				{
-					objectsToDrop.Add(680);
-				}
-			}
-			else if (mineLevel < 80)
-			{
-				base.Name = "Frost Jelly";
-				parseMonsterInfo("Frost Jelly");
-				int blue = Game1.random.Next(200, 256);
-				color.Value = new Color((Game1.random.NextDouble() < 0.01) ? 180 : (blue / Game1.random.Next(2, 10)), (Game1.random.NextDouble() < 0.1) ? 255 : (255 - blue / 3), blue);
-				if (Game1.random.NextDouble() < 0.01 && mineLevel % 5 != 0 && mineLevel % 5 != 1)
-				{
-					color.Value = new Color(0, 0, 0) * 0.7f;
-					hasSpecialItem.Value = true;
-					base.Health *= 3;
-					base.DamageToFarmer *= 2;
-				}
-				if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
-				{
-					objectsToDrop.Add(413);
-				}
-			}
-			else if (mineLevel >= 77377 && mineLevel < 77387)
-			{
-				base.Name = "Sludge";
-				parseMonsterInfo("Sludge");
-			}
-			else if (mineLevel > 120)
-			{
-				base.Name = "Sludge";
-				parseMonsterInfo("Sludge");
-				color.Value = Color.BlueViolet;
-				base.Health *= 2;
-				int r2 = color.R;
-				int g2 = color.G;
-				int b2 = color.B;
-				r2 += Game1.random.Next(-20, 21);
-				g2 += Game1.random.Next(-20, 21);
-				b2 += Game1.random.Next(-20, 21);
-				color.R = (byte)Math.Max(Math.Min(255, r2), 0);
-				color.G = (byte)Math.Max(Math.Min(255, g2), 0);
-				color.B = (byte)Math.Max(Math.Min(255, b2), 0);
-				while (Game1.random.NextDouble() < 0.08)
-				{
-					objectsToDrop.Add(386);
-				}
-				if (Game1.random.NextDouble() < 0.009)
-				{
-					objectsToDrop.Add(337);
-				}
-				if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
-				{
-					objectsToDrop.Add(439);
-				}
-			}
-			else
-			{
-				base.Name = "Sludge";
-				parseMonsterInfo("Sludge");
-				int green2 = Game1.random.Next(200, 256);
-				color.Value = new Color(green2, (Game1.random.NextDouble() < 0.01) ? 255 : (255 - green2), green2 / Game1.random.Next(2, 10));
-				if (Game1.random.NextDouble() < 0.01 && mineLevel % 5 != 0 && mineLevel % 5 != 1)
-				{
-					color.Value = new Color(50, 10, 50) * 0.7f;
-					hasSpecialItem.Value = true;
-					base.Health *= 3;
-					base.DamageToFarmer *= 2;
-				}
-				if (Game1.random.NextDouble() < 0.01 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
-				{
-					objectsToDrop.Add(437);
-				}
-			}
-			if ((bool)cute)
-			{
-				base.Health += base.Health / 4;
-				base.DamageToFarmer++;
-			}
-			if (Game1.random.NextDouble() < 0.5)
-			{
-				leftDrift.Value = true;
-			}
-			base.Slipperiness = 3;
-			readyToMate = Game1.random.Next(1000, 120000);
-			if (Game1.random.NextDouble() < 0.001)
-			{
-				color.Value = new Color(255, 255, 50);
-				coinsToDrop.Value = 10;
-			}
-			if (mineLevel == 9999899)
-			{
-				color.Value = new Color(0, 255, 200);
-				base.Health *= 2;
-				objectsToDrop.Clear();
-				if (Game1.random.NextDouble() < 0.02)
-				{
-					objectsToDrop.Add(394);
-				}
-				if (Game1.random.NextDouble() < 0.02)
-				{
-					objectsToDrop.Add(60);
-				}
-				if (Game1.random.NextDouble() < 0.02)
-				{
-					objectsToDrop.Add(62);
-				}
-				if (Game1.random.NextDouble() < 0.01)
-				{
-					objectsToDrop.Add(797);
-				}
-				if (Game1.random.NextDouble() < 0.03 && Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt"))
-				{
-					objectsToDrop.Add(413);
-				}
-				while (Game1.random.NextDouble() < 0.5)
-				{
-					objectsToDrop.Add(766);
-				}
-			}
-			firstGeneration.Value = true;
-			base.HideShadow = true;
-		}
-
-		public GreenSlime(Vector2 position, Color color)
-			: base("Green Slime", position)
-		{
-			this.color.Value = color;
-			firstGeneration.Value = true;
-			base.HideShadow = true;
-		}
-
-		public void makeTigerSlime()
-		{
-			base.Name = "Tiger Slime";
-			base.reloadSprite();
-			Sprite.SpriteHeight = 24;
-			Sprite.UpdateSourceRect();
-			parseMonsterInfo("Tiger Slime");
-			color.Value = Color.White;
-		}
-
-		public void makePrismatic()
-		{
-			prismatic.Value = true;
-			base.Name = "Prismatic Slime";
-			base.Health = 1000;
-			damageToFarmer.Value = 35;
-			hasSpecialItem.Value = false;
-		}
-
-		public override void reloadSprite()
-		{
-			if (base.Name == "Tiger Slime")
-			{
-				makeTigerSlime();
-				return;
-			}
-			base.HideShadow = true;
-			string tmp = name;
-			base.Name = "Green Slime";
-			base.reloadSprite();
-			base.Name = tmp;
-			Sprite.SpriteHeight = 24;
-			Sprite.UpdateSourceRect();
-		}
-
-		public virtual void OnAttacked(Vector2 trajectory)
-		{
-			if (Game1.IsMasterGame && stackedSlimes.Value > 0)
-			{
-				stackedSlimes.Value--;
-				if (trajectory.LengthSquared() == 0f)
-				{
-					trajectory = new Vector2(0f, -1f);
-				}
-				else
-				{
-					trajectory.Normalize();
-				}
-				trajectory *= 16f;
-				BasicProjectile projectile = new BasicProjectile(base.DamageToFarmer / 3 * 2, 13, 3, 0, (float)Math.PI / 16f, trajectory.X, trajectory.Y, base.Position, "", "", explode: true, damagesMonsters: false, base.currentLocation, this);
-				projectile.height.Value = 24f;
-				projectile.color.Value = color.Value;
-				projectile.ignoreMeleeAttacks.Value = true;
-				projectile.hostTimeUntilAttackable = 0.1f;
-				if (Game1.random.NextDouble() < 0.5)
-				{
-					projectile.debuff.Value = 13;
-				}
-				base.currentLocation.projectiles.Add(projectile);
-			}
-		}
-
-		public override int takeDamage(int damage, int xTrajectory, int yTrajectory, bool isBomb, double addedPrecision, Farmer who)
-		{
-			if (stackedSlimes.Value > 0)
-			{
-				attackedEvent.Fire(new Vector2(xTrajectory, -yTrajectory));
-				xTrajectory = 0;
-				yTrajectory = 0;
-				damage = 1;
-			}
-			int actualDamage = Math.Max(1, damage - (int)resilience);
-			if (Game1.random.NextDouble() < (double)missChance - (double)missChance * addedPrecision)
-			{
-				actualDamage = -1;
-			}
-			else
-			{
-				if (Game1.random.NextDouble() < 0.025 && (bool)cute)
-				{
-					if (!base.focusedOnFarmers)
-					{
-						base.DamageToFarmer += base.DamageToFarmer / 2;
-						shake(1000);
-					}
-					base.focusedOnFarmers = true;
-				}
-				base.Slipperiness = 3;
-				base.Health -= actualDamage;
-				setTrajectory(xTrajectory, yTrajectory);
-				base.currentLocation.playSound("slimeHit");
-				readyToJump = -1;
-				base.IsWalkingTowardPlayer = true;
-				if (base.Health <= 0)
-				{
-					base.currentLocation.playSound("slimedead");
-					Game1.stats.SlimesKilled++;
-					if (mate != null)
-					{
-						mate.mate = null;
-					}
-					if (Game1.gameMode == 3 && (float)scale > 1.8f)
-					{
-						base.Health = 10;
-						int toCreate = (!((float)scale > 1.8f)) ? 1 : Game1.random.Next(3, 5);
-						base.Scale *= 2f / 3f;
-						for (int i = 0; i < toCreate; i++)
-						{
-							base.currentLocation.characters.Add(new GreenSlime(base.Position + new Vector2(i * GetBoundingBox().Width, 0f), Game1.CurrentMineLevel));
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].setTrajectory(xTrajectory + Game1.random.Next(-20, 20), yTrajectory + Game1.random.Next(-20, 20));
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].willDestroyObjectsUnderfoot = false;
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].moveTowardPlayer(4);
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].Scale = 0.75f + (float)Game1.random.Next(-5, 10) / 100f;
-						}
-					}
-					else
-					{
-						Game1.multiplayer.broadcastSprites(base.currentLocation, new TemporaryAnimatedSprite(44, base.Position, color.Value * 0.66f, 10)
-						{
-							interval = 70f,
-							holdLastFrame = true,
-							alphaFade = 0.01f
-						});
-						Game1.multiplayer.broadcastSprites(base.currentLocation, new TemporaryAnimatedSprite(44, base.Position + new Vector2(-16f, 0f), color.Value * 0.66f, 10)
-						{
-							interval = 70f,
-							delayBeforeAnimationStart = 0,
-							holdLastFrame = true,
-							alphaFade = 0.01f
-						});
-						Game1.multiplayer.broadcastSprites(base.currentLocation, new TemporaryAnimatedSprite(44, base.Position + new Vector2(0f, 16f), color.Value * 0.66f, 10)
-						{
-							interval = 70f,
-							delayBeforeAnimationStart = 100,
-							holdLastFrame = true,
-							alphaFade = 0.01f
-						});
-						Game1.multiplayer.broadcastSprites(base.currentLocation, new TemporaryAnimatedSprite(44, base.Position + new Vector2(16f, 0f), color.Value * 0.66f, 10)
-						{
-							interval = 70f,
-							delayBeforeAnimationStart = 200,
-							holdLastFrame = true,
-							alphaFade = 0.01f
-						});
-					}
-				}
-			}
-			return actualDamage;
-		}
-
-		public override void shedChunks(int number, float scale)
-		{
-			Game1.createRadialDebris(base.currentLocation, Sprite.textureName, new Rectangle(0, 120, 16, 16), 8, GetBoundingBox().Center.X + 32, GetBoundingBox().Center.Y, number, (int)getTileLocation().Y, color, 4f * scale);
-		}
-
-		public override void collisionWithFarmerBehavior()
-		{
-			farmerPassesThrough = base.Player.isWearingRing(520);
-		}
-
-		public override void onDealContactDamage(Farmer who)
-		{
-			if (Game1.random.NextDouble() < 0.3 && base.Player == Game1.player && !base.Player.temporarilyInvincible && !base.Player.isWearingRing(520) && Game1.random.Next(11) >= who.immunity && !base.Player.hasBuff(28) && Game1.buffsDisplay.addOtherBuff(new Buff(13)))
-			{
-				base.currentLocation.playSound("slime");
-			}
-			base.onDealContactDamage(who);
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			if (base.IsInvisible || !Utility.isOnScreen(base.Position, 128))
-			{
-				return;
-			}
-			for (int i = 0; i <= stackedSlimes.Value; i++)
-			{
-				bool top_slime = i == stackedSlimes.Value;
-				Vector2 stack_adjustment = Vector2.Zero;
-				if (stackedSlimes.Value > 0)
-				{
-					stack_adjustment = new Vector2((float)Math.Sin((double)randomStackOffset + Game1.currentGameTime.TotalGameTime.TotalSeconds * Math.PI * 2.0 + (double)(i * 30)) * 8f, -30 * i);
-				}
-				b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + new Vector2(32f, GetBoundingBox().Height / 2 + yOffset) + stack_adjustment, Sprite.SourceRect, prismatic ? Utility.GetPrismaticColor(348 + (int)specialNumber, 5f) : ((Color)color), 0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float)scale - 0.4f * ((float)(int)ageUntilFullGrown / 120000f)), SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)(getStandingY() + i * 2) / 10000f)));
-				b.Draw(Game1.shadowTexture, getLocalPosition(Game1.viewport) + new Vector2(32f, (float)(GetBoundingBox().Height / 2 * 7) / 4f + (float)yOffset + 8f * (float)scale - (float)(((int)ageUntilFullGrown > 0) ? 8 : 0)) + stack_adjustment, Game1.shadowTexture.Bounds, Color.White, 0f, new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y), 3f + (float)scale - (float)(int)ageUntilFullGrown / 120000f - ((Sprite.currentFrame % 4 % 3 != 0 || i != 0) ? 1f : 0f) + (float)yOffset / 30f, SpriteEffects.None, (float)(getStandingY() - 1 + i * 2) / 10000f);
-				if ((int)ageUntilFullGrown <= 0)
-				{
-					if (top_slime && ((bool)cute || (bool)hasSpecialItem))
-					{
-						int xDongleSource = (isMoving() || wagTimer > 0) ? (16 * Math.Min(7, Math.Abs(((wagTimer > 0) ? (992 - wagTimer) : (Game1.currentGameTime.TotalGameTime.Milliseconds % 992)) - 496) / 62) % 64) : 48;
-						int yDongleSource = (isMoving() || wagTimer > 0) ? (24 * Math.Min(1, Math.Max(1, Math.Abs(((wagTimer > 0) ? (992 - wagTimer) : (Game1.currentGameTime.TotalGameTime.Milliseconds % 992)) - 496) / 62) / 4)) : 24;
-						if ((bool)hasSpecialItem)
-						{
-							yDongleSource += 48;
-						}
-						b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + stack_adjustment + new Vector2(32f, GetBoundingBox().Height - 16 + ((readyToJump <= 0) ? (4 * (-2 + Math.Abs(Sprite.currentFrame % 4 - 2))) : (4 + 4 * (Sprite.currentFrame % 4 % 3))) + yOffset) * scale, new Rectangle(xDongleSource, 168 + yDongleSource, 16, 24), hasSpecialItem ? Color.White : ((Color)color), 0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float)scale - 0.4f * ((float)(int)ageUntilFullGrown / 120000f)), flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)getStandingY() / 10000f + 0.0001f)));
-					}
-					b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + stack_adjustment + (new Vector2(32f, GetBoundingBox().Height / 2 + ((readyToJump <= 0) ? (4 * (-2 + Math.Abs(Sprite.currentFrame % 4 - 2))) : (4 - 4 * (Sprite.currentFrame % 4 % 3))) + yOffset) + facePosition) * Math.Max(0.2f, (float)scale - 0.4f * ((float)(int)ageUntilFullGrown / 120000f)), new Rectangle(32 + ((readyToJump > 0 || base.focusedOnFarmers) ? 16 : 0), 120 + ((readyToJump < 0 && (base.focusedOnFarmers || invincibleCountdown > 0)) ? 24 : 0), 16, 24), Color.White * ((FacingDirection == 0) ? 0.5f : 1f), 0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, (float)scale - 0.4f * ((float)(int)ageUntilFullGrown / 120000f)), SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)(getStandingY() + i * 2) / 10000f + 0.0001f)));
-				}
-				if (isGlowing)
-				{
-					b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + stack_adjustment + new Vector2(32f, GetBoundingBox().Height / 2 + yOffset), Sprite.SourceRect, glowingColor * glowingTransparency, 0f, new Vector2(8f, 16f), 4f * Math.Max(0.2f, scale), SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.99f : ((float)getStandingY() / 10000f + 0.001f)));
-				}
-			}
-			if ((bool)pursuingMate)
-			{
-				b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + new Vector2(32f, -32 + yOffset), new Rectangle(16, 120, 8, 8), Color.White, 0f, new Vector2(3f, 3f), 4f, SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)getStandingY() / 10000f)));
-			}
-			else if ((bool)avoidingMate)
-			{
-				b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + new Vector2(32f, -32 + yOffset), new Rectangle(24, 120, 8, 8), Color.White, 0f, new Vector2(4f, 4f), 4f, SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)getStandingY() / 10000f)));
-			}
-		}
-
-		public void moveTowardOtherSlime(GreenSlime other, bool moveAway, GameTime time)
-		{
-			int xToGo = Math.Abs(other.getStandingX() - getStandingX());
-			int yToGo = Math.Abs(other.getStandingY() - getStandingY());
-			if (xToGo > 4 || yToGo > 4)
-			{
-				int dx = (other.getStandingX() > getStandingX()) ? 1 : (-1);
-				int dy = (other.getStandingY() > getStandingY()) ? 1 : (-1);
-				if (moveAway)
-				{
-					dx = -dx;
-					dy = -dy;
-				}
-				double chanceForX = (double)xToGo / (double)(xToGo + yToGo);
-				if (Game1.random.NextDouble() < chanceForX)
-				{
-					tryToMoveInDirection((dx > 0) ? 1 : 3, isFarmer: false, base.DamageToFarmer, glider: false);
-				}
-				else
-				{
-					tryToMoveInDirection((dy > 0) ? 2 : 0, isFarmer: false, base.DamageToFarmer, glider: false);
-				}
-			}
-			Sprite.AnimateDown(time);
-			if (invincibleCountdown > 0)
-			{
-				invincibleCountdown -= time.ElapsedGameTime.Milliseconds;
-				if (invincibleCountdown <= 0)
-				{
-					stopGlowing();
-				}
-			}
-		}
-
-		public void doneMating()
-		{
-			readyToMate = 120000;
-			matingCountdown = 2000;
-			mate = null;
-			pursuingMate.Value = false;
-			avoidingMate.Value = false;
-		}
-
-		public override void noMovementProgressNearPlayerBehavior()
-		{
-			faceGeneralDirection(base.Player.getStandingPosition());
-		}
-
-		public void mateWith(GreenSlime mateToPursue, GameLocation location)
-		{
-			if (location.canSlimeMateHere())
-			{
-				GreenSlime baby = new GreenSlime(Vector2.Zero);
-				Utility.recursiveFindPositionForCharacter(baby, location, getTileLocation(), 30);
-				Random r = new Random((int)Game1.stats.DaysPlayed + (int)Game1.uniqueIDForThisGame / 10 + (int)((float)scale * 100f) + (int)((float)mateToPursue.scale * 100f));
-				switch (r.Next(4))
-				{
-				case 0:
-					baby.color.Value = new Color(Math.Min(255, Math.Max(0, color.R + r.Next((int)((float)(-color.R) * 0.25f), (int)((float)(int)color.R * 0.25f)))), Math.Min(255, Math.Max(0, color.G + r.Next((int)((float)(-color.G) * 0.25f), (int)((float)(int)color.G * 0.25f)))), Math.Min(255, Math.Max(0, color.B + r.Next((int)((float)(-color.B) * 0.25f), (int)((float)(int)color.B * 0.25f)))));
-					break;
-				case 1:
-				case 2:
-					baby.color.Value = Utility.getBlendedColor(color, mateToPursue.color);
-					break;
-				case 3:
-					baby.color.Value = new Color(Math.Min(255, Math.Max(0, mateToPursue.color.R + r.Next((int)((float)(-mateToPursue.color.R) * 0.25f), (int)((float)(int)mateToPursue.color.R * 0.25f)))), Math.Min(255, Math.Max(0, mateToPursue.color.G + r.Next((int)((float)(-mateToPursue.color.G) * 0.25f), (int)((float)(int)mateToPursue.color.G * 0.25f)))), Math.Min(255, Math.Max(0, mateToPursue.color.B + r.Next((int)((float)(-mateToPursue.color.B) * 0.25f), (int)((float)(int)mateToPursue.color.B * 0.25f)))));
-					break;
-				}
-				int red = baby.color.R;
-				int green = baby.color.G;
-				int blue = baby.color.B;
-				baby.Name = name;
-				if (baby.Name == "Tiger Slime")
-				{
-					baby.makeTigerSlime();
-				}
-				else if (red > 100 && blue > 100 && green < 50)
-				{
-					baby.parseMonsterInfo("Sludge");
-					while (r.NextDouble() < 0.1)
-					{
-						baby.objectsToDrop.Add(386);
-					}
-					if (r.NextDouble() < 0.01)
-					{
-						baby.objectsToDrop.Add(337);
-					}
-				}
-				else if (red >= 200 && green < 75)
-				{
-					baby.parseMonsterInfo("Sludge");
-				}
-				else if (blue >= 200 && red < 100)
-				{
-					baby.parseMonsterInfo("Frost Jelly");
-				}
-				baby.Health = ((r.NextDouble() < 0.5) ? base.Health : mateToPursue.Health);
-				baby.Health = Math.Max(1, base.Health + r.Next(-4, 5));
-				baby.DamageToFarmer = ((r.NextDouble() < 0.5) ? base.DamageToFarmer : mateToPursue.DamageToFarmer);
-				baby.DamageToFarmer = Math.Max(0, base.DamageToFarmer + r.Next(-1, 2));
-				baby.resilience.Value = ((r.NextDouble() < 0.5) ? resilience : mateToPursue.resilience);
-				baby.resilience.Value = Math.Max(0, (int)resilience + r.Next(-1, 2));
-				baby.missChance.Value = ((r.NextDouble() < 0.5) ? missChance : mateToPursue.missChance);
-				baby.missChance.Value = Math.Max(0.0, (double)missChance + (double)((float)r.Next(-1, 2) / 100f));
-				baby.Scale = ((r.NextDouble() < 0.5) ? scale : mateToPursue.scale);
-				baby.Scale = Math.Max(0.6f, Math.Min(1.5f, (float)scale + (float)r.Next(-2, 3) / 100f));
-				baby.Slipperiness = 8;
-				base.speed = ((r.NextDouble() < 0.5) ? base.speed : mateToPursue.speed);
-				if (r.NextDouble() < 0.015)
-				{
-					base.speed = Math.Max(1, Math.Min(6, base.speed + r.Next(-1, 2)));
-				}
-				baby.setTrajectory(Utility.getAwayFromPositionTrajectory(baby.GetBoundingBox(), getStandingPosition()) / 2f);
-				baby.ageUntilFullGrown.Value = 120000;
-				baby.Halt();
-				baby.firstGeneration.Value = false;
-				if (Utility.isOnScreen(base.Position, 128))
-				{
-					base.currentLocation.playSound("slime");
-				}
-			}
-			mateToPursue.doneMating();
-			doneMating();
-		}
-
-		public override List<Item> getExtraDropItems()
-		{
-			List<Item> extra = new List<Item>();
-			if ((string)name != "Tiger Slime")
-			{
-				if (color.R < 80 && color.G < 80 && color.B < 80)
-				{
-					extra.Add(new Object(382, 1));
-					Random random = new Random((int)base.Position.X * 777 + (int)base.Position.Y * 77 + (int)Game1.stats.DaysPlayed);
-					if (random.NextDouble() < 0.05)
-					{
-						extra.Add(new Object(553, 1));
-					}
-					if (random.NextDouble() < 0.05)
-					{
-						extra.Add(new Object(539, 1));
-					}
-				}
-				else if (color.R > 200 && color.G > 180 && color.B < 50)
-				{
-					extra.Add(new Object(384, 2));
-				}
-				else if (color.R > 220 && color.G > 90 && color.G < 150 && color.B < 50)
-				{
-					extra.Add(new Object(378, 2));
-				}
-				else if (color.R > 230 && color.G > 230 && color.B > 230)
-				{
-					if ((int)color.R % 2 == 1)
-					{
-						extra.Add(new Object(338, 1));
-						if ((int)color.G % 2 == 1)
-						{
-							extra.Add(new Object(338, 1));
-						}
-					}
-					else
-					{
-						extra.Add(new Object(380, 1));
-					}
-					if (((int)color.R % 2 == 0 && (int)color.G % 2 == 0 && (int)color.B % 2 == 0) || color.Equals(Color.White))
-					{
-						extra.Add(new Object(72, 1));
-					}
-				}
-				else if (color.R > 150 && color.G > 150 && color.B > 150)
-				{
-					extra.Add(new Object(390, 2));
-				}
-				else if (color.R > 150 && color.B > 180 && color.G < 50 && (int)specialNumber % (firstGeneration ? 4 : 2) == 0)
-				{
-					extra.Add(new Object(386, 2));
-					if ((bool)firstGeneration && Game1.random.NextDouble() < 0.005)
-					{
-						extra.Add(new Object(485, 1));
-					}
-				}
-			}
-			if (Game1.MasterPlayer.mailReceived.Contains("slimeHutchBuilt") && (int)specialNumber == 1)
-			{
-				switch (base.Name)
-				{
-				case "Green Slime":
-					extra.Add(new Object(680, 1));
-					break;
-				case "Frost Jelly":
-					extra.Add(new Object(413, 1));
-					break;
-				case "Tiger Slime":
-					extra.Add(new Object(857, 1));
-					break;
-				}
-			}
-			if (base.Name == "Tiger Slime")
-			{
-				if (Game1.random.NextDouble() < 0.001)
-				{
-					extra.Add(new Hat(91));
-				}
-				if (Game1.random.NextDouble() < 0.1)
-				{
-					extra.Add(new Object(831, 1));
-					while (Game1.random.NextDouble() < 0.5)
-					{
-						extra.Add(new Object(831, 1));
-					}
-				}
-				else if (Game1.random.NextDouble() < 0.1)
-				{
-					extra.Add(new Object(829, 1));
-				}
-				else if (Game1.random.NextDouble() < 0.02)
-				{
-					extra.Add(new Object(833, 1));
-					while (Game1.random.NextDouble() < 0.5)
-					{
-						extra.Add(new Object(833, 1));
-					}
-				}
-				else if (Game1.random.NextDouble() < 0.006)
-				{
-					extra.Add(new Object(835, 1));
-				}
-			}
-			if (prismatic.Value && Game1.player.team.specialOrders.Where((SpecialOrder x) => (string)x.questKey == "Wizard2") != null)
-			{
-				Object o = new Object(876, 1)
-				{
-					specialItem = true
-				};
-				o.questItem.Value = true;
-				return new List<Item>
-				{
-					o
-				};
-			}
-			return extra;
-		}
-
-		public override void dayUpdate(int dayOfMonth)
-		{
-			if ((int)ageUntilFullGrown > 0)
-			{
-				ageUntilFullGrown.Value /= 2;
-			}
-			if (readyToMate > 0)
-			{
-				readyToMate /= 2;
-			}
-			base.dayUpdate(dayOfMonth);
-		}
-
-		protected override void updateAnimation(GameTime time)
-		{
-			if (wagTimer > 0)
-			{
-				wagTimer -= (int)time.ElapsedGameTime.TotalMilliseconds;
-			}
-			yOffset = Math.Max(yOffset - (int)Math.Abs(xVelocity + yVelocity) / 2, -64);
-			if (yOffset < 0)
-			{
-				yOffset = Math.Min(0, yOffset + 4 + (int)((yOffset <= -64) ? ((float)(-yOffset) / 8f) : ((float)(-yOffset) / 16f)));
-			}
-			timeSinceLastJump += time.ElapsedGameTime.Milliseconds;
-			if (Game1.random.NextDouble() < 0.01 && wagTimer <= 0)
-			{
-				wagTimer = 992;
-			}
-			if (Math.Abs(xVelocity) >= 0.5f || Math.Abs(yVelocity) >= 0.5f)
-			{
-				Sprite.AnimateDown(time);
-			}
-			else if (!base.Position.Equals(lastPosition))
-			{
-				animateTimer = 500;
-			}
-			if (animateTimer > 0 && readyToJump <= 0)
-			{
-				animateTimer -= time.ElapsedGameTime.Milliseconds;
-				Sprite.AnimateDown(time);
-			}
-			resetAnimationSpeed();
-		}
-
-		public override void update(GameTime time, GameLocation location)
-		{
-			base.update(time, location);
-			jumpEvent.Poll();
-			attackedEvent.Poll();
-		}
-
-		public override void behaviorAtGameTick(GameTime time)
-		{
-			if (mate == null)
-			{
-				pursuingMate.Value = false;
-				avoidingMate.Value = false;
-			}
-			switch (FacingDirection)
-			{
-			case 2:
-				if (facePosition.X > 0f)
-				{
-					facePosition.X -= 2f;
-				}
-				else if (facePosition.X < 0f)
-				{
-					facePosition.X += 2f;
-				}
-				if (facePosition.Y < 0f)
-				{
-					facePosition.Y += 2f;
-				}
-				break;
-			case 1:
-				if (facePosition.X < 8f)
-				{
-					facePosition.X += 2f;
-				}
-				if (facePosition.Y < 0f)
-				{
-					facePosition.Y += 2f;
-				}
-				break;
-			case 3:
-				if (facePosition.X > -8f)
-				{
-					facePosition.X -= 2f;
-				}
-				if (facePosition.Y < 0f)
-				{
-					facePosition.Y += 2f;
-				}
-				break;
-			case 0:
-				if (facePosition.X > 0f)
-				{
-					facePosition.X -= 2f;
-				}
-				else if (facePosition.X < 0f)
-				{
-					facePosition.X += 2f;
-				}
-				if (facePosition.Y > -8f)
-				{
-					facePosition.Y -= 2f;
-				}
-				break;
-			}
-			if (stackedSlimes.Value <= 0)
-			{
-				if ((int)ageUntilFullGrown <= 0)
-				{
-					readyToMate -= time.ElapsedGameTime.Milliseconds;
-				}
-				else
-				{
-					ageUntilFullGrown.Value -= time.ElapsedGameTime.Milliseconds;
-				}
-			}
-			if ((bool)pursuingMate && mate != null)
-			{
-				if (readyToMate <= -35000)
-				{
-					mate.doneMating();
-					doneMating();
-					return;
-				}
-				moveTowardOtherSlime(mate, moveAway: false, time);
-				if (mate.mate != null && (bool)mate.pursuingMate && !mate.mate.Equals(this))
-				{
-					doneMating();
-				}
-				else if (Vector2.Distance(getStandingPosition(), mate.getStandingPosition()) < (float)(GetBoundingBox().Width + 4))
-				{
-					if (mate.mate != null && (bool)mate.avoidingMate && mate.mate.Equals(this))
-					{
-						mate.avoidingMate.Value = false;
-						mate.matingCountdown = 2000;
-						mate.pursuingMate.Value = true;
-					}
-					matingCountdown -= time.ElapsedGameTime.Milliseconds;
-					if (base.currentLocation != null && matingCountdown <= 0 && (bool)pursuingMate && (!base.currentLocation.isOutdoors || Utility.getNumberOfCharactersInRadius(base.currentLocation, Utility.Vector2ToPoint(base.Position), 1) <= 4))
-					{
-						mateWith(mate, base.currentLocation);
-					}
-				}
-				else if (Vector2.Distance(getStandingPosition(), mate.getStandingPosition()) > (float)(matingRange * 2))
-				{
-					mate.mate = null;
-					mate.avoidingMate.Value = false;
-					mate = null;
-				}
-				return;
-			}
-			if ((bool)avoidingMate && mate != null)
-			{
-				moveTowardOtherSlime(mate, moveAway: true, time);
-				return;
-			}
-			if (readyToMate < 0 && (bool)cute)
-			{
-				readyToMate = -1;
-				if (Game1.random.NextDouble() < 0.001)
-				{
-					GreenSlime newMate = (GreenSlime)Utility.checkForCharacterWithinArea(GetType(), base.Position, base.currentLocation, new Rectangle(getStandingX() - matingRange, getStandingY() - matingRange, matingRange * 2, matingRange * 2));
-					if (newMate != null && newMate.readyToMate <= 0 && !newMate.cute && newMate.stackedSlimes.Value <= 0)
-					{
-						matingCountdown = 2000;
-						mate = newMate;
-						pursuingMate.Value = true;
-						newMate.mate = this;
-						newMate.avoidingMate.Value = true;
-						base.addedSpeed = 1;
-						mate.addedSpeed = 1;
-						return;
-					}
-				}
-			}
-			else if (!isGlowing)
-			{
-				base.addedSpeed = 0;
-			}
-			base.behaviorAtGameTick(time);
-			if (readyToJump != -1)
-			{
-				Halt();
-				base.IsWalkingTowardPlayer = false;
-				readyToJump -= time.ElapsedGameTime.Milliseconds;
-				Sprite.currentFrame = 16 + (800 - readyToJump) / 200;
-				if (readyToJump <= 0)
-				{
-					timeSinceLastJump = timeSinceLastJump;
-					base.Slipperiness = 10;
-					base.IsWalkingTowardPlayer = true;
-					readyToJump = -1;
-					invincibleCountdown = 0;
-					Vector2 trajectory = Utility.getAwayFromPlayerTrajectory(GetBoundingBox(), base.Player);
-					trajectory.X = (0f - trajectory.X) / 2f;
-					trajectory.Y = (0f - trajectory.Y) / 2f;
-					jumpEvent.Fire(trajectory);
-					setTrajectory((int)trajectory.X, (int)trajectory.Y);
-				}
-			}
-			else if (Game1.random.NextDouble() < 0.1 && !base.focusedOnFarmers)
-			{
-				if (FacingDirection == 0 || FacingDirection == 2)
-				{
-					if ((bool)leftDrift && !base.currentLocation.isCollidingPosition(nextPosition(3), Game1.viewport, isFarmer: false, 1, glider: false, this))
-					{
-						position.X -= base.speed;
-					}
-					else if (!leftDrift && !base.currentLocation.isCollidingPosition(nextPosition(1), Game1.viewport, isFarmer: false, 1, glider: false, this))
-					{
-						position.X += base.speed;
-					}
-				}
-				else if ((bool)leftDrift && !base.currentLocation.isCollidingPosition(nextPosition(0), Game1.viewport, isFarmer: false, 1, glider: false, this))
-				{
-					position.Y -= base.speed;
-				}
-				else if (!leftDrift && !base.currentLocation.isCollidingPosition(nextPosition(2), Game1.viewport, isFarmer: false, 1, glider: false, this))
-				{
-					position.Y += base.speed;
-				}
-				if (Game1.random.NextDouble() < 0.08)
-				{
-					leftDrift.Value = !leftDrift;
-				}
-			}
-			else if (withinPlayerThreshold() && timeSinceLastJump > (base.focusedOnFarmers ? 1000 : 4000) && Game1.random.NextDouble() < 0.01 && stackedSlimes.Value <= 0)
-			{
-				if (base.Name.Equals("Frost Jelly") && Game1.random.NextDouble() < 0.25)
-				{
-					base.addedSpeed = 2;
-					startGlowing(Color.Cyan, border: false, 0.15f);
-				}
-				else
-				{
-					base.addedSpeed = 0;
-					stopGlowing();
-					readyToJump = 800;
-				}
-			}
-		}
-
-		private void doJump(Vector2 trajectory)
-		{
-			if (Utility.isOnScreen(position, 128))
-			{
-				base.currentLocation.localSound("slime");
-			}
-			Sprite.currentFrame = 1;
-		}
-	}
+    private void doJump(Vector2 trajectory)
+    {
+      if (Utility.isOnScreen((Vector2) (NetPausableField<Vector2, NetVector2, NetVector2>) this.position, 128))
+        this.currentLocation.localSound("slime");
+      this.Sprite.currentFrame = 1;
+    }
+  }
 }

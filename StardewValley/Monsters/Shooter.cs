@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Monsters.Shooter
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using StardewValley.Projectiles;
@@ -6,306 +12,256 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Monsters
 {
-	public class Shooter : Monster
-	{
-		public NetBool shooting = new NetBool();
+  public class Shooter : Monster
+  {
+    public NetBool shooting = new NetBool();
+    public int shotsLeft;
+    public float nextShot;
+    public int projectileSpeed = 12;
+    public int projectileDebuff = 26;
+    public int numberOfShotsPerFire = 1;
+    public float aimTime = 0.25f;
+    public float burstTime = 0.25f;
+    public float aimEndTime = 1f;
+    public int firedProjectile = 12;
+    public string damageSound = "shadowHit";
+    public string fireSound = "Cowboy_gunshot";
+    public int projectileRange = 10;
+    public int desiredDistance = 5;
+    public int fireRange = 8;
+    [XmlIgnore]
+    public NetEvent0 fireEvent = new NetEvent0();
 
-		public int shotsLeft;
+    public Shooter()
+    {
+    }
 
-		public float nextShot;
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.shooting, (INetSerializable) this.fireEvent);
+      this.fireEvent.onEvent += new NetEvent0.Event(this.OnFire);
+    }
 
-		public int projectileSpeed = 12;
+    public override int GetBaseDifficultyLevel() => 1;
 
-		public int projectileDebuff = 26;
+    public virtual void OnFire() => this.shakeTimer = 250;
 
-		public int numberOfShotsPerFire = 1;
+    public override bool ShouldActuallyMoveAwayFromPlayer() => this.Player != null && Math.Abs(this.Player.getTileX() - this.getTileX()) < this.desiredDistance && Math.Abs(this.Player.getTileY() - this.getTileY()) < this.desiredDistance || base.ShouldActuallyMoveAwayFromPlayer();
 
-		public float aimTime = 0.25f;
+    public override Rectangle GetBoundingBox() => base.GetBoundingBox();
 
-		public float burstTime = 0.25f;
+    public Shooter(Vector2 position)
+      : base("Shadow Sniper", position)
+    {
+      this.Sprite.SpriteHeight = 32;
+      this.Sprite.SpriteWidth = 32;
+      this.forceOneTileWide.Value = true;
+      this.Sprite.UpdateSourceRect();
+      this.InitializeVariant();
+    }
 
-		public float aimEndTime = 1f;
+    public Shooter(Vector2 position, string monster_name)
+      : base(monster_name, position)
+    {
+      this.Sprite.SpriteHeight = 32;
+      this.Sprite.SpriteWidth = 32;
+      this.forceOneTileWide.Value = true;
+      this.Sprite.UpdateSourceRect();
+      this.InitializeVariant();
+    }
 
-		public int firedProjectile = 12;
+    public virtual void InitializeVariant()
+    {
+      if (!(this.Name == "Shadow Sniper"))
+      {
+        int num = this.Name == "Skeleton Gunner" ? 1 : 0;
+      }
+      this.nextShot = 1f;
+    }
 
-		public string damageSound = "shadowHit";
+    public override void reloadSprite()
+    {
+      this.Sprite = new AnimatedSprite("Characters\\Monsters\\" + this.Name);
+      this.Sprite.SpriteHeight = 32;
+      this.Sprite.UpdateSourceRect();
+    }
 
-		public string fireSound = "Cowboy_gunshot";
+    protected override void updateAnimation(GameTime time)
+    {
+      if (this.shooting.Value)
+      {
+        if (this.FacingDirection == 2)
+          this.Sprite.CurrentFrame = 16;
+        else if (this.FacingDirection == 1)
+          this.Sprite.CurrentFrame = 17;
+        else if (this.FacingDirection == 0)
+          this.Sprite.CurrentFrame = 18;
+        else if (this.FacingDirection == 3)
+          this.Sprite.CurrentFrame = 19;
+      }
+      if (Game1.IsMasterGame || !this.isMoving())
+        return;
+      if (this.FacingDirection == 0)
+        this.Sprite.AnimateUp(time);
+      else if (this.FacingDirection == 3)
+        this.Sprite.AnimateLeft(time);
+      else if (this.FacingDirection == 1)
+      {
+        this.Sprite.AnimateRight(time);
+      }
+      else
+      {
+        if (this.FacingDirection != 2)
+          return;
+        this.Sprite.AnimateDown(time);
+      }
+    }
 
-		public int projectileRange = 10;
+    public override void behaviorAtGameTick(GameTime time)
+    {
+      if (!this.shooting.Value)
+      {
+        if ((double) this.nextShot > 0.0)
+          this.nextShot -= (float) time.ElapsedGameTime.TotalSeconds;
+        else if (this.Player != null)
+        {
+          int tileX1 = this.Player.getTileX();
+          int tileY1 = this.Player.getTileY();
+          int tileX2 = this.getTileX();
+          int tileY2 = this.getTileY();
+          if (Math.Abs(tileX1 - tileX2) <= this.fireRange && Math.Abs(tileY1 - tileY2) <= this.fireRange && (Math.Abs(tileX1 - tileX2) < 2 || Math.Abs(tileY1 - tileY2) < 2))
+          {
+            this.Halt();
+            this.faceGeneralDirection(this.Player.getStandingPosition());
+            this.shooting.Value = true;
+            this.nextShot = this.aimTime;
+            this.shotsLeft = this.numberOfShotsPerFire;
+          }
+        }
+      }
+      else
+      {
+        this.xVelocity = 0.0f;
+        this.yVelocity = 0.0f;
+        if (this.shotsLeft > 0)
+        {
+          if ((double) this.nextShot > 0.0)
+          {
+            this.nextShot -= (float) time.ElapsedGameTime.TotalSeconds;
+            if ((double) this.nextShot <= 0.0)
+            {
+              Vector2 vector2_1 = Vector2.Zero;
+              float num = 0.0f;
+              if ((int) this.facingDirection == 0)
+              {
+                vector2_1 = new Vector2(0.0f, -1f);
+                num = 0.0f;
+              }
+              if ((int) this.facingDirection == 3)
+              {
+                vector2_1 = new Vector2(-1f, 0.0f);
+                num = -1.570796f;
+              }
+              if ((int) this.facingDirection == 1)
+              {
+                vector2_1 = new Vector2(1f, 0.0f);
+                num = 1.570796f;
+              }
+              if ((int) this.facingDirection == 2)
+              {
+                vector2_1 = new Vector2(0.0f, 1f);
+                num = 3.141593f;
+              }
+              Vector2 vector2_2 = vector2_1 * (float) this.projectileSpeed;
+              this.fireEvent.Fire();
+              this.currentLocation.playSound(this.fireSound);
+              BasicProjectile basicProjectile = new BasicProjectile(this.DamageToFarmer, this.firedProjectile, 0, 0, 0.0f, vector2_2.X, vector2_2.Y, this.Position, "", "", false, location: this.currentLocation, firer: ((Character) this));
+              basicProjectile.startingRotation.Value = num;
+              basicProjectile.height.Value = 24f;
+              basicProjectile.debuff.Value = this.projectileDebuff;
+              basicProjectile.ignoreTravelGracePeriod.Value = true;
+              basicProjectile.IgnoreLocationCollision = true;
+              basicProjectile.maxTravelDistance.Value = 64 * this.projectileRange;
+              this.currentLocation.projectiles.Add((Projectile) basicProjectile);
+              --this.shotsLeft;
+              this.nextShot = this.shotsLeft != 0 ? this.burstTime : this.aimEndTime;
+            }
+          }
+        }
+        else if ((double) this.nextShot > 0.0)
+        {
+          this.nextShot -= (float) time.ElapsedGameTime.TotalSeconds;
+        }
+        else
+        {
+          this.shooting.Value = false;
+          this.nextShot = 2f;
+        }
+      }
+      base.behaviorAtGameTick(time);
+    }
 
-		public int desiredDistance = 5;
+    public override void updateMovement(GameLocation location, GameTime time)
+    {
+      if (this.shooting.Value)
+        this.MovePosition(time, Game1.viewport, location);
+      else
+        base.updateMovement(location, time);
+    }
 
-		public int fireRange = 8;
+    public override int takeDamage(
+      int damage,
+      int xTrajectory,
+      int yTrajectory,
+      bool isBomb,
+      double addedPrecision,
+      Farmer who)
+    {
+      this.shooting.Value = false;
+      this.shotsLeft = 0;
+      this.nextShot = Math.Max(0.5f, this.nextShot);
+      this.currentLocation.playSound(this.damageSound);
+      return base.takeDamage(damage, xTrajectory, yTrajectory, isBomb, addedPrecision, who);
+    }
 
-		[XmlIgnore]
-		public NetEvent0 fireEvent = new NetEvent0();
+    protected override void localDeathAnimation()
+    {
+      if (!(this.Name == "Shadow Sniper"))
+        return;
+      Utility.makeTemporarySpriteJuicier(new TemporaryAnimatedSprite(45, this.Position, Color.White, 10), this.currentLocation);
+      for (int index = 1; index < 3; ++index)
+      {
+        this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, this.Position + new Vector2(0.0f, 1f) * 64f * (float) index, Color.Gray * 0.75f, 10)
+        {
+          delayBeforeAnimationStart = index * 159
+        });
+        this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, this.Position + new Vector2(0.0f, -1f) * 64f * (float) index, Color.Gray * 0.75f, 10)
+        {
+          delayBeforeAnimationStart = index * 159
+        });
+        this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, this.Position + new Vector2(1f, 0.0f) * 64f * (float) index, Color.Gray * 0.75f, 10)
+        {
+          delayBeforeAnimationStart = index * 159
+        });
+        this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, this.Position + new Vector2(-1f, 0.0f) * 64f * (float) index, Color.Gray * 0.75f, 10)
+        {
+          delayBeforeAnimationStart = index * 159
+        });
+      }
+      this.currentLocation.localSound("shadowDie");
+    }
 
-		public Shooter()
-		{
-		}
+    protected override void sharedDeathAnimation()
+    {
+      Game1.createRadialDebris(this.currentLocation, (string) (NetFieldBase<string, NetString>) this.Sprite.textureName, new Rectangle(this.Sprite.SourceRect.X, this.Sprite.SourceRect.Y, 16, 5), 16, this.getStandingX(), this.getStandingY() - 32, 1, this.getStandingY() / 64, Color.White, 4f);
+      Game1.createRadialDebris(this.currentLocation, (string) (NetFieldBase<string, NetString>) this.Sprite.textureName, new Rectangle(this.Sprite.SourceRect.X + 2, this.Sprite.SourceRect.Y + 5, 16, 5), 10, this.getStandingX(), this.getStandingY() - 32, 1, this.getStandingY() / 64, Color.White, 4f);
+    }
 
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(shooting, fireEvent);
-			fireEvent.onEvent += OnFire;
-		}
-
-		public override int GetBaseDifficultyLevel()
-		{
-			return 1;
-		}
-
-		public virtual void OnFire()
-		{
-			shakeTimer = 250;
-		}
-
-		public override bool ShouldActuallyMoveAwayFromPlayer()
-		{
-			if (base.Player != null && Math.Abs(base.Player.getTileX() - getTileX()) < desiredDistance && Math.Abs(base.Player.getTileY() - getTileY()) < desiredDistance)
-			{
-				return true;
-			}
-			return base.ShouldActuallyMoveAwayFromPlayer();
-		}
-
-		public override Rectangle GetBoundingBox()
-		{
-			return base.GetBoundingBox();
-		}
-
-		public Shooter(Vector2 position)
-			: base("Shadow Sniper", position)
-		{
-			Sprite.SpriteHeight = 32;
-			Sprite.SpriteWidth = 32;
-			forceOneTileWide.Value = true;
-			Sprite.UpdateSourceRect();
-			InitializeVariant();
-		}
-
-		public Shooter(Vector2 position, string monster_name)
-			: base(monster_name, position)
-		{
-			Sprite.SpriteHeight = 32;
-			Sprite.SpriteWidth = 32;
-			forceOneTileWide.Value = true;
-			Sprite.UpdateSourceRect();
-			InitializeVariant();
-		}
-
-		public virtual void InitializeVariant()
-		{
-			if (!(base.Name == "Shadow Sniper"))
-			{
-				_ = (base.Name == "Skeleton Gunner");
-			}
-			nextShot = 1f;
-		}
-
-		public override void reloadSprite()
-		{
-			Sprite = new AnimatedSprite("Characters\\Monsters\\" + base.Name);
-			Sprite.SpriteHeight = 32;
-			Sprite.UpdateSourceRect();
-		}
-
-		protected override void updateAnimation(GameTime time)
-		{
-			if (shooting.Value)
-			{
-				if (FacingDirection == 2)
-				{
-					Sprite.CurrentFrame = 16;
-				}
-				else if (FacingDirection == 1)
-				{
-					Sprite.CurrentFrame = 17;
-				}
-				else if (FacingDirection == 0)
-				{
-					Sprite.CurrentFrame = 18;
-				}
-				else if (FacingDirection == 3)
-				{
-					Sprite.CurrentFrame = 19;
-				}
-			}
-			if (!Game1.IsMasterGame && isMoving())
-			{
-				if (FacingDirection == 0)
-				{
-					Sprite.AnimateUp(time);
-				}
-				else if (FacingDirection == 3)
-				{
-					Sprite.AnimateLeft(time);
-				}
-				else if (FacingDirection == 1)
-				{
-					Sprite.AnimateRight(time);
-				}
-				else if (FacingDirection == 2)
-				{
-					Sprite.AnimateDown(time);
-				}
-			}
-		}
-
-		public override void behaviorAtGameTick(GameTime time)
-		{
-			if (!shooting.Value)
-			{
-				if (nextShot > 0f)
-				{
-					nextShot -= (float)time.ElapsedGameTime.TotalSeconds;
-				}
-				else if (base.Player != null)
-				{
-					int player_x = base.Player.getTileX();
-					int player_y = base.Player.getTileY();
-					int x = getTileX();
-					int y = getTileY();
-					if (Math.Abs(player_x - x) <= fireRange && Math.Abs(player_y - y) <= fireRange && (Math.Abs(player_x - x) < 2 || Math.Abs(player_y - y) < 2))
-					{
-						Halt();
-						faceGeneralDirection(base.Player.getStandingPosition());
-						shooting.Value = true;
-						nextShot = aimTime;
-						shotsLeft = numberOfShotsPerFire;
-					}
-				}
-			}
-			else
-			{
-				xVelocity = 0f;
-				yVelocity = 0f;
-				if (shotsLeft > 0)
-				{
-					if (nextShot > 0f)
-					{
-						nextShot -= (float)time.ElapsedGameTime.TotalSeconds;
-						if (nextShot <= 0f)
-						{
-							Vector2 shot_velocity = Vector2.Zero;
-							float starting_rotation = 0f;
-							if ((int)facingDirection == 0)
-							{
-								shot_velocity = new Vector2(0f, -1f);
-								starting_rotation = 0f;
-							}
-							if ((int)facingDirection == 3)
-							{
-								shot_velocity = new Vector2(-1f, 0f);
-								starting_rotation = -(float)Math.PI / 2f;
-							}
-							if ((int)facingDirection == 1)
-							{
-								shot_velocity = new Vector2(1f, 0f);
-								starting_rotation = (float)Math.PI / 2f;
-							}
-							if ((int)facingDirection == 2)
-							{
-								shot_velocity = new Vector2(0f, 1f);
-								starting_rotation = (float)Math.PI;
-							}
-							shot_velocity *= (float)projectileSpeed;
-							fireEvent.Fire();
-							base.currentLocation.playSound(fireSound);
-							BasicProjectile projectile = new BasicProjectile(base.DamageToFarmer, firedProjectile, 0, 0, 0f, shot_velocity.X, shot_velocity.Y, base.Position, "", "", explode: false, damagesMonsters: false, base.currentLocation, this);
-							projectile.startingRotation.Value = starting_rotation;
-							projectile.height.Value = 24f;
-							projectile.debuff.Value = projectileDebuff;
-							projectile.ignoreTravelGracePeriod.Value = true;
-							projectile.IgnoreLocationCollision = true;
-							projectile.maxTravelDistance.Value = 64 * projectileRange;
-							base.currentLocation.projectiles.Add(projectile);
-							shotsLeft--;
-							if (shotsLeft == 0)
-							{
-								nextShot = aimEndTime;
-							}
-							else
-							{
-								nextShot = burstTime;
-							}
-						}
-					}
-				}
-				else if (nextShot > 0f)
-				{
-					nextShot -= (float)time.ElapsedGameTime.TotalSeconds;
-				}
-				else
-				{
-					shooting.Value = false;
-					nextShot = 2f;
-				}
-			}
-			base.behaviorAtGameTick(time);
-		}
-
-		public override void updateMovement(GameLocation location, GameTime time)
-		{
-			if (shooting.Value)
-			{
-				MovePosition(time, Game1.viewport, location);
-			}
-			else
-			{
-				base.updateMovement(location, time);
-			}
-		}
-
-		public override int takeDamage(int damage, int xTrajectory, int yTrajectory, bool isBomb, double addedPrecision, Farmer who)
-		{
-			shooting.Value = false;
-			shotsLeft = 0;
-			nextShot = Math.Max(0.5f, nextShot);
-			base.currentLocation.playSound(damageSound);
-			return base.takeDamage(damage, xTrajectory, yTrajectory, isBomb, addedPrecision, who);
-		}
-
-		protected override void localDeathAnimation()
-		{
-			if (base.Name == "Shadow Sniper")
-			{
-				Utility.makeTemporarySpriteJuicier(new TemporaryAnimatedSprite(45, base.Position, Color.White, 10), base.currentLocation);
-				for (int i = 1; i < 3; i++)
-				{
-					base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, base.Position + new Vector2(0f, 1f) * 64f * i, Color.Gray * 0.75f, 10)
-					{
-						delayBeforeAnimationStart = i * 159
-					});
-					base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, base.Position + new Vector2(0f, -1f) * 64f * i, Color.Gray * 0.75f, 10)
-					{
-						delayBeforeAnimationStart = i * 159
-					});
-					base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, base.Position + new Vector2(1f, 0f) * 64f * i, Color.Gray * 0.75f, 10)
-					{
-						delayBeforeAnimationStart = i * 159
-					});
-					base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(6, base.Position + new Vector2(-1f, 0f) * 64f * i, Color.Gray * 0.75f, 10)
-					{
-						delayBeforeAnimationStart = i * 159
-					});
-				}
-				base.currentLocation.localSound("shadowDie");
-			}
-		}
-
-		protected override void sharedDeathAnimation()
-		{
-			Game1.createRadialDebris(base.currentLocation, Sprite.textureName, new Rectangle(Sprite.SourceRect.X, Sprite.SourceRect.Y, 16, 5), 16, getStandingX(), getStandingY() - 32, 1, getStandingY() / 64, Color.White, 4f);
-			Game1.createRadialDebris(base.currentLocation, Sprite.textureName, new Rectangle(Sprite.SourceRect.X + 2, Sprite.SourceRect.Y + 5, 16, 5), 10, getStandingX(), getStandingY() - 32, 1, getStandingY() / 64, Color.White, 4f);
-		}
-
-		public override void update(GameTime time, GameLocation location)
-		{
-			base.update(time, location);
-			fireEvent.Poll();
-		}
-	}
+    public override void update(GameTime time, GameLocation location)
+    {
+      base.update(time, location);
+      this.fireEvent.Poll();
+    }
+  }
 }

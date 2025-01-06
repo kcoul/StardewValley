@@ -1,57 +1,48 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.BellsAndWhistles.Cloud
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
 
 namespace StardewValley.BellsAndWhistles
 {
-	public class Cloud : Critter
-	{
-		public const int width = 147;
+  public class Cloud : Critter
+  {
+    public const int width = 147;
+    public const int height = 100;
+    public int zoom = 5;
+    private bool verticalFlip;
+    private bool horizontalFlip;
 
-		public const int height = 100;
+    public Cloud()
+    {
+    }
 
-		public int zoom = 5;
+    public Cloud(Vector2 position)
+    {
+      this.position = position * 64f;
+      this.startingPosition = position;
+      this.verticalFlip = Game1.random.NextDouble() < 0.5;
+      this.horizontalFlip = Game1.random.NextDouble() < 0.5;
+      this.zoom = Game1.random.Next(4, 7);
+    }
 
-		private bool verticalFlip;
+    public override bool update(GameTime time, GameLocation environment)
+    {
+      this.position.Y -= (float) (time.ElapsedGameTime.TotalMilliseconds * 0.0199999995529652);
+      this.position.X -= (float) (time.ElapsedGameTime.TotalMilliseconds * 0.0199999995529652);
+      return (double) this.position.X < (double) (-147 * this.zoom) || (double) this.position.Y < (double) (-100 * this.zoom);
+    }
 
-		private bool horizontalFlip;
+    public override Rectangle getBoundingBox(int xOffset, int yOffset) => new Rectangle((int) this.position.X, (int) this.position.Y, 147 * this.zoom, 100 * this.zoom);
 
-		public Cloud()
-		{
-		}
+    public override void draw(SpriteBatch b)
+    {
+    }
 
-		public Cloud(Vector2 position)
-		{
-			base.position = position * 64f;
-			startingPosition = position;
-			verticalFlip = (Game1.random.NextDouble() < 0.5);
-			horizontalFlip = (Game1.random.NextDouble() < 0.5);
-			zoom = Game1.random.Next(4, 7);
-		}
-
-		public override bool update(GameTime time, GameLocation environment)
-		{
-			position.Y -= (float)time.ElapsedGameTime.TotalMilliseconds * 0.02f;
-			position.X -= (float)time.ElapsedGameTime.TotalMilliseconds * 0.02f;
-			if (position.X < (float)(-147 * zoom) || position.Y < (float)(-100 * zoom))
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public override Rectangle getBoundingBox(int xOffset, int yOffset)
-		{
-			return new Rectangle((int)position.X, (int)position.Y, 147 * zoom, 100 * zoom);
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-		}
-
-		public override void drawAboveFrontLayer(SpriteBatch b)
-		{
-			b.Draw(Game1.mouseCursors, Game1.GlobalToLocal(position), new Rectangle(128, 0, 146, 99), Color.White, (verticalFlip && horizontalFlip) ? ((float)Math.PI) : 0f, Vector2.Zero, zoom, (verticalFlip && !horizontalFlip) ? SpriteEffects.FlipVertically : ((horizontalFlip && !verticalFlip) ? SpriteEffects.FlipHorizontally : SpriteEffects.None), 1f);
-		}
-	}
+    public override void drawAboveFrontLayer(SpriteBatch b) => b.Draw(Game1.mouseCursors, Game1.GlobalToLocal(this.position), new Rectangle?(new Rectangle(128, 0, 146, 99)), Color.White, !this.verticalFlip || !this.horizontalFlip ? 0.0f : 3.141593f, Vector2.Zero, (float) this.zoom, !this.verticalFlip || this.horizontalFlip ? (!this.horizontalFlip || this.verticalFlip ? SpriteEffects.None : SpriteEffects.FlipHorizontally) : SpriteEffects.FlipVertically, 1f);
+  }
 }

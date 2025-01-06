@@ -1,56 +1,47 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.SDKs.SDKHelper
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 namespace StardewValley.SDKs
 {
-	public interface SDKHelper
-	{
-		bool IsEnterButtonAssignmentFlipped
-		{
-			get;
-		}
+  public interface SDKHelper
+  {
+    /// <summary>
+    /// This property needs to be initialized to the correct value before Initialize(), so probably within EarlyInitialize().
+    /// </summary>
+    bool IsEnterButtonAssignmentFlipped { get; }
 
-		bool IsJapaneseRegionRelease
-		{
-			get;
-		}
+    /// <summary>
+    /// This property needs to be initialized to the correct value before Initialize(), so probably within EarlyInitialize().
+    /// </summary>
+    bool IsJapaneseRegionRelease { get; }
 
-		string Name
-		{
-			get;
-		}
+    void EarlyInitialize();
 
-		SDKNetHelper Networking
-		{
-			get;
-		}
+    void Initialize();
 
-		bool ConnectionFinished
-		{
-			get;
-		}
+    void Update();
 
-		int ConnectionProgress
-		{
-			get;
-		}
+    void Shutdown();
 
-		bool HasOverlay
-		{
-			get;
-		}
+    void DebugInfo();
 
-		void EarlyInitialize();
+    void GetAchievement(string achieve);
 
-		void Initialize();
+    void ResetAchievements();
 
-		void Update();
+    string FilterDirtyWords(string words);
 
-		void Shutdown();
+    string Name { get; }
 
-		void DebugInfo();
+    SDKNetHelper Networking { get; }
 
-		void GetAchievement(string achieve);
+    bool ConnectionFinished { get; }
 
-		void ResetAchievements();
+    int ConnectionProgress { get; }
 
-		string FilterDirtyWords(string words);
-	}
+    bool HasOverlay { get; }
+  }
 }

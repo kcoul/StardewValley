@@ -1,59 +1,59 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.NutDropRequest
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using System.IO;
 
 namespace StardewValley
 {
-	public class NutDropRequest : NetEventArg
-	{
-		public string key;
+  public class NutDropRequest : NetEventArg
+  {
+    public string key;
+    public string locationName;
+    public Point position;
+    public int limit = 1;
+    public int rewardAmount = 1;
 
-		public string locationName;
+    public NutDropRequest()
+    {
+    }
 
-		public Point position;
+    public NutDropRequest(
+      string key,
+      string location_name,
+      Point position,
+      int limit,
+      int reward_amount)
+    {
+      this.key = key;
+      this.locationName = location_name != null ? location_name : "null";
+      this.position = position;
+      this.limit = limit;
+      this.rewardAmount = reward_amount;
+    }
 
-		public int limit = 1;
+    public void Read(BinaryReader reader)
+    {
+      this.key = reader.ReadString();
+      this.locationName = reader.ReadString();
+      this.position.X = reader.ReadInt32();
+      this.position.Y = reader.ReadInt32();
+      this.limit = reader.ReadInt32();
+      this.rewardAmount = reader.ReadInt32();
+    }
 
-		public int rewardAmount = 1;
-
-		public NutDropRequest()
-		{
-		}
-
-		public NutDropRequest(string key, string location_name, Point position, int limit, int reward_amount)
-		{
-			this.key = key;
-			if (location_name == null)
-			{
-				locationName = "null";
-			}
-			else
-			{
-				locationName = location_name;
-			}
-			this.position = position;
-			this.limit = limit;
-			rewardAmount = reward_amount;
-		}
-
-		public void Read(BinaryReader reader)
-		{
-			key = reader.ReadString();
-			locationName = reader.ReadString();
-			position.X = reader.ReadInt32();
-			position.Y = reader.ReadInt32();
-			limit = reader.ReadInt32();
-			rewardAmount = reader.ReadInt32();
-		}
-
-		public void Write(BinaryWriter writer)
-		{
-			writer.Write(key);
-			writer.Write(locationName);
-			writer.Write(position.X);
-			writer.Write(position.Y);
-			writer.Write(limit);
-			writer.Write(rewardAmount);
-		}
-	}
+    public void Write(BinaryWriter writer)
+    {
+      writer.Write(this.key);
+      writer.Write(this.locationName);
+      writer.Write(this.position.X);
+      writer.Write(this.position.Y);
+      writer.Write(this.limit);
+      writer.Write(this.rewardAmount);
+    }
+  }
 }

@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Quests.Quest
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System;
 using System.Collections.Generic;
@@ -5,496 +11,341 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Quests
 {
-	[XmlInclude(typeof(SocializeQuest))]
-	[XmlInclude(typeof(SlayMonsterQuest))]
-	[XmlInclude(typeof(ResourceCollectionQuest))]
-	[XmlInclude(typeof(ItemDeliveryQuest))]
-	[XmlInclude(typeof(ItemHarvestQuest))]
-	[XmlInclude(typeof(CraftingQuest))]
-	[XmlInclude(typeof(FishingQuest))]
-	[XmlInclude(typeof(GoSomewhereQuest))]
-	[XmlInclude(typeof(LostItemQuest))]
-	[XmlInclude(typeof(DescriptionElement))]
-	[XmlInclude(typeof(SecretLostItemQuest))]
-	public class Quest : INetObject<NetFields>, IQuest
-	{
-		public const int type_basic = 1;
+  [XmlInclude(typeof (SocializeQuest))]
+  [XmlInclude(typeof (SlayMonsterQuest))]
+  [XmlInclude(typeof (ResourceCollectionQuest))]
+  [XmlInclude(typeof (ItemDeliveryQuest))]
+  [XmlInclude(typeof (ItemHarvestQuest))]
+  [XmlInclude(typeof (CraftingQuest))]
+  [XmlInclude(typeof (FishingQuest))]
+  [XmlInclude(typeof (GoSomewhereQuest))]
+  [XmlInclude(typeof (LostItemQuest))]
+  [XmlInclude(typeof (DescriptionElement))]
+  [XmlInclude(typeof (SecretLostItemQuest))]
+  public class Quest : INetObject<NetFields>, IQuest
+  {
+    public const int type_basic = 1;
+    public const int type_crafting = 2;
+    public const int type_itemDelivery = 3;
+    public const int type_monster = 4;
+    public const int type_socialize = 5;
+    public const int type_location = 6;
+    public const int type_fishing = 7;
+    public const int type_building = 8;
+    public const int type_harvest = 9;
+    public const int type_resource = 10;
+    public const int type_weeding = 11;
+    public string _currentObjective = "";
+    public string _questDescription = "";
+    public string _questTitle = "";
+    [XmlElement("rewardDescription")]
+    public readonly NetString rewardDescription = new NetString();
+    [XmlElement("completionString")]
+    public readonly NetString completionString = new NetString();
+    protected Random random = new Random((int) Game1.uniqueIDForThisGame + (int) Game1.stats.DaysPlayed);
+    [XmlElement("accepted")]
+    public readonly NetBool accepted = new NetBool();
+    [XmlElement("completed")]
+    public readonly NetBool completed = new NetBool();
+    [XmlElement("dailyQuest")]
+    public readonly NetBool dailyQuest = new NetBool();
+    [XmlElement("showNew")]
+    public readonly NetBool showNew = new NetBool();
+    [XmlElement("canBeCancelled")]
+    public readonly NetBool canBeCancelled = new NetBool();
+    [XmlElement("destroy")]
+    public readonly NetBool destroy = new NetBool();
+    [XmlElement("id")]
+    public readonly NetInt id = new NetInt();
+    [XmlElement("moneyReward")]
+    public readonly NetInt moneyReward = new NetInt();
+    [XmlElement("questType")]
+    public readonly NetInt questType = new NetInt();
+    [XmlElement("daysLeft")]
+    public readonly NetInt daysLeft = new NetInt();
+    [XmlElement("dayQuestAccepted")]
+    public readonly NetInt dayQuestAccepted = new NetInt(-1);
+    public readonly NetIntList nextQuests = new NetIntList();
+    private bool _loadedDescription;
+    private bool _loadedTitle;
 
-		public const int type_crafting = 2;
+    public NetFields NetFields { get; } = new NetFields();
 
-		public const int type_itemDelivery = 3;
+    public Quest() => this.initNetFields();
 
-		public const int type_monster = 4;
+    protected virtual void initNetFields() => this.NetFields.AddFields((INetSerializable) this.rewardDescription, (INetSerializable) this.completionString, (INetSerializable) this.accepted, (INetSerializable) this.completed, (INetSerializable) this.dailyQuest, (INetSerializable) this.showNew, (INetSerializable) this.canBeCancelled, (INetSerializable) this.destroy, (INetSerializable) this.id, (INetSerializable) this.moneyReward, (INetSerializable) this.questType, (INetSerializable) this.daysLeft, (INetSerializable) this.nextQuests, (INetSerializable) this.dayQuestAccepted);
 
-		public const int type_socialize = 5;
+    public string questTitle
+    {
+      get
+      {
+        if (!this._loadedTitle)
+        {
+          switch (this.questType.Value)
+          {
+            case 3:
+              this._questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:ItemDeliveryQuest.cs.13285");
+              break;
+            case 4:
+              this._questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:SlayMonsterQuest.cs.13696");
+              break;
+            case 5:
+              this._questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:SocializeQuest.cs.13785");
+              break;
+            case 7:
+              this._questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:FishingQuest.cs.13227");
+              break;
+            case 10:
+              this._questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:ResourceCollectionQuest.cs.13640");
+              break;
+          }
+          Dictionary<int, string> dictionary = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
+          if (dictionary != null && dictionary.ContainsKey((int) (NetFieldBase<int, NetInt>) this.id))
+            this._questTitle = dictionary[(int) (NetFieldBase<int, NetInt>) this.id].Split('/')[1];
+          this._loadedTitle = true;
+        }
+        if (this._questTitle == null)
+          this._questTitle = "";
+        return this._questTitle;
+      }
+      set => this._questTitle = value;
+    }
 
-		public const int type_location = 6;
+    [XmlIgnore]
+    public string questDescription
+    {
+      get
+      {
+        if (!this._loadedDescription)
+        {
+          this.reloadDescription();
+          Dictionary<int, string> dictionary = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
+          if (dictionary != null && dictionary.ContainsKey((int) (NetFieldBase<int, NetInt>) this.id))
+            this._questDescription = dictionary[(int) (NetFieldBase<int, NetInt>) this.id].Split('/')[2];
+          this._loadedDescription = true;
+        }
+        if (this._questDescription == null)
+          this._questDescription = "";
+        return this._questDescription;
+      }
+      set => this._questDescription = value;
+    }
 
-		public const int type_fishing = 7;
+    [XmlIgnore]
+    public string currentObjective
+    {
+      get
+      {
+        Dictionary<int, string> dictionary = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
+        if (dictionary != null && dictionary.ContainsKey((int) (NetFieldBase<int, NetInt>) this.id))
+        {
+          string[] strArray = dictionary[(int) (NetFieldBase<int, NetInt>) this.id].Split('/');
+          if (strArray[3].Length > 1)
+            this._currentObjective = strArray[3];
+        }
+        this.reloadObjective();
+        if (this._currentObjective == null)
+          this._currentObjective = "";
+        return this._currentObjective;
+      }
+      set => this._currentObjective = value;
+    }
 
-		public const int type_building = 8;
+    public static Quest getQuestFromId(int id)
+    {
+      Dictionary<int, string> dictionary = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
+      if (dictionary == null || !dictionary.ContainsKey(id))
+        return (Quest) null;
+      string[] strArray1 = dictionary[id].Split('/');
+      string str1 = strArray1[0];
+      Quest questFromId = (Quest) null;
+      string[] strArray2 = strArray1[4].Split(' ');
+      switch (str1)
+      {
+        case "Basic":
+          questFromId = new Quest();
+          questFromId.questType.Value = 1;
+          break;
+        case "Building":
+          questFromId = new Quest();
+          questFromId.questType.Value = 8;
+          questFromId.completionString.Value = strArray2[0];
+          break;
+        case "Crafting":
+          questFromId = (Quest) new CraftingQuest(Convert.ToInt32(strArray2[0]), strArray2[1].ToLower().Equals("true"));
+          questFromId.questType.Value = 2;
+          break;
+        case "ItemDelivery":
+          questFromId = (Quest) new ItemDeliveryQuest();
+          (questFromId as ItemDeliveryQuest).target.Value = strArray2[0];
+          (questFromId as ItemDeliveryQuest).item.Value = Convert.ToInt32(strArray2[1]);
+          (questFromId as ItemDeliveryQuest).targetMessage = strArray1[9];
+          if (strArray2.Length > 2)
+            (questFromId as ItemDeliveryQuest).number.Value = Convert.ToInt32(strArray2[2]);
+          questFromId.questType.Value = 3;
+          break;
+        case "ItemHarvest":
+          questFromId = (Quest) new ItemHarvestQuest(Convert.ToInt32(strArray2[0]), strArray2.Length > 1 ? Convert.ToInt32(strArray2[1]) : 1);
+          break;
+        case "Location":
+          questFromId = (Quest) new GoSomewhereQuest(strArray2[0]);
+          questFromId.questType.Value = 6;
+          break;
+        case "LostItem":
+          questFromId = (Quest) new LostItemQuest(strArray2[0], strArray2[2], Convert.ToInt32(strArray2[1]), Convert.ToInt32(strArray2[3]), Convert.ToInt32(strArray2[4]));
+          break;
+        case "Monster":
+          questFromId = (Quest) new SlayMonsterQuest();
+          (questFromId as SlayMonsterQuest).loadQuestInfo();
+          (questFromId as SlayMonsterQuest).monster.Value.Name = strArray2[0].Replace('_', ' ');
+          (questFromId as SlayMonsterQuest).monsterName.Value = (questFromId as SlayMonsterQuest).monster.Value.Name;
+          (questFromId as SlayMonsterQuest).numberToKill.Value = Convert.ToInt32(strArray2[1]);
+          if (strArray2.Length > 2)
+            (questFromId as SlayMonsterQuest).target.Value = strArray2[2];
+          else
+            (questFromId as SlayMonsterQuest).target.Value = "null";
+          questFromId.questType.Value = 4;
+          break;
+        case "SecretLostItem":
+          questFromId = (Quest) new SecretLostItemQuest(strArray2[0], Convert.ToInt32(strArray2[1]), Convert.ToInt32(strArray2[2]), Convert.ToInt32(strArray2[3]));
+          break;
+        case "Social":
+          questFromId = (Quest) new SocializeQuest();
+          (questFromId as SocializeQuest).loadQuestInfo();
+          break;
+      }
+      questFromId.id.Value = id;
+      questFromId.questTitle = strArray1[1];
+      questFromId.questDescription = strArray1[2];
+      if (strArray1[3].Length > 1)
+        questFromId.currentObjective = strArray1[3];
+      foreach (string str2 in strArray1[5].Split(' '))
+      {
+        if (str2.StartsWith("h"))
+        {
+          if (Game1.IsMasterGame)
+            str2 = str2.Substring(1);
+          else
+            continue;
+        }
+        questFromId.nextQuests.Add(Convert.ToInt32(str2));
+      }
+      questFromId.showNew.Value = true;
+      questFromId.moneyReward.Value = Convert.ToInt32(strArray1[6]);
+      questFromId.rewardDescription.Value = strArray1[6].Equals("-1") ? (string) null : strArray1[7];
+      if (strArray1.Length > 8)
+        questFromId.canBeCancelled.Value = strArray1[8].Equals("true");
+      return questFromId;
+    }
 
-		public const int type_harvest = 9;
+    public virtual void reloadObjective()
+    {
+    }
 
-		public const int type_resource = 10;
+    public virtual void reloadDescription()
+    {
+    }
 
-		public const int type_weeding = 11;
+    public virtual void adjustGameLocation(GameLocation location)
+    {
+    }
 
-		public string _currentObjective = "";
+    public virtual void accept() => this.accepted.Value = true;
 
-		public string _questDescription = "";
+    public virtual bool checkIfComplete(NPC n = null, int number1 = -1, int number2 = -2, Item item = null, string str = null)
+    {
+      if (this.completionString.Value == null || str == null || !str.Equals(this.completionString.Value))
+        return false;
+      this.questComplete();
+      return true;
+    }
 
-		public string _questTitle = "";
+    public bool hasReward()
+    {
+      if ((int) (NetFieldBase<int, NetInt>) this.moneyReward > 0)
+        return true;
+      return this.rewardDescription.Value != null && this.rewardDescription.Value.Length > 2;
+    }
 
-		[XmlElement("rewardDescription")]
-		public readonly NetString rewardDescription = new NetString();
+    public virtual bool isSecretQuest() => false;
 
-		[XmlElement("completionString")]
-		public readonly NetString completionString = new NetString();
+    public virtual void questComplete()
+    {
+      if ((bool) (NetFieldBase<bool, NetBool>) this.completed)
+        return;
+      if ((bool) (NetFieldBase<bool, NetBool>) this.dailyQuest || (int) (NetFieldBase<int, NetInt>) this.questType == 7)
+        ++Game1.stats.QuestsCompleted;
+      this.completed.Value = true;
+      if (this.nextQuests.Count > 0)
+      {
+        foreach (int nextQuest in (NetList<int, NetInt>) this.nextQuests)
+        {
+          if (nextQuest > 0)
+            Game1.player.questLog.Add(Quest.getQuestFromId(nextQuest));
+        }
+        Game1.addHUDMessage(new HUDMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Quest.cs.13636"), 2));
+      }
+      if ((int) (NetFieldBase<int, NetInt>) this.moneyReward <= 0 && (this.rewardDescription.Value == null || this.rewardDescription.Value.Length <= 2))
+        Game1.player.questLog.Remove(this);
+      else
+        Game1.addHUDMessage(new HUDMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Quest.cs.13636"), 2));
+      Game1.playSound("questcomplete");
+      if (this.id.Value == 126)
+      {
+        Game1.player.mailReceived.Add("emilyFiber");
+        Game1.player.activeDialogueEvents.Add("emilyFiber", 2);
+      }
+      Game1.dayTimeMoneyBox.questsDirty = true;
+    }
 
-		protected Random random = new Random((int)Game1.uniqueIDForThisGame + (int)Game1.stats.DaysPlayed);
+    public string GetName() => this.questTitle;
 
-		[XmlElement("accepted")]
-		public readonly NetBool accepted = new NetBool();
+    public string GetDescription() => this.questDescription;
 
-		[XmlElement("completed")]
-		public readonly NetBool completed = new NetBool();
+    public bool IsHidden() => this.isSecretQuest();
 
-		[XmlElement("dailyQuest")]
-		public readonly NetBool dailyQuest = new NetBool();
+    public List<string> GetObjectiveDescriptions() => new List<string>()
+    {
+      this.currentObjective
+    };
 
-		[XmlElement("showNew")]
-		public readonly NetBool showNew = new NetBool();
+    public bool CanBeCancelled() => this.canBeCancelled.Value;
 
-		[XmlElement("canBeCancelled")]
-		public readonly NetBool canBeCancelled = new NetBool();
+    public bool HasReward()
+    {
+      if (this.HasMoneyReward())
+        return true;
+      return this.rewardDescription.Value != null && this.rewardDescription.Value.Length > 2;
+    }
 
-		[XmlElement("destroy")]
-		public readonly NetBool destroy = new NetBool();
+    public bool HasMoneyReward() => this.completed.Value && this.moneyReward.Value > 0;
 
-		[XmlElement("id")]
-		public readonly NetInt id = new NetInt();
+    public void MarkAsViewed() => this.showNew.Value = false;
 
-		[XmlElement("moneyReward")]
-		public readonly NetInt moneyReward = new NetInt();
+    public bool ShouldDisplayAsNew() => this.showNew.Value;
 
-		[XmlElement("questType")]
-		public readonly NetInt questType = new NetInt();
+    public bool ShouldDisplayAsComplete() => this.completed.Value && !this.IsHidden();
 
-		[XmlElement("daysLeft")]
-		public readonly NetInt daysLeft = new NetInt();
+    public bool IsTimedQuest() => this.dailyQuest.Value;
 
-		[XmlElement("dayQuestAccepted")]
-		public readonly NetInt dayQuestAccepted = new NetInt(-1);
+    public int GetDaysLeft() => (int) (NetFieldBase<int, NetInt>) this.daysLeft;
 
-		public readonly NetIntList nextQuests = new NetIntList();
+    public int GetMoneyReward() => this.moneyReward.Value;
 
-		private bool _loadedDescription;
+    public void OnMoneyRewardClaimed()
+    {
+      this.moneyReward.Value = 0;
+      this.destroy.Value = true;
+    }
 
-		private bool _loadedTitle;
-
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
-
-
-		public string questTitle
-		{
-			get
-			{
-				if (!_loadedTitle)
-				{
-					switch (questType.Value)
-					{
-					case 3:
-						_questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:ItemDeliveryQuest.cs.13285");
-						break;
-					case 4:
-						_questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:SlayMonsterQuest.cs.13696");
-						break;
-					case 5:
-						_questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:SocializeQuest.cs.13785");
-						break;
-					case 7:
-						_questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:FishingQuest.cs.13227");
-						break;
-					case 10:
-						_questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:ResourceCollectionQuest.cs.13640");
-						break;
-					}
-					Dictionary<int, string> questData = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
-					if (questData != null && questData.ContainsKey(id))
-					{
-						string[] rawData = questData[id].Split('/');
-						_questTitle = rawData[1];
-					}
-					_loadedTitle = true;
-				}
-				if (_questTitle == null)
-				{
-					_questTitle = "";
-				}
-				return _questTitle;
-			}
-			set
-			{
-				_questTitle = value;
-			}
-		}
-
-		[XmlIgnore]
-		public string questDescription
-		{
-			get
-			{
-				if (!_loadedDescription)
-				{
-					reloadDescription();
-					Dictionary<int, string> questData = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
-					if (questData != null && questData.ContainsKey(id))
-					{
-						string[] rawData = questData[id].Split('/');
-						_questDescription = rawData[2];
-					}
-					_loadedDescription = true;
-				}
-				if (_questDescription == null)
-				{
-					_questDescription = "";
-				}
-				return _questDescription;
-			}
-			set
-			{
-				_questDescription = value;
-			}
-		}
-
-		[XmlIgnore]
-		public string currentObjective
-		{
-			get
-			{
-				Dictionary<int, string> questData = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
-				if (questData != null && questData.ContainsKey(id))
-				{
-					string[] rawData = questData[id].Split('/');
-					if (rawData[3].Length > 1)
-					{
-						_currentObjective = rawData[3];
-					}
-				}
-				reloadObjective();
-				if (_currentObjective == null)
-				{
-					_currentObjective = "";
-				}
-				return _currentObjective;
-			}
-			set
-			{
-				_currentObjective = value;
-			}
-		}
-
-		public Quest()
-		{
-			initNetFields();
-		}
-
-		protected virtual void initNetFields()
-		{
-			NetFields.AddFields(rewardDescription, completionString, accepted, completed, dailyQuest, showNew, canBeCancelled, destroy, id, moneyReward, questType, daysLeft, nextQuests, dayQuestAccepted);
-		}
-
-		public static Quest getQuestFromId(int id)
-		{
-			Dictionary<int, string> questData = Game1.temporaryContent.Load<Dictionary<int, string>>("Data\\Quests");
-			if (questData != null && questData.ContainsKey(id))
-			{
-				string[] rawData = questData[id].Split('/');
-				string questType = rawData[0];
-				Quest q = null;
-				string[] conditionsSplit = rawData[4].Split(' ');
-				switch (questType)
-				{
-				case "Crafting":
-					q = new CraftingQuest(Convert.ToInt32(conditionsSplit[0]), conditionsSplit[1].ToLower().Equals("true"));
-					q.questType.Value = 2;
-					break;
-				case "Location":
-					q = new GoSomewhereQuest(conditionsSplit[0]);
-					q.questType.Value = 6;
-					break;
-				case "Building":
-					q = new Quest();
-					q.questType.Value = 8;
-					q.completionString.Value = conditionsSplit[0];
-					break;
-				case "ItemDelivery":
-					q = new ItemDeliveryQuest();
-					(q as ItemDeliveryQuest).target.Value = conditionsSplit[0];
-					(q as ItemDeliveryQuest).item.Value = Convert.ToInt32(conditionsSplit[1]);
-					(q as ItemDeliveryQuest).targetMessage = rawData[9];
-					if (conditionsSplit.Length > 2)
-					{
-						(q as ItemDeliveryQuest).number.Value = Convert.ToInt32(conditionsSplit[2]);
-					}
-					q.questType.Value = 3;
-					break;
-				case "Monster":
-					q = new SlayMonsterQuest();
-					(q as SlayMonsterQuest).loadQuestInfo();
-					(q as SlayMonsterQuest).monster.Value.Name = conditionsSplit[0].Replace('_', ' ');
-					(q as SlayMonsterQuest).monsterName.Value = (q as SlayMonsterQuest).monster.Value.Name;
-					(q as SlayMonsterQuest).numberToKill.Value = Convert.ToInt32(conditionsSplit[1]);
-					if (conditionsSplit.Length > 2)
-					{
-						(q as SlayMonsterQuest).target.Value = conditionsSplit[2];
-					}
-					else
-					{
-						(q as SlayMonsterQuest).target.Value = "null";
-					}
-					q.questType.Value = 4;
-					break;
-				case "Basic":
-					q = new Quest();
-					q.questType.Value = 1;
-					break;
-				case "Social":
-					q = new SocializeQuest();
-					(q as SocializeQuest).loadQuestInfo();
-					break;
-				case "ItemHarvest":
-					q = new ItemHarvestQuest(Convert.ToInt32(conditionsSplit[0]), (conditionsSplit.Length <= 1) ? 1 : Convert.ToInt32(conditionsSplit[1]));
-					break;
-				case "LostItem":
-					q = new LostItemQuest(conditionsSplit[0], conditionsSplit[2], Convert.ToInt32(conditionsSplit[1]), Convert.ToInt32(conditionsSplit[3]), Convert.ToInt32(conditionsSplit[4]));
-					break;
-				case "SecretLostItem":
-					q = new SecretLostItemQuest(conditionsSplit[0], Convert.ToInt32(conditionsSplit[1]), Convert.ToInt32(conditionsSplit[2]), Convert.ToInt32(conditionsSplit[3]));
-					break;
-				}
-				q.id.Value = id;
-				q.questTitle = rawData[1];
-				q.questDescription = rawData[2];
-				if (rawData[3].Length > 1)
-				{
-					q.currentObjective = rawData[3];
-				}
-				string[] nextQuestsSplit = rawData[5].Split(' ');
-				for (int i = 0; i < nextQuestsSplit.Length; i++)
-				{
-					string nextQuest = nextQuestsSplit[i];
-					if (nextQuest.StartsWith("h"))
-					{
-						if (!Game1.IsMasterGame)
-						{
-							continue;
-						}
-						nextQuest = nextQuest.Substring(1);
-					}
-					q.nextQuests.Add(Convert.ToInt32(nextQuest));
-				}
-				q.showNew.Value = true;
-				q.moneyReward.Value = Convert.ToInt32(rawData[6]);
-				q.rewardDescription.Value = (rawData[6].Equals("-1") ? null : rawData[7]);
-				if (rawData.Length > 8)
-				{
-					q.canBeCancelled.Value = rawData[8].Equals("true");
-				}
-				return q;
-			}
-			return null;
-		}
-
-		public virtual void reloadObjective()
-		{
-		}
-
-		public virtual void reloadDescription()
-		{
-		}
-
-		public virtual void adjustGameLocation(GameLocation location)
-		{
-		}
-
-		public virtual void accept()
-		{
-			accepted.Value = true;
-		}
-
-		public virtual bool checkIfComplete(NPC n = null, int number1 = -1, int number2 = -2, Item item = null, string str = null)
-		{
-			if (completionString.Value != null && str != null && str.Equals(completionString.Value))
-			{
-				questComplete();
-				return true;
-			}
-			return false;
-		}
-
-		public bool hasReward()
-		{
-			if ((int)moneyReward <= 0)
-			{
-				if (rewardDescription.Value != null)
-				{
-					return rewardDescription.Value.Length > 2;
-				}
-				return false;
-			}
-			return true;
-		}
-
-		public virtual bool isSecretQuest()
-		{
-			return false;
-		}
-
-		public virtual void questComplete()
-		{
-			if (!completed)
-			{
-				if ((bool)dailyQuest || (int)questType == 7)
-				{
-					Game1.stats.QuestsCompleted++;
-				}
-				completed.Value = true;
-				if (nextQuests.Count > 0)
-				{
-					foreach (int i in nextQuests)
-					{
-						if (i > 0)
-						{
-							Game1.player.questLog.Add(getQuestFromId(i));
-						}
-					}
-					Game1.addHUDMessage(new HUDMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Quest.cs.13636"), 2));
-				}
-				if ((int)moneyReward <= 0 && (rewardDescription.Value == null || rewardDescription.Value.Length <= 2))
-				{
-					Game1.player.questLog.Remove(this);
-				}
-				else
-				{
-					Game1.addHUDMessage(new HUDMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Quest.cs.13636"), 2));
-				}
-				Game1.playSound("questcomplete");
-				if (id.Value == 126)
-				{
-					Game1.player.mailReceived.Add("emilyFiber");
-					Game1.player.activeDialogueEvents.Add("emilyFiber", 2);
-				}
-				Game1.dayTimeMoneyBox.questsDirty = true;
-			}
-		}
-
-		public string GetName()
-		{
-			return questTitle;
-		}
-
-		public string GetDescription()
-		{
-			return questDescription;
-		}
-
-		public bool IsHidden()
-		{
-			return isSecretQuest();
-		}
-
-		public List<string> GetObjectiveDescriptions()
-		{
-			return new List<string>
-			{
-				currentObjective
-			};
-		}
-
-		public bool CanBeCancelled()
-		{
-			return canBeCancelled.Value;
-		}
-
-		public bool HasReward()
-		{
-			if (!HasMoneyReward())
-			{
-				if (rewardDescription.Value != null)
-				{
-					return rewardDescription.Value.Length > 2;
-				}
-				return false;
-			}
-			return true;
-		}
-
-		public bool HasMoneyReward()
-		{
-			if (completed.Value)
-			{
-				return moneyReward.Value > 0;
-			}
-			return false;
-		}
-
-		public void MarkAsViewed()
-		{
-			showNew.Value = false;
-		}
-
-		public bool ShouldDisplayAsNew()
-		{
-			return showNew.Value;
-		}
-
-		public bool ShouldDisplayAsComplete()
-		{
-			if (completed.Value)
-			{
-				return !IsHidden();
-			}
-			return false;
-		}
-
-		public bool IsTimedQuest()
-		{
-			return dailyQuest.Value;
-		}
-
-		public int GetDaysLeft()
-		{
-			return daysLeft;
-		}
-
-		public int GetMoneyReward()
-		{
-			return moneyReward.Value;
-		}
-
-		public void OnMoneyRewardClaimed()
-		{
-			moneyReward.Value = 0;
-			destroy.Value = true;
-		}
-
-		public bool OnLeaveQuestPage()
-		{
-			if ((bool)completed && (int)moneyReward <= 0)
-			{
-				destroy.Value = true;
-			}
-			if (destroy.Value)
-			{
-				Game1.player.questLog.Remove(this);
-				return true;
-			}
-			return false;
-		}
-	}
+    public bool OnLeaveQuestPage()
+    {
+      if ((bool) (NetFieldBase<bool, NetBool>) this.completed && (int) (NetFieldBase<int, NetInt>) this.moneyReward <= 0)
+        this.destroy.Value = true;
+      if (!this.destroy.Value)
+        return false;
+      Game1.player.questLog.Remove(this);
+      return true;
+    }
+  }
 }

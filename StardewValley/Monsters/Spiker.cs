@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Monsters.Spiker
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -6,218 +12,189 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Monsters
 {
-	public class Spiker : Monster
-	{
-		[XmlIgnore]
-		public int targetDirection;
+  public class Spiker : Monster
+  {
+    [XmlIgnore]
+    public int targetDirection;
+    [XmlIgnore]
+    public NetBool moving = new NetBool(false);
+    protected bool _localMoving;
+    [XmlIgnore]
+    public float nextMoveCheck;
 
-		[XmlIgnore]
-		public NetBool moving = new NetBool(value: false);
+    public Spiker()
+    {
+    }
 
-		protected bool _localMoving;
+    public Spiker(Vector2 position, int direction)
+      : base(nameof (Spiker), position)
+    {
+      this.Sprite.SpriteWidth = 16;
+      this.Sprite.SpriteHeight = 16;
+      this.Sprite.UpdateSourceRect();
+      this.targetDirection = direction;
+      this.speed = 14;
+      this.ignoreMovementAnimations = true;
+      this.onCollision = new Monster.collisionBehavior(this.collide);
+    }
 
-		[XmlIgnore]
-		public float nextMoveCheck;
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.moving);
+    }
 
-		public Spiker()
-		{
-		}
+    public static Vector3? GetSpawnPosition(GameLocation location, Point start_point)
+    {
+      Vector2 zero1 = Vector2.Zero;
+      int num1 = Game1.random.Next(0, 2) == 0 ? 1 : -1;
+      int num2 = 0;
+      Vector2 zero2 = Vector2.Zero;
+      int num3 = 0;
+      Vector2 zero3 = Vector2.Zero;
+      Point p1 = start_point;
+      p1.Y += num1;
+      while (location.isTileOnMap(p1.X, p1.Y) && location.getTileIndexAt(p1, "Buildings") < 0)
+      {
+        p1.Y += num1;
+        ++num2;
+      }
+      Point p2 = start_point;
+      p2.Y -= num1;
+      while (location.isTileOnMap(p2.X, p2.Y) && location.getTileIndexAt(p2, "Buildings") < 0)
+      {
+        zero2.X = (float) p2.X;
+        zero2.Y = (float) p2.Y;
+        p2.Y -= num1;
+        ++num2;
+      }
+      p2 = start_point;
+      p2.X += num1;
+      while (location.isTileOnMap(p2.X, p2.Y) && location.getTileIndexAt(p2, "Buildings") < 0)
+      {
+        p2.X += num1;
+        ++num3;
+      }
+      p2 = start_point;
+      p2.X -= num1;
+      while (location.isTileOnMap(p2.X, p2.Y) && location.getTileIndexAt(p2, "Buildings") < 0)
+      {
+        zero3.X = (float) p2.X;
+        zero3.Y = (float) p2.Y;
+        p2.X -= num1;
+        ++num3;
+      }
+      return num3 < num2 ? (num3 <= 4 ? new Vector3?() : new Vector3?(new Vector3(zero3.X, zero3.Y, num1 == 1 ? 1f : 3f))) : (num2 <= 4 ? new Vector3?() : new Vector3?(new Vector3(zero2.X, zero2.Y, num1 == 1 ? 2f : 0.0f)));
+    }
 
-		public Spiker(Vector2 position, int direction)
-			: base("Spiker", position)
-		{
-			Sprite.SpriteWidth = 16;
-			Sprite.SpriteHeight = 16;
-			Sprite.UpdateSourceRect();
-			targetDirection = direction;
-			base.speed = 14;
-			ignoreMovementAnimations = true;
-			onCollision = collide;
-		}
+    public override void update(GameTime time, GameLocation location)
+    {
+      base.update(time, location);
+      if (this.moving.Value == this._localMoving)
+        return;
+      this._localMoving = this.moving.Value;
+      if (this._localMoving)
+      {
+        if (this.currentLocation != Game1.currentLocation || !Utility.isOnScreen(this.Position, 64))
+          return;
+        Game1.playSound("parry");
+      }
+      else
+      {
+        if (this.currentLocation != Game1.currentLocation || !Utility.isOnScreen(this.Position, 64))
+          return;
+        Game1.playSound("hammer");
+      }
+    }
 
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(moving);
-		}
+    public override bool passThroughCharacters() => true;
 
-		public static Vector3? GetSpawnPosition(GameLocation location, Point start_point)
-		{
-			_ = Vector2.Zero;
-			int direction = (Game1.random.Next(0, 2) == 0) ? 1 : (-1);
-			int vertical_distance = 0;
-			Vector2 vertical_spawn_point = Vector2.Zero;
-			int horizontal_distance = 0;
-			Vector2 horizontal_spawn_point = Vector2.Zero;
-			Point current_point = start_point;
-			current_point.Y += direction;
-			while (location.isTileOnMap(current_point.X, current_point.Y) && location.getTileIndexAt(current_point, "Buildings") < 0)
-			{
-				current_point.Y += direction;
-				vertical_distance++;
-			}
-			current_point = start_point;
-			current_point.Y -= direction;
-			while (location.isTileOnMap(current_point.X, current_point.Y) && location.getTileIndexAt(current_point, "Buildings") < 0)
-			{
-				vertical_spawn_point.X = current_point.X;
-				vertical_spawn_point.Y = current_point.Y;
-				current_point.Y -= direction;
-				vertical_distance++;
-			}
-			current_point = start_point;
-			current_point.X += direction;
-			while (location.isTileOnMap(current_point.X, current_point.Y) && location.getTileIndexAt(current_point, "Buildings") < 0)
-			{
-				current_point.X += direction;
-				horizontal_distance++;
-			}
-			current_point = start_point;
-			current_point.X -= direction;
-			while (location.isTileOnMap(current_point.X, current_point.Y) && location.getTileIndexAt(current_point, "Buildings") < 0)
-			{
-				horizontal_spawn_point.X = current_point.X;
-				horizontal_spawn_point.Y = current_point.Y;
-				current_point.X -= direction;
-				horizontal_distance++;
-			}
-			if (horizontal_distance < vertical_distance)
-			{
-				if (horizontal_distance <= 4)
-				{
-					return null;
-				}
-				return new Vector3(horizontal_spawn_point.X, horizontal_spawn_point.Y, (direction == 1) ? 1 : 3);
-			}
-			if (vertical_distance <= 4)
-			{
-				return null;
-			}
-			return new Vector3(vertical_spawn_point.X, vertical_spawn_point.Y, (direction == 1) ? 2 : 0);
-		}
+    public override void draw(SpriteBatch b) => this.Sprite.draw(b, Game1.GlobalToLocal(Game1.viewport, this.Position), (float) this.GetBoundingBox().Center.Y / 10000f);
 
-		public override void update(GameTime time, GameLocation location)
-		{
-			base.update(time, location);
-			if (moving.Value == _localMoving)
-			{
-				return;
-			}
-			_localMoving = moving.Value;
-			if (_localMoving)
-			{
-				if (base.currentLocation == Game1.currentLocation && Utility.isOnScreen(base.Position, 64))
-				{
-					Game1.playSound("parry");
-				}
-			}
-			else if (base.currentLocation == Game1.currentLocation && Utility.isOnScreen(base.Position, 64))
-			{
-				Game1.playSound("hammer");
-			}
-		}
+    private void collide(GameLocation location)
+    {
+      Rectangle rectangle = this.nextPosition(this.FacingDirection);
+      foreach (Character farmer in location.farmers)
+      {
+        if (farmer.GetBoundingBox().Intersects(rectangle))
+          return;
+      }
+      if (!(bool) (NetFieldBase<bool, NetBool>) this.moving)
+        return;
+      this.moving.Value = false;
+      this.targetDirection = (this.targetDirection + 2) % 4;
+      this.nextMoveCheck = 0.75f;
+    }
 
-		public override bool passThroughCharacters()
-		{
-			return true;
-		}
+    public override void updateMovement(GameLocation location, GameTime time)
+    {
+    }
 
-		public override void draw(SpriteBatch b)
-		{
-			Sprite.draw(b, Game1.GlobalToLocal(Game1.viewport, base.Position), (float)GetBoundingBox().Center.Y / 10000f);
-		}
+    public override int takeDamage(
+      int damage,
+      int xTrajectory,
+      int yTrajectory,
+      bool isBomb,
+      double addedPrecision,
+      Farmer who)
+    {
+      return -1;
+    }
 
-		private void collide(GameLocation location)
-		{
-			Rectangle bb = nextPosition(FacingDirection);
-			foreach (Farmer farmer in location.farmers)
-			{
-				if (farmer.GetBoundingBox().Intersects(bb))
-				{
-					return;
-				}
-			}
-			if ((bool)moving)
-			{
-				moving.Value = false;
-				targetDirection = (targetDirection + 2) % 4;
-				nextMoveCheck = 0.75f;
-			}
-		}
-
-		public override void updateMovement(GameLocation location, GameTime time)
-		{
-		}
-
-		public override int takeDamage(int damage, int xTrajectory, int yTrajectory, bool isBomb, double addedPrecision, Farmer who)
-		{
-			return -1;
-		}
-
-		public override void behaviorAtGameTick(GameTime time)
-		{
-			if (nextMoveCheck > 0f)
-			{
-				nextMoveCheck -= (float)time.ElapsedGameTime.TotalSeconds;
-			}
-			if (nextMoveCheck <= 0f)
-			{
-				nextMoveCheck = 0.25f;
-				foreach (Farmer farmer in base.currentLocation.farmers)
-				{
-					if ((targetDirection == 0 || targetDirection == 2) && Math.Abs(farmer.getTileX() - getTileX()) <= 1)
-					{
-						if (targetDirection == 0 && farmer.Position.Y < base.Position.Y)
-						{
-							moving.Value = true;
-							break;
-						}
-						if (targetDirection == 2 && farmer.Position.Y > base.Position.Y)
-						{
-							moving.Value = true;
-							break;
-						}
-					}
-					if ((targetDirection == 3 || targetDirection == 1) && Math.Abs(farmer.getTileY() - getTileY()) <= 1)
-					{
-						if (targetDirection == 3 && farmer.Position.X < base.Position.X)
-						{
-							moving.Value = true;
-							break;
-						}
-						if (targetDirection == 1 && farmer.Position.X > base.Position.X)
-						{
-							moving.Value = true;
-							break;
-						}
-					}
-				}
-			}
-			moveUp = false;
-			moveDown = false;
-			moveLeft = false;
-			moveRight = false;
-			if (moving.Value)
-			{
-				if (targetDirection == 0)
-				{
-					moveUp = true;
-				}
-				if (targetDirection == 2)
-				{
-					moveDown = true;
-				}
-				else if (targetDirection == 3)
-				{
-					moveLeft = true;
-				}
-				else if (targetDirection == 1)
-				{
-					moveRight = true;
-				}
-				MovePosition(time, Game1.viewport, base.currentLocation);
-			}
-			faceDirection(2);
-		}
-	}
+    public override void behaviorAtGameTick(GameTime time)
+    {
+      if ((double) this.nextMoveCheck > 0.0)
+        this.nextMoveCheck -= (float) time.ElapsedGameTime.TotalSeconds;
+      if ((double) this.nextMoveCheck <= 0.0)
+      {
+        this.nextMoveCheck = 0.25f;
+        foreach (Farmer farmer in this.currentLocation.farmers)
+        {
+          if ((this.targetDirection == 0 || this.targetDirection == 2) && Math.Abs(farmer.getTileX() - this.getTileX()) <= 1)
+          {
+            if (this.targetDirection == 0 && (double) farmer.Position.Y < (double) this.Position.Y)
+            {
+              this.moving.Value = true;
+              break;
+            }
+            if (this.targetDirection == 2 && (double) farmer.Position.Y > (double) this.Position.Y)
+            {
+              this.moving.Value = true;
+              break;
+            }
+          }
+          if ((this.targetDirection == 3 || this.targetDirection == 1) && Math.Abs(farmer.getTileY() - this.getTileY()) <= 1)
+          {
+            if (this.targetDirection == 3 && (double) farmer.Position.X < (double) this.Position.X)
+            {
+              this.moving.Value = true;
+              break;
+            }
+            if (this.targetDirection == 1 && (double) farmer.Position.X > (double) this.Position.X)
+            {
+              this.moving.Value = true;
+              break;
+            }
+          }
+        }
+      }
+      this.moveUp = false;
+      this.moveDown = false;
+      this.moveLeft = false;
+      this.moveRight = false;
+      if (this.moving.Value)
+      {
+        if (this.targetDirection == 0)
+          this.moveUp = true;
+        if (this.targetDirection == 2)
+          this.moveDown = true;
+        else if (this.targetDirection == 3)
+          this.moveLeft = true;
+        else if (this.targetDirection == 1)
+          this.moveRight = true;
+        this.MovePosition(time, Game1.viewport, this.currentLocation);
+      }
+      this.faceDirection(2);
+    }
+  }
 }

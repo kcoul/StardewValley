@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.HouseRenovation
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -10,426 +16,333 @@ using System.Collections.Generic;
 
 namespace StardewValley
 {
-	public class HouseRenovation : ISalable
-	{
-		public enum AnimationType
-		{
-			Build,
-			Destroy
-		}
+  public class HouseRenovation : ISalable
+  {
+    protected string _displayName;
+    protected string _name;
+    protected string _description;
+    public HouseRenovation.AnimationType animationType;
+    public List<List<Rectangle>> renovationBounds = new List<List<Rectangle>>();
+    public string placementText = "";
+    public GameLocation location;
+    public bool requireClearance = true;
+    public Action<HouseRenovation, int> onRenovation;
+    public Func<HouseRenovation, int, bool> validate;
 
-		protected string _displayName;
+    public bool ShouldDrawIcon() => false;
 
-		protected string _name;
+    public string DisplayName => this._displayName;
 
-		protected string _description;
+    public void drawInMenu(
+      SpriteBatch spriteBatch,
+      Vector2 location,
+      float scaleSize,
+      float transparency,
+      float layerDepth,
+      StackDrawType drawStackNumber,
+      Color color,
+      bool drawShadow)
+    {
+    }
 
-		public AnimationType animationType;
+    public string Name => this._name;
 
-		public List<List<Rectangle>> renovationBounds = new List<List<Rectangle>>();
+    public string getDescription() => this._description;
 
-		public string placementText = "";
+    public int maximumStackSize() => 1;
 
-		public GameLocation location;
+    public int addToStack(Item stack) => 0;
 
-		public bool requireClearance = true;
+    public int Stack
+    {
+      get => 1;
+      set
+      {
+      }
+    }
 
-		public Action<HouseRenovation, int> onRenovation;
+    public int salePrice() => 0;
 
-		public Func<HouseRenovation, int, bool> validate;
+    public bool actionWhenPurchased() => false;
 
-		public string DisplayName => _displayName;
+    public bool canStackWith(ISalable other) => false;
 
-		public string Name => _name;
+    public bool CanBuyItem(Farmer farmer) => true;
 
-		public int Stack
-		{
-			get
-			{
-				return 1;
-			}
-			set
-			{
-			}
-		}
+    public bool IsInfiniteStock() => true;
 
-		public bool ShouldDrawIcon()
-		{
-			return false;
-		}
+    public ISalable GetSalableInstance() => (ISalable) this;
 
-		public void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
-		{
-		}
+    public static void ShowRenovationMenu() => Game1.activeClickableMenu = (IClickableMenu) new ShopMenu(HouseRenovation.GetAvailableRenovations(), on_purchase: new Func<ISalable, Farmer, int, bool>(HouseRenovation.OnPurchaseRenovation));
 
-		public string getDescription()
-		{
-			return _description;
-		}
+    public static List<ISalable> GetAvailableRenovations()
+    {
+      FarmHouse farmhouse = Game1.getLocationFromName((string) (NetFieldBase<string, NetString>) Game1.player.homeLocation) as FarmHouse;
+      List<ISalable> availableRenovations = new List<ISalable>();
+      Dictionary<string, HomeRenovation> dictionary = Game1.content.Load<Dictionary<string, HomeRenovation>>("Data\\HomeRenovations");
+      foreach (string key in dictionary.Keys)
+      {
+        HomeRenovation homeRenovation = dictionary[key];
+        bool flag1 = true;
+        foreach (RenovationValue requirement in homeRenovation.Requirements)
+        {
+          if (requirement.Type == "Value")
+          {
+            string s = requirement.Value;
+            bool flag2 = true;
+            if (s.Length > 0 && s[0] == '!')
+            {
+              s = s.Substring(1);
+              flag2 = false;
+            }
+            int num = int.Parse(s);
+            try
+            {
+              NetInt netInt = (NetInt) farmhouse.GetType().GetField(requirement.Key).GetValue((object) farmhouse);
+              if ((NetFieldBase<int, NetInt>) netInt == (NetInt) null)
+              {
+                flag1 = false;
+                break;
+              }
+              if (netInt.Value == num != flag2)
+              {
+                flag1 = false;
+                break;
+              }
+            }
+            catch (Exception ex)
+            {
+              flag1 = false;
+              break;
+            }
+          }
+          else if (requirement.Type == "Mail")
+          {
+            string str = requirement.Value;
+            if (Game1.player.hasOrWillReceiveMail(requirement.Key) != (requirement.Value == "1"))
+            {
+              flag1 = false;
+              break;
+            }
+          }
+        }
+        if (flag1)
+        {
+          HouseRenovation houseRenovation = new HouseRenovation();
+          houseRenovation.location = (GameLocation) farmhouse;
+          houseRenovation._name = key;
+          string[] strArray = Game1.content.LoadString(homeRenovation.TextStrings).Split('/');
+          try
+          {
+            houseRenovation._displayName = strArray[0];
+            houseRenovation._description = strArray[1];
+            houseRenovation.placementText = strArray[2];
+          }
+          catch (Exception ex)
+          {
+            houseRenovation._displayName = "?";
+            houseRenovation._description = "?";
+            houseRenovation.placementText = "?";
+          }
+          if (homeRenovation.CheckForObstructions)
+            houseRenovation.validate += new Func<HouseRenovation, int, bool>(HouseRenovation.EnsureNoObstructions);
+          houseRenovation.animationType = !(homeRenovation.AnimationType == "destroy") ? HouseRenovation.AnimationType.Build : HouseRenovation.AnimationType.Destroy;
+          if (homeRenovation.SpecialRect != null && homeRenovation.SpecialRect != "")
+          {
+            if (homeRenovation.SpecialRect == "crib")
+            {
+              Rectangle? cribBounds = farmhouse.GetCribBounds();
+              if (farmhouse.CanModifyCrib() && cribBounds.HasValue)
+                houseRenovation.AddRenovationBound(cribBounds.Value);
+              else
+                continue;
+            }
+          }
+          else
+          {
+            foreach (RectGroup rectGroup in homeRenovation.RectGroups)
+            {
+              List<Rectangle> bounds = new List<Rectangle>();
+              foreach (Rect rect in rectGroup.Rects)
+                bounds.Add(new Rectangle()
+                {
+                  X = rect.X,
+                  Y = rect.Y,
+                  Width = rect.Width,
+                  Height = rect.Height
+                });
+              houseRenovation.AddRenovationBound(bounds);
+            }
+          }
+          foreach (RenovationValue renovateAction in homeRenovation.RenovateActions)
+          {
+            RenovationValue action_data = renovateAction;
+            if (action_data.Type == "Value")
+            {
+              try
+              {
+                NetInt field = (NetInt) farmhouse.GetType().GetField(action_data.Key).GetValue((object) farmhouse);
+                if ((NetFieldBase<int, NetInt>) field == (NetInt) null)
+                {
+                  flag1 = false;
+                  break;
+                }
+                Action<HouseRenovation, int> action = (Action<HouseRenovation, int>) ((selected_renovation, index) =>
+                {
+                  if (action_data.Value == "selected")
+                    field.Value = index;
+                  else
+                    field.Value = int.Parse(action_data.Value);
+                });
+                houseRenovation.onRenovation += action;
+              }
+              catch (Exception ex)
+              {
+                flag1 = false;
+                break;
+              }
+            }
+            else if (action_data.Type == "Mail")
+            {
+              Action<HouseRenovation, int> action = (Action<HouseRenovation, int>) ((selected_renovation, index) =>
+              {
+                if (action_data.Value == "0")
+                  Game1.player.mailReceived.Remove(action_data.Key);
+                else
+                  Game1.player.mailReceived.Add(action_data.Key);
+              });
+              houseRenovation.onRenovation += action;
+            }
+          }
+          if (flag1)
+          {
+            houseRenovation.onRenovation += (Action<HouseRenovation, int>) ((a, b) => farmhouse.UpdateForRenovation());
+            availableRenovations.Add((ISalable) houseRenovation);
+          }
+        }
+      }
+      return availableRenovations;
+    }
 
-		public int maximumStackSize()
-		{
-			return 1;
-		}
+    public static bool EnsureNoObstructions(HouseRenovation renovation, int selected_index)
+    {
+      if (renovation.location == null)
+        return false;
+      foreach (Rectangle rectangle1 in renovation.renovationBounds[selected_index])
+      {
+        for (int left = rectangle1.Left; left < rectangle1.Right; ++left)
+        {
+          for (int top = rectangle1.Top; top < rectangle1.Bottom; ++top)
+          {
+            if (renovation.location.isTileOccupiedByFarmer(new Vector2((float) left, (float) top)) != null)
+            {
+              Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:RenovationBlocked"));
+              return false;
+            }
+            if (renovation.location.isTileOccupied(new Vector2((float) left, (float) top)))
+            {
+              Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:RenovationBlocked"));
+              return false;
+            }
+          }
+        }
+        Rectangle rectangle2 = new Rectangle(rectangle1.X * 64, rectangle1.Y * 64, rectangle1.Width * 64, rectangle1.Height * 64);
+        if (renovation.location is DecoratableLocation location)
+        {
+          foreach (Furniture furniture in location.furniture)
+          {
+            if (furniture.getBoundingBox((Vector2) (NetFieldBase<Vector2, NetVector2>) furniture.tileLocation).Intersects(rectangle2))
+            {
+              Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:RenovationBlocked"));
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
 
-		public int addToStack(Item stack)
-		{
-			return 0;
-		}
+    public static void BuildCrib(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      location.cribStyle.Value = 1;
+    }
 
-		public int salePrice()
-		{
-			return 0;
-		}
+    public static void RemoveCrib(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      location.cribStyle.Value = 0;
+    }
 
-		public bool actionWhenPurchased()
-		{
-			return false;
-		}
+    public static void OpenBedroom(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      Game1.player.mailReceived.Add("renovation_bedroom_open");
+      location.UpdateForRenovation();
+    }
 
-		public bool canStackWith(ISalable other)
-		{
-			return false;
-		}
+    public static void CloseBedroom(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      Game1.player.mailReceived.Remove("renovation_bedroom_open");
+      location.UpdateForRenovation();
+    }
 
-		public bool CanBuyItem(Farmer farmer)
-		{
-			return true;
-		}
+    public static void OpenSouthernRoom(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      Game1.player.mailReceived.Add("renovation_southern_open");
+      location.UpdateForRenovation();
+    }
 
-		public bool IsInfiniteStock()
-		{
-			return true;
-		}
+    public static void CloseSouthernRoom(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      Game1.player.mailReceived.Remove("renovation_southern_open");
+      location.UpdateForRenovation();
+    }
 
-		public ISalable GetSalableInstance()
-		{
-			return this;
-		}
+    public static void OpenCornernRoom(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      Game1.player.mailReceived.Add("renovation_corner_open");
+      location.UpdateForRenovation();
+    }
 
-		public static void ShowRenovationMenu()
-		{
-			Game1.activeClickableMenu = new ShopMenu(GetAvailableRenovations(), 0, null, OnPurchaseRenovation);
-		}
+    public static void CloseCornerRoom(HouseRenovation renovation, int selected_index)
+    {
+      if (!(renovation.location is FarmHouse location))
+        return;
+      Game1.player.mailReceived.Remove("renovation_corner_open");
+      location.UpdateForRenovation();
+    }
 
-		public static List<ISalable> GetAvailableRenovations()
-		{
-			FarmHouse farmhouse = Game1.getLocationFromName(Game1.player.homeLocation) as FarmHouse;
-			List<ISalable> available_renovations = new List<ISalable>();
-			HouseRenovation renovation2 = null;
-			Dictionary<string, HomeRenovation> data = Game1.content.Load<Dictionary<string, HomeRenovation>>("Data\\HomeRenovations");
-			foreach (string key in data.Keys)
-			{
-				HomeRenovation renovation_data = data[key];
-				bool valid = true;
-				foreach (RenovationValue requirement_data in renovation_data.Requirements)
-				{
-					if (requirement_data.Type == "Value")
-					{
-						string requirement_value = requirement_data.Value;
-						bool match = true;
-						if (requirement_value.Length > 0 && requirement_value[0] == '!')
-						{
-							requirement_value = requirement_value.Substring(1);
-							match = false;
-						}
-						int value = int.Parse(requirement_value);
-						try
-						{
-							NetInt field2 = (NetInt)farmhouse.GetType().GetField(requirement_data.Key).GetValue(farmhouse);
-							if (field2 == null)
-							{
-								valid = false;
-							}
-							else
-							{
-								if (field2.Value == value == match)
-								{
-									continue;
-								}
-								valid = false;
-							}
-						}
-						catch (Exception)
-						{
-							valid = false;
-						}
-						break;
-					}
-					if (requirement_data.Type == "Mail")
-					{
-						_ = requirement_data.Value;
-						if (Game1.player.hasOrWillReceiveMail(requirement_data.Key) != (requirement_data.Value == "1"))
-						{
-							valid = false;
-							break;
-						}
-					}
-				}
-				if (valid)
-				{
-					renovation2 = new HouseRenovation();
-					renovation2.location = farmhouse;
-					renovation2._name = key;
-					string[] split = Game1.content.LoadString(renovation_data.TextStrings).Split('/');
-					try
-					{
-						renovation2._displayName = split[0];
-						renovation2._description = split[1];
-						renovation2.placementText = split[2];
-					}
-					catch (Exception)
-					{
-						renovation2._displayName = "?";
-						renovation2._description = "?";
-						renovation2.placementText = "?";
-					}
-					if (renovation_data.CheckForObstructions)
-					{
-						HouseRenovation houseRenovation = renovation2;
-						houseRenovation.validate = (Func<HouseRenovation, int, bool>)Delegate.Combine(houseRenovation.validate, new Func<HouseRenovation, int, bool>(EnsureNoObstructions));
-					}
-					if (renovation_data.AnimationType == "destroy")
-					{
-						renovation2.animationType = AnimationType.Destroy;
-					}
-					else
-					{
-						renovation2.animationType = AnimationType.Build;
-					}
-					if (renovation_data.SpecialRect != null && renovation_data.SpecialRect != "")
-					{
-						if (renovation_data.SpecialRect == "crib")
-						{
-							Rectangle? crib_bounds = farmhouse.GetCribBounds();
-							if (!farmhouse.CanModifyCrib() || !crib_bounds.HasValue)
-							{
-								continue;
-							}
-							renovation2.AddRenovationBound(crib_bounds.Value);
-						}
-					}
-					else
-					{
-						foreach (RectGroup rectGroup in renovation_data.RectGroups)
-						{
-							List<Rectangle> rectangles = new List<Rectangle>();
-							foreach (Rect rect in rectGroup.Rects)
-							{
-								Rectangle rectangle = default(Rectangle);
-								rectangle.X = rect.X;
-								rectangle.Y = rect.Y;
-								rectangle.Width = rect.Width;
-								rectangle.Height = rect.Height;
-								rectangles.Add(rectangle);
-							}
-							renovation2.AddRenovationBound(rectangles);
-						}
-					}
-					foreach (RenovationValue action_data in renovation_data.RenovateActions)
-					{
-						if (action_data.Type == "Value")
-						{
-							try
-							{
-								NetInt field = (NetInt)farmhouse.GetType().GetField(action_data.Key).GetValue(farmhouse);
-								if (!(field == null))
-								{
-									Action<HouseRenovation, int> action2 = delegate(HouseRenovation selected_renovation, int index)
-									{
-										if (action_data.Value == "selected")
-										{
-											field.Value = index;
-										}
-										else
-										{
-											int value2 = int.Parse(action_data.Value);
-											field.Value = value2;
-										}
-									};
-									HouseRenovation houseRenovation2 = renovation2;
-									houseRenovation2.onRenovation = (Action<HouseRenovation, int>)Delegate.Combine(houseRenovation2.onRenovation, action2);
-									continue;
-								}
-								valid = false;
-							}
-							catch (Exception)
-							{
-								valid = false;
-							}
-							break;
-						}
-						if (action_data.Type == "Mail")
-						{
-							Action<HouseRenovation, int> action = delegate
-							{
-								if (action_data.Value == "0")
-								{
-									Game1.player.mailReceived.Remove(action_data.Key);
-								}
-								else
-								{
-									Game1.player.mailReceived.Add(action_data.Key);
-								}
-							};
-							HouseRenovation houseRenovation3 = renovation2;
-							houseRenovation3.onRenovation = (Action<HouseRenovation, int>)Delegate.Combine(houseRenovation3.onRenovation, action);
-						}
-					}
-					if (valid)
-					{
-						HouseRenovation houseRenovation4 = renovation2;
-						houseRenovation4.onRenovation = (Action<HouseRenovation, int>)Delegate.Combine(houseRenovation4.onRenovation, (Action<HouseRenovation, int>)delegate
-						{
-							farmhouse.UpdateForRenovation();
-						});
-						available_renovations.Add(renovation2);
-					}
-				}
-			}
-			return available_renovations;
-		}
+    public static bool OnPurchaseRenovation(ISalable salable, Farmer who, int amount)
+    {
+      if (!(salable is HouseRenovation renovation))
+        return false;
+      Game1.activeClickableMenu = (IClickableMenu) new RenovateMenu(renovation);
+      return true;
+    }
 
-		public static bool EnsureNoObstructions(HouseRenovation renovation, int selected_index)
-		{
-			if (renovation.location != null)
-			{
-				foreach (Rectangle rectangle in renovation.renovationBounds[selected_index])
-				{
-					for (int x = rectangle.Left; x < rectangle.Right; x++)
-					{
-						for (int y = rectangle.Top; y < rectangle.Bottom; y++)
-						{
-							if (renovation.location.isTileOccupiedByFarmer(new Vector2(x, y)) != null)
-							{
-								Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:RenovationBlocked"));
-								return false;
-							}
-							if (renovation.location.isTileOccupied(new Vector2(x, y)))
-							{
-								Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:RenovationBlocked"));
-								return false;
-							}
-						}
-					}
-					Rectangle world_box = new Rectangle(rectangle.X * 64, rectangle.Y * 64, rectangle.Width * 64, rectangle.Height * 64);
-					DecoratableLocation decoratable_location;
-					if ((decoratable_location = (renovation.location as DecoratableLocation)) != null)
-					{
-						foreach (Furniture item in decoratable_location.furniture)
-						{
-							if (item.getBoundingBox(item.tileLocation).Intersects(world_box))
-							{
-								Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:RenovationBlocked"));
-								return false;
-							}
-						}
-					}
-				}
-				return true;
-			}
-			return false;
-		}
+    public virtual void AddRenovationBound(Rectangle bound) => this.renovationBounds.Add(new List<Rectangle>()
+    {
+      bound
+    });
 
-		public static void BuildCrib(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				farm_house.cribStyle.Value = 1;
-			}
-		}
+    public virtual void AddRenovationBound(List<Rectangle> bounds) => this.renovationBounds.Add(bounds);
 
-		public static void RemoveCrib(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				farm_house.cribStyle.Value = 0;
-			}
-		}
-
-		public static void OpenBedroom(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				Game1.player.mailReceived.Add("renovation_bedroom_open");
-				farm_house.UpdateForRenovation();
-			}
-		}
-
-		public static void CloseBedroom(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				Game1.player.mailReceived.Remove("renovation_bedroom_open");
-				farm_house.UpdateForRenovation();
-			}
-		}
-
-		public static void OpenSouthernRoom(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				Game1.player.mailReceived.Add("renovation_southern_open");
-				farm_house.UpdateForRenovation();
-			}
-		}
-
-		public static void CloseSouthernRoom(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				Game1.player.mailReceived.Remove("renovation_southern_open");
-				farm_house.UpdateForRenovation();
-			}
-		}
-
-		public static void OpenCornernRoom(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				Game1.player.mailReceived.Add("renovation_corner_open");
-				farm_house.UpdateForRenovation();
-			}
-		}
-
-		public static void CloseCornerRoom(HouseRenovation renovation, int selected_index)
-		{
-			FarmHouse farm_house;
-			if ((farm_house = (renovation.location as FarmHouse)) != null)
-			{
-				Game1.player.mailReceived.Remove("renovation_corner_open");
-				farm_house.UpdateForRenovation();
-			}
-		}
-
-		public static bool OnPurchaseRenovation(ISalable salable, Farmer who, int amount)
-		{
-			HouseRenovation renovation;
-			if ((renovation = (salable as HouseRenovation)) != null)
-			{
-				Game1.activeClickableMenu = new RenovateMenu(renovation);
-				return true;
-			}
-			return false;
-		}
-
-		public virtual void AddRenovationBound(Rectangle bound)
-		{
-			List<Rectangle> bounds = new List<Rectangle>();
-			bounds.Add(bound);
-			renovationBounds.Add(bounds);
-		}
-
-		public virtual void AddRenovationBound(List<Rectangle> bounds)
-		{
-			renovationBounds.Add(bounds);
-		}
-	}
+    public enum AnimationType
+    {
+      Build,
+      Destroy,
+    }
+  }
 }

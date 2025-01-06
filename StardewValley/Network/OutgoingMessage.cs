@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.OutgoingMessage
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using System;
@@ -6,117 +12,100 @@ using System.IO;
 
 namespace StardewValley.Network
 {
-	public struct OutgoingMessage
-	{
-		private byte messageType;
+  public struct OutgoingMessage
+  {
+    private byte messageType;
+    private long farmerID;
+    private object[] data;
 
-		private long farmerID;
+    public byte MessageType => this.messageType;
 
-		private object[] data;
+    public long FarmerID => this.farmerID;
 
-		public byte MessageType => messageType;
+    public Farmer SourceFarmer => Game1.getFarmer(this.farmerID);
 
-		public long FarmerID => farmerID;
+    public ReadOnlyCollection<object> Data => Array.AsReadOnly<object>(this.data);
 
-		public Farmer SourceFarmer => Game1.getFarmer(farmerID);
+    public OutgoingMessage(byte messageType, long farmerID, params object[] data)
+    {
+      this.messageType = messageType;
+      this.farmerID = farmerID;
+      this.data = data;
+    }
 
-		public ReadOnlyCollection<object> Data => Array.AsReadOnly(data);
+    public OutgoingMessage(byte messageType, Farmer sourceFarmer, params object[] data)
+      : this(messageType, sourceFarmer.UniqueMultiplayerID, data)
+    {
+    }
 
-		public OutgoingMessage(byte messageType, long farmerID, params object[] data)
-		{
-			this.messageType = messageType;
-			this.farmerID = farmerID;
-			this.data = data;
-		}
+    public OutgoingMessage(IncomingMessage message)
+      : this(message.MessageType, message.FarmerID, new object[1]
+      {
+        (object) message.Data
+      })
+    {
+    }
 
-		public OutgoingMessage(byte messageType, Farmer sourceFarmer, params object[] data)
-		{
-			this = new OutgoingMessage(messageType, sourceFarmer.UniqueMultiplayerID, data);
-		}
-
-		public OutgoingMessage(IncomingMessage message)
-		{
-			this = new OutgoingMessage(message.MessageType, message.FarmerID, message.Data);
-		}
-
-		public void Write(BinaryWriter writer)
-		{
-			writer.Write(messageType);
-			writer.Write(farmerID);
-			object[] data = this.data;
-			writer.WriteSkippable(delegate
-			{
-				object[] array = data;
-				int num = 0;
-				while (true)
-				{
-					if (num >= array.Length)
-					{
-						return;
-					}
-					object obj = array[num];
-					if (obj is Vector2)
-					{
-						writer.Write(((Vector2)obj).X);
-						writer.Write(((Vector2)obj).Y);
-					}
-					else if (obj is Guid)
-					{
-						writer.Write(((Guid)obj).ToByteArray());
-					}
-					else if (obj is byte[])
-					{
-						writer.Write((byte[])obj);
-					}
-					else if (obj is bool)
-					{
-						writer.Write((byte)(((bool)obj) ? 1 : 0));
-					}
-					else if (obj is byte)
-					{
-						writer.Write((byte)obj);
-					}
-					else if (obj is int)
-					{
-						writer.Write((int)obj);
-					}
-					else if (obj is short)
-					{
-						writer.Write((short)obj);
-					}
-					else if (obj is float)
-					{
-						writer.Write((float)obj);
-					}
-					else if (obj is long)
-					{
-						writer.Write((long)obj);
-					}
-					else if (obj is string)
-					{
-						writer.Write((string)obj);
-					}
-					else if (obj is string[])
-					{
-						string[] array2 = (string[])obj;
-						writer.Write((byte)array2.Length);
-						for (int i = 0; i < array2.Length; i++)
-						{
-							writer.Write(array2[i]);
-						}
-					}
-					else
-					{
-						if (!(obj is IConvertible) || !obj.GetType().IsValueType)
-						{
-							break;
-						}
-						writer.WriteEnum(obj);
-					}
-					num++;
-				}
-				throw new InvalidDataException();
-			});
-		}
-	}
+    public void Write(BinaryWriter writer)
+    {
+      writer.Write(this.messageType);
+      writer.Write(this.farmerID);
+      object[] data = this.data;
+      writer.WriteSkippable((Action) (() =>
+      {
+        foreach (object obj in data)
+        {
+          switch (obj)
+          {
+            case Vector2 _:
+              writer.Write(((Vector2) obj).X);
+              writer.Write(((Vector2) obj).Y);
+              break;
+            case Guid guid2:
+              writer.Write(guid2.ToByteArray());
+              break;
+            case byte[] _:
+              writer.Write((byte[]) obj);
+              break;
+            case bool flag2:
+              writer.Write(flag2 ? (byte) 1 : (byte) 0);
+              break;
+            case byte num6:
+              writer.Write(num6);
+              break;
+            case int num7:
+              writer.Write(num7);
+              break;
+            case short num8:
+              writer.Write(num8);
+              break;
+            case float num9:
+              writer.Write(num9);
+              break;
+            case long num10:
+              writer.Write(num10);
+              break;
+            case string _:
+              writer.Write((string) obj);
+              break;
+            case string[] _:
+              string[] strArray = (string[]) obj;
+              writer.Write((byte) strArray.Length);
+              for (int index = 0; index < strArray.Length; ++index)
+                writer.Write(strArray[index]);
+              break;
+            case IConvertible _:
+              if (obj.GetType().IsValueType)
+              {
+                writer.WriteEnum(obj);
+                break;
+              }
+              goto default;
+            default:
+              throw new InvalidDataException();
+          }
+        }
+      }));
+    }
+  }
 }

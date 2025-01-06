@@ -1,70 +1,78 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.IGameServer
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using System;
 
 namespace StardewValley.Network
 {
-	public interface IGameServer : IBandwidthMonitor
-	{
-		int connectionsCount
-		{
-			get;
-		}
+  public interface IGameServer : IBandwidthMonitor
+  {
+    int connectionsCount { get; }
 
-		string getInviteCode();
+    string getInviteCode();
 
-		string getUserName(long farmerId);
+    string getUserName(long farmerId);
 
-		void setPrivacy(ServerPrivacy privacy);
+    void setPrivacy(ServerPrivacy privacy);
 
-		void stopServer();
+    void stopServer();
 
-		void receiveMessages();
+    void receiveMessages();
 
-		void sendMessage(long peerId, OutgoingMessage message);
+    void sendMessage(long peerId, OutgoingMessage message);
 
-		bool canAcceptIPConnections();
+    bool canAcceptIPConnections();
 
-		bool canOfferInvite();
+    bool canOfferInvite();
 
-		void offerInvite();
+    void offerInvite();
 
-		bool connected();
+    bool connected();
 
-		void sendMessage(long peerId, byte messageType, Farmer sourceFarmer, params object[] data);
+    void sendMessage(long peerId, byte messageType, Farmer sourceFarmer, params object[] data);
 
-		void sendMessages();
+    void sendMessages();
 
-		void startServer();
+    void startServer();
 
-		void initializeHost();
+    void initializeHost();
 
-		void sendServerIntroduction(long peer);
+    void sendServerIntroduction(long peer);
 
-		void kick(long disconnectee);
+    void kick(long disconnectee);
 
-		string ban(long farmerId);
+    string ban(long farmerId);
 
-		void playerDisconnected(long disconnectee);
+    void playerDisconnected(long disconnectee);
 
-		bool isGameAvailable();
+    bool isGameAvailable();
 
-		bool whenGameAvailable(Action action, Func<bool> customAvailabilityCheck = null);
+    bool whenGameAvailable(Action action, Func<bool> customAvailabilityCheck = null);
 
-		void checkFarmhandRequest(string userID, string connectionID, NetFarmerRoot farmer, Action<OutgoingMessage> sendMessage, Action approve);
+    void checkFarmhandRequest(
+      string userID,
+      string connectionID,
+      NetFarmerRoot farmer,
+      Action<OutgoingMessage> sendMessage,
+      Action approve);
 
-		void sendAvailableFarmhands(string userID, Action<OutgoingMessage> sendMessage);
+    void sendAvailableFarmhands(string userID, Action<OutgoingMessage> sendMessage);
 
-		void processIncomingMessage(IncomingMessage message);
+    void processIncomingMessage(IncomingMessage message);
 
-		void updateLobbyData();
+    void updateLobbyData();
 
-		float getPingToClient(long peer);
+    float getPingToClient(long peer);
 
-		bool isUserBanned(string userID);
+    bool isUserBanned(string userID);
 
-		void onConnect(string connectionID);
+    void onConnect(string connectionID);
 
-		void onDisconnect(string connectionID);
+    void onDisconnect(string connectionID);
 
-		bool IsLocalMultiplayerInitiatedServer();
-	}
+    bool IsLocalMultiplayerInitiatedServer();
+  }
 }

@@ -1,69 +1,56 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.LocationRequest
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
+using Netcode;
+
 namespace StardewValley
 {
-	public class LocationRequest
-	{
-		public delegate void Callback();
+  public class LocationRequest
+  {
+    public string Name;
+    public bool IsStructure;
+    public GameLocation Location;
 
-		public string Name;
+    public event LocationRequest.Callback OnLoad;
 
-		public bool IsStructure;
+    public event LocationRequest.Callback OnWarp;
 
-		public GameLocation Location;
+    public LocationRequest(string name, bool isStructure, GameLocation location)
+    {
+      this.Name = name;
+      this.IsStructure = isStructure;
+      this.Location = location;
+    }
 
-		public event Callback OnLoad;
+    public void Loaded(GameLocation location)
+    {
+      if (this.OnLoad == null)
+        return;
+      this.OnLoad();
+    }
 
-		public event Callback OnWarp;
+    public void Warped(GameLocation location)
+    {
+      if (this.OnWarp != null)
+        this.OnWarp();
+      Game1.player.ridingMineElevator = false;
+      Game1.forceSnapOnNextViewportUpdate = true;
+    }
 
-		public LocationRequest(string name, bool isStructure, GameLocation location)
-		{
-			Name = name;
-			IsStructure = isStructure;
-			Location = location;
-		}
+    public bool IsRequestFor(GameLocation location)
+    {
+      if (!this.IsStructure && location.Name == this.Name)
+        return true;
+      return location.uniqueName.Value == this.Name && (bool) (NetFieldBase<bool, NetBool>) location.isStructure;
+    }
 
-		public void Loaded(GameLocation location)
-		{
-			if (this.OnLoad != null)
-			{
-				this.OnLoad();
-			}
-		}
+    public bool IsRequestFor(string name, bool isStructure) => !this.IsStructure ? name == this.Name : name == this.Name & isStructure;
 
-		public void Warped(GameLocation location)
-		{
-			if (this.OnWarp != null)
-			{
-				this.OnWarp();
-			}
-			Game1.player.ridingMineElevator = false;
-			Game1.forceSnapOnNextViewportUpdate = true;
-		}
+    public override string ToString() => "LocationRequest(" + this.Name + ", " + this.IsStructure.ToString() + ")";
 
-		public bool IsRequestFor(GameLocation location)
-		{
-			if (!IsStructure && location.Name == Name)
-			{
-				return true;
-			}
-			if (location.uniqueName.Value == Name)
-			{
-				return location.isStructure;
-			}
-			return false;
-		}
-
-		public bool IsRequestFor(string name, bool isStructure)
-		{
-			if (!IsStructure)
-			{
-				return name == Name;
-			}
-			return name == Name && isStructure;
-		}
-
-		public override string ToString()
-		{
-			return "LocationRequest(" + Name + ", " + IsStructure.ToString() + ")";
-		}
-	}
+    public delegate void Callback();
+  }
 }

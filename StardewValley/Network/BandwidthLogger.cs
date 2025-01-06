@@ -1,94 +1,81 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.BandwidthLogger
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using System;
 using System.Collections.Generic;
 
 namespace StardewValley.Network
 {
-	public class BandwidthLogger
-	{
-		private long bitsDownSinceLastUpdate;
+  public class BandwidthLogger
+  {
+    private long bitsDownSinceLastUpdate;
+    private long bitsUpSinceLastUpdate;
+    private DateTime lastUpdateTime = DateTime.Now;
+    private double lastBitsDownPerSecond;
+    private double lastBitsUpPerSecond;
+    private double avgBitsUpPerSecond;
+    private long bitsUpPerSecondCount;
+    private double avgBitsDownPerSecond;
+    private long bitsDownPerSecondCount;
+    private long totalBitsDown;
+    private long totalBitsUp;
+    private double totalMs;
+    private int queueCapacity = 100;
+    private Queue<double> bitsUp = new Queue<double>();
+    private Queue<double> bitsDown = new Queue<double>();
 
-		private long bitsUpSinceLastUpdate;
+    public void Update()
+    {
+      double totalMilliseconds = (DateTime.Now - this.lastUpdateTime).TotalMilliseconds;
+      if (totalMilliseconds <= 1000.0)
+        return;
+      this.lastBitsDownPerSecond = (double) this.bitsDownSinceLastUpdate / totalMilliseconds * 1000.0;
+      this.lastBitsUpPerSecond = (double) this.bitsUpSinceLastUpdate / totalMilliseconds * 1000.0;
+      this.avgBitsDownPerSecond = (this.avgBitsDownPerSecond * (double) this.bitsDownPerSecondCount + this.lastBitsDownPerSecond) / (double) ++this.bitsDownPerSecondCount;
+      this.avgBitsUpPerSecond = (this.avgBitsUpPerSecond * (double) this.bitsUpPerSecondCount + this.lastBitsUpPerSecond) / (double) ++this.bitsUpPerSecondCount;
+      this.lastUpdateTime = DateTime.Now;
+      this.bitsDownSinceLastUpdate = 0L;
+      this.bitsUpSinceLastUpdate = 0L;
+      this.totalMs += totalMilliseconds;
+      if (this.bitsUp.Count >= this.queueCapacity)
+        this.bitsUp.Dequeue();
+      if (this.bitsDown.Count >= this.queueCapacity)
+        this.bitsDown.Dequeue();
+      this.bitsUp.Enqueue(this.lastBitsUpPerSecond);
+      this.bitsDown.Enqueue(this.lastBitsDownPerSecond);
+    }
 
-		private DateTime lastUpdateTime = DateTime.Now;
+    public double AvgBitsDownPerSecond => this.avgBitsDownPerSecond;
 
-		private double lastBitsDownPerSecond;
+    public double AvgBitsUpPerSecond => this.avgBitsUpPerSecond;
 
-		private double lastBitsUpPerSecond;
+    public double BitsDownPerSecond => this.lastBitsDownPerSecond;
 
-		private double avgBitsUpPerSecond;
+    public double BitsUpPerSecond => this.lastBitsUpPerSecond;
 
-		private long bitsUpPerSecondCount;
+    public double TotalBitsDown => (double) this.totalBitsDown;
 
-		private double avgBitsDownPerSecond;
+    public double TotalBitsUp => (double) this.totalBitsUp;
 
-		private long bitsDownPerSecondCount;
+    public double TotalMs => this.totalMs;
 
-		private long totalBitsDown;
+    public Queue<double> LoggedAvgBitsUp => this.bitsUp;
 
-		private long totalBitsUp;
+    public Queue<double> LoggedAvgBitsDown => this.bitsDown;
 
-		private double totalMs;
+    public void RecordBytesDown(long bytes)
+    {
+      this.bitsDownSinceLastUpdate += bytes * 8L;
+      this.totalBitsDown += bytes * 8L;
+    }
 
-		private int queueCapacity = 100;
-
-		private Queue<double> bitsUp = new Queue<double>();
-
-		private Queue<double> bitsDown = new Queue<double>();
-
-		public double AvgBitsDownPerSecond => avgBitsDownPerSecond;
-
-		public double AvgBitsUpPerSecond => avgBitsUpPerSecond;
-
-		public double BitsDownPerSecond => lastBitsDownPerSecond;
-
-		public double BitsUpPerSecond => lastBitsUpPerSecond;
-
-		public double TotalBitsDown => totalBitsDown;
-
-		public double TotalBitsUp => totalBitsUp;
-
-		public double TotalMs => totalMs;
-
-		public Queue<double> LoggedAvgBitsUp => bitsUp;
-
-		public Queue<double> LoggedAvgBitsDown => bitsDown;
-
-		public void Update()
-		{
-			double msElapsed = (DateTime.Now - lastUpdateTime).TotalMilliseconds;
-			if (msElapsed > 1000.0)
-			{
-				lastBitsDownPerSecond = (double)bitsDownSinceLastUpdate / msElapsed * 1000.0;
-				lastBitsUpPerSecond = (double)bitsUpSinceLastUpdate / msElapsed * 1000.0;
-				avgBitsDownPerSecond = (avgBitsDownPerSecond * (double)bitsDownPerSecondCount + lastBitsDownPerSecond) / (double)(++bitsDownPerSecondCount);
-				avgBitsUpPerSecond = (avgBitsUpPerSecond * (double)bitsUpPerSecondCount + lastBitsUpPerSecond) / (double)(++bitsUpPerSecondCount);
-				lastUpdateTime = DateTime.Now;
-				bitsDownSinceLastUpdate = 0L;
-				bitsUpSinceLastUpdate = 0L;
-				totalMs += msElapsed;
-				if (bitsUp.Count >= queueCapacity)
-				{
-					bitsUp.Dequeue();
-				}
-				if (bitsDown.Count >= queueCapacity)
-				{
-					bitsDown.Dequeue();
-				}
-				bitsUp.Enqueue(lastBitsUpPerSecond);
-				bitsDown.Enqueue(lastBitsDownPerSecond);
-			}
-		}
-
-		public void RecordBytesDown(long bytes)
-		{
-			bitsDownSinceLastUpdate += bytes * 8;
-			totalBitsDown += bytes * 8;
-		}
-
-		public void RecordBytesUp(long bytes)
-		{
-			bitsUpSinceLastUpdate += bytes * 8;
-			totalBitsUp += bytes * 8;
-		}
-	}
+    public void RecordBytesUp(long bytes)
+    {
+      this.bitsUpSinceLastUpdate += bytes * 8L;
+      this.totalBitsUp += bytes * 8L;
+    }
+  }
 }

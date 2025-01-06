@@ -1,93 +1,75 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.NoiseGenerator
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using System;
 
 namespace StardewValley
 {
-	[InstanceStatics]
-	internal static class NoiseGenerator
-	{
-		public static int Seed
-		{
-			get;
-			set;
-		}
+  [InstanceStatics]
+  internal static class NoiseGenerator
+  {
+    public static int Seed { get; set; }
 
-		public static int Octaves
-		{
-			get;
-			set;
-		}
+    public static int Octaves { get; set; }
 
-		public static double Amplitude
-		{
-			get;
-			set;
-		}
+    public static double Amplitude { get; set; }
 
-		public static double Persistence
-		{
-			get;
-			set;
-		}
+    public static double Persistence { get; set; }
 
-		public static double Frequency
-		{
-			get;
-			set;
-		}
+    public static double Frequency { get; set; }
 
-		static NoiseGenerator()
-		{
-			Seed = new Random().Next(int.MaxValue);
-			Octaves = 8;
-			Amplitude = 1.0;
-			Frequency = 0.015;
-			Persistence = 0.65;
-		}
+    static NoiseGenerator()
+    {
+      NoiseGenerator.Seed = new Random().Next(int.MaxValue);
+      NoiseGenerator.Octaves = 8;
+      NoiseGenerator.Amplitude = 1.0;
+      NoiseGenerator.Frequency = 0.015;
+      NoiseGenerator.Persistence = 0.65;
+    }
 
-		public static double Noise(int x, int y)
-		{
-			double total = 0.0;
-			double freq = Frequency;
-			double amp = Amplitude;
-			for (int i = 0; i < Octaves; i++)
-			{
-				total += Smooth((double)x * freq, (double)y * freq) * amp;
-				freq *= 2.0;
-				amp *= Persistence;
-			}
-			if (total < -2.4)
-			{
-				total = -2.4;
-			}
-			else if (total > 2.4)
-			{
-				total = 2.4;
-			}
-			return total / 2.4;
-		}
+    public static double Noise(int x, int y)
+    {
+      double num = 0.0;
+      double frequency = NoiseGenerator.Frequency;
+      double amplitude = NoiseGenerator.Amplitude;
+      for (int index = 0; index < NoiseGenerator.Octaves; ++index)
+      {
+        num += NoiseGenerator.Smooth((double) x * frequency, (double) y * frequency) * amplitude;
+        frequency *= 2.0;
+        amplitude *= NoiseGenerator.Persistence;
+      }
+      if (num < -2.4)
+        num = -2.4;
+      else if (num > 2.4)
+        num = 2.4;
+      return num / 2.4;
+    }
 
-		public static double NoiseGeneration(int x, int y)
-		{
-			int j = x + y * 57;
-			j = ((j << 13) ^ j);
-			return 1.0 - (double)((j * (j * j * 15731 + 789221) + Seed) & int.MaxValue) / 1073741824.0;
-		}
+    public static double NoiseGeneration(int x, int y)
+    {
+      int num1 = x + y * 57;
+      int num2 = num1 << 13 ^ num1;
+      return 1.0 - (double) (num2 * (num2 * num2 * 15731 + 789221) + NoiseGenerator.Seed & int.MaxValue) / 1073741824.0;
+    }
 
-		private static double Interpolate(double x, double y, double a)
-		{
-			double value = (1.0 - Math.Cos(a * Math.PI)) * 0.5;
-			return x * (1.0 - value) + y * value;
-		}
+    private static double Interpolate(double x, double y, double a)
+    {
+      double num = (1.0 - Math.Cos(a * Math.PI)) * 0.5;
+      return x * (1.0 - num) + y * num;
+    }
 
-		private static double Smooth(double x, double y)
-		{
-			double x2 = NoiseGeneration((int)x, (int)y);
-			double n6 = NoiseGeneration((int)x + 1, (int)y);
-			double n5 = NoiseGeneration((int)x, (int)y + 1);
-			double n4 = NoiseGeneration((int)x + 1, (int)y + 1);
-			double x3 = Interpolate(x2, n6, x - (double)(int)x);
-			double i2 = Interpolate(n5, n4, x - (double)(int)x);
-			return Interpolate(x3, i2, y - (double)(int)y);
-		}
-	}
+    private static double Smooth(double x, double y)
+    {
+      double x1 = NoiseGenerator.NoiseGeneration((int) x, (int) y);
+      double num = NoiseGenerator.NoiseGeneration((int) x + 1, (int) y);
+      double x2 = NoiseGenerator.NoiseGeneration((int) x, (int) y + 1);
+      double y1 = NoiseGenerator.NoiseGeneration((int) x + 1, (int) y + 1);
+      double y2 = num;
+      double a = x - (double) (int) x;
+      return NoiseGenerator.Interpolate(NoiseGenerator.Interpolate(x1, y2, a), NoiseGenerator.Interpolate(x2, y1, x - (double) (int) x), y - (double) (int) y);
+    }
+  }
 }

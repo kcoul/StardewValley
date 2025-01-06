@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.QuestContainerMenu
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -5,239 +11,180 @@ using System.Collections.Generic;
 
 namespace StardewValley.Menus
 {
-	public class QuestContainerMenu : MenuWithInventory
-	{
-		public enum ChangeType
-		{
-			None,
-			Place,
-			Grab
-		}
+  public class QuestContainerMenu : MenuWithInventory
+  {
+    public InventoryMenu ItemsToGrabMenu;
+    public Func<Item, int> stackCapacityCheck;
+    public Action onItemChanged;
+    public Action onConfirm;
 
-		public InventoryMenu ItemsToGrabMenu;
+    public QuestContainerMenu(
+      IList<Item> inventory,
+      int rows = 3,
+      InventoryMenu.highlightThisItem highlight_method = null,
+      Func<Item, int> stack_capacity_check = null,
+      Action on_item_changed = null,
+      Action on_confirm = null)
+      : base(highlight_method, true)
+    {
+      this.onItemChanged += on_item_changed;
+      this.onConfirm += on_confirm;
+      int count = inventory.Count;
+      int num = 64 * (count / rows);
+      this.ItemsToGrabMenu = new InventoryMenu(Game1.uiViewport.Width / 2 - num / 2, this.yPositionOnScreen + 64, false, inventory, capacity: count, rows: rows);
+      this.stackCapacityCheck = stack_capacity_check;
+      for (int index = 0; index < this.ItemsToGrabMenu.actualInventory.Count; ++index)
+      {
+        if (index >= this.ItemsToGrabMenu.actualInventory.Count - this.ItemsToGrabMenu.capacity / this.ItemsToGrabMenu.rows)
+          this.ItemsToGrabMenu.inventory[index].downNeighborID = index + 53910;
+      }
+      for (int index = 0; index < this.inventory.inventory.Count; ++index)
+      {
+        this.inventory.inventory[index].myID = index + 53910;
+        if (this.inventory.inventory[index].downNeighborID != -1)
+          this.inventory.inventory[index].downNeighborID += 53910;
+        if (this.inventory.inventory[index].rightNeighborID != -1)
+          this.inventory.inventory[index].rightNeighborID += 53910;
+        if (this.inventory.inventory[index].leftNeighborID != -1)
+          this.inventory.inventory[index].leftNeighborID += 53910;
+        if (this.inventory.inventory[index].upNeighborID != -1)
+          this.inventory.inventory[index].upNeighborID += 53910;
+        if (index < 12)
+          this.inventory.inventory[index].upNeighborID = this.ItemsToGrabMenu.actualInventory.Count - this.ItemsToGrabMenu.capacity / this.ItemsToGrabMenu.rows;
+        foreach (ClickableComponent clickableComponent in this.inventory.GetBorder(InventoryMenu.BorderSide.Right))
+          clickableComponent.rightNeighborID = this.okButton.myID;
+      }
+      this.dropItemInvisibleButton.myID = -500;
+      this.ItemsToGrabMenu.dropItemInvisibleButton.myID = -500;
+      this.populateClickableComponentList();
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.setCurrentlySnappedComponentTo(53910);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public Func<Item, int> stackCapacityCheck;
+    public virtual int GetDonatableAmount(Item item)
+    {
+      if (item == null)
+        return 0;
+      int val1 = item.Stack;
+      if (this.stackCapacityCheck != null)
+        val1 = Math.Min(val1, this.stackCapacityCheck(item));
+      return val1;
+    }
 
-		public Action onItemChanged;
+    public virtual Item TryToGrab(Item item, int amount)
+    {
+      int num = Math.Min(amount, item.Stack);
+      if (num == 0)
+        return item;
+      Item one = item.getOne();
+      one.Stack = num;
+      item.Stack -= num;
+      InventoryMenu.highlightThisItem highlightMethod = this.inventory.highlightMethod;
+      this.inventory.highlightMethod = new InventoryMenu.highlightThisItem(InventoryMenu.highlightAllItems);
+      Item addItem = this.inventory.tryToAddItem(one);
+      this.inventory.highlightMethod = highlightMethod;
+      if (addItem != null)
+        item.Stack += addItem.Stack;
+      if (this.onItemChanged != null)
+        this.onItemChanged();
+      return item.Stack <= 0 ? (Item) null : item;
+    }
 
-		public Action onConfirm;
+    public virtual Item TryToPlace(Item item, int amount)
+    {
+      Math.Min(amount, item.Stack);
+      int num = Math.Min(amount, this.GetDonatableAmount(item));
+      if (num == 0)
+        return item;
+      Item one = item.getOne();
+      one.Stack = num;
+      item.Stack -= num;
+      Item addItem = this.ItemsToGrabMenu.tryToAddItem(one, "Ship");
+      if (addItem != null)
+        item.Stack += addItem.Stack;
+      if (this.onItemChanged != null)
+        this.onItemChanged();
+      return item.Stack <= 0 ? (Item) null : item;
+    }
 
-		public QuestContainerMenu(IList<Item> inventory, int rows = 3, InventoryMenu.highlightThisItem highlight_method = null, Func<Item, int> stack_capacity_check = null, Action on_item_changed = null, Action on_confirm = null)
-			: base(highlight_method, okButton: true)
-		{
-			onItemChanged = (Action)Delegate.Combine(onItemChanged, on_item_changed);
-			onConfirm = (Action)Delegate.Combine(onConfirm, on_confirm);
-			int capacity = inventory.Count;
-			int containerWidth = 64 * (capacity / rows);
-			ItemsToGrabMenu = new InventoryMenu(Game1.uiViewport.Width / 2 - containerWidth / 2, yPositionOnScreen + 64, playerInventory: false, inventory, null, capacity, rows);
-			stackCapacityCheck = stack_capacity_check;
-			for (int j = 0; j < ItemsToGrabMenu.actualInventory.Count; j++)
-			{
-				if (j >= ItemsToGrabMenu.actualInventory.Count - ItemsToGrabMenu.capacity / ItemsToGrabMenu.rows)
-				{
-					ItemsToGrabMenu.inventory[j].downNeighborID = j + 53910;
-				}
-			}
-			for (int i = 0; i < base.inventory.inventory.Count; i++)
-			{
-				base.inventory.inventory[i].myID = i + 53910;
-				if (base.inventory.inventory[i].downNeighborID != -1)
-				{
-					base.inventory.inventory[i].downNeighborID += 53910;
-				}
-				if (base.inventory.inventory[i].rightNeighborID != -1)
-				{
-					base.inventory.inventory[i].rightNeighborID += 53910;
-				}
-				if (base.inventory.inventory[i].leftNeighborID != -1)
-				{
-					base.inventory.inventory[i].leftNeighborID += 53910;
-				}
-				if (base.inventory.inventory[i].upNeighborID != -1)
-				{
-					base.inventory.inventory[i].upNeighborID += 53910;
-				}
-				if (i < 12)
-				{
-					base.inventory.inventory[i].upNeighborID = ItemsToGrabMenu.actualInventory.Count - ItemsToGrabMenu.capacity / ItemsToGrabMenu.rows;
-				}
-				foreach (ClickableComponent item in base.inventory.GetBorder(InventoryMenu.BorderSide.Right))
-				{
-					item.rightNeighborID = okButton.myID;
-				}
-			}
-			dropItemInvisibleButton.myID = -500;
-			ItemsToGrabMenu.dropItemInvisibleButton.myID = -500;
-			populateClickableComponentList();
-			if (Game1.options.SnappyMenus)
-			{
-				setCurrentlySnappedComponentTo(53910);
-				snapCursorToCurrentSnappedComponent();
-			}
-		}
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+      if (this.isWithinBounds(x, y))
+      {
+        Item itemAt = this.inventory.getItemAt(x, y);
+        if (itemAt != null)
+          this.inventory.actualInventory[this.inventory.getInventoryPositionOfClick(x, y)] = this.TryToPlace(itemAt, itemAt.Stack);
+      }
+      if (this.ItemsToGrabMenu.isWithinBounds(x, y))
+      {
+        Item itemAt = this.ItemsToGrabMenu.getItemAt(x, y);
+        if (itemAt != null)
+          this.ItemsToGrabMenu.actualInventory[this.ItemsToGrabMenu.getInventoryPositionOfClick(x, y)] = this.TryToGrab(itemAt, itemAt.Stack);
+      }
+      if (!this.okButton.containsPoint(x, y) || !this.readyToClose())
+        return;
+      this.exitThisMenu();
+    }
 
-		public virtual int GetDonatableAmount(Item item)
-		{
-			if (item == null)
-			{
-				return 0;
-			}
-			int stack_capacity = item.Stack;
-			if (stackCapacityCheck != null)
-			{
-				stack_capacity = Math.Min(stack_capacity, stackCapacityCheck(item));
-			}
-			return stack_capacity;
-		}
+    public override void receiveRightClick(int x, int y, bool playSound = true)
+    {
+      if (this.heldItem != null)
+      {
+        int stack = this.heldItem.Stack;
+      }
+      Item heldItem = this.heldItem;
+      if (this.isWithinBounds(x, y))
+      {
+        Item itemAt = this.inventory.getItemAt(x, y);
+        if (itemAt != null)
+          this.inventory.actualInventory[this.inventory.getInventoryPositionOfClick(x, y)] = this.TryToPlace(itemAt, 1);
+      }
+      if (!this.ItemsToGrabMenu.isWithinBounds(x, y))
+        return;
+      Item itemAt1 = this.ItemsToGrabMenu.getItemAt(x, y);
+      if (itemAt1 == null)
+        return;
+      this.ItemsToGrabMenu.actualInventory[this.ItemsToGrabMenu.getInventoryPositionOfClick(x, y)] = this.TryToGrab(itemAt1, 1);
+    }
 
-		public virtual Item TryToGrab(Item item, int amount)
-		{
-			int grabbed_amount = Math.Min(amount, item.Stack);
-			if (grabbed_amount == 0)
-			{
-				return item;
-			}
-			Item taken_stack = item.getOne();
-			taken_stack.Stack = grabbed_amount;
-			item.Stack -= grabbed_amount;
-			InventoryMenu.highlightThisItem highlight_method = inventory.highlightMethod;
-			inventory.highlightMethod = InventoryMenu.highlightAllItems;
-			Item leftover_items = inventory.tryToAddItem(taken_stack);
-			inventory.highlightMethod = highlight_method;
-			if (leftover_items != null)
-			{
-				item.Stack += leftover_items.Stack;
-			}
-			if (onItemChanged != null)
-			{
-				onItemChanged();
-			}
-			if (item.Stack <= 0)
-			{
-				return null;
-			}
-			return item;
-		}
+    protected override void cleanupBeforeExit()
+    {
+      if (this.onConfirm != null)
+        this.onConfirm();
+      base.cleanupBeforeExit();
+    }
 
-		public virtual Item TryToPlace(Item item, int amount)
-		{
-			Math.Min(amount, item.Stack);
-			int stack_capacity = Math.Min(amount, GetDonatableAmount(item));
-			if (stack_capacity == 0)
-			{
-				return item;
-			}
-			Item donation_stack = item.getOne();
-			donation_stack.Stack = stack_capacity;
-			item.Stack -= stack_capacity;
-			Item leftover_items = ItemsToGrabMenu.tryToAddItem(donation_stack, "Ship");
-			if (leftover_items != null)
-			{
-				item.Stack += leftover_items.Stack;
-			}
-			if (onItemChanged != null)
-			{
-				onItemChanged();
-			}
-			if (item.Stack <= 0)
-			{
-				return null;
-			}
-			return item;
-		}
+    public override void update(GameTime time) => base.update(time);
 
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-			if (isWithinBounds(x, y))
-			{
-				Item clicked_item2 = inventory.getItemAt(x, y);
-				if (clicked_item2 != null)
-				{
-					int clicked_index2 = inventory.getInventoryPositionOfClick(x, y);
-					inventory.actualInventory[clicked_index2] = TryToPlace(clicked_item2, clicked_item2.Stack);
-				}
-			}
-			if (ItemsToGrabMenu.isWithinBounds(x, y))
-			{
-				Item clicked_item = ItemsToGrabMenu.getItemAt(x, y);
-				if (clicked_item != null)
-				{
-					int clicked_index = ItemsToGrabMenu.getInventoryPositionOfClick(x, y);
-					ItemsToGrabMenu.actualInventory[clicked_index] = TryToGrab(clicked_item, clicked_item.Stack);
-				}
-			}
-			if (okButton.containsPoint(x, y) && readyToClose())
-			{
-				exitThisMenu();
-			}
-		}
+    public override void performHoverAction(int x, int y)
+    {
+      base.performHoverAction(x, y);
+      this.ItemsToGrabMenu.hover(x, y, this.heldItem);
+    }
 
-		public override void receiveRightClick(int x, int y, bool playSound = true)
-		{
-			if (heldItem != null)
-			{
-				_ = heldItem.Stack;
-			}
-			_ = heldItem;
-			if (isWithinBounds(x, y))
-			{
-				Item clicked_item2 = inventory.getItemAt(x, y);
-				if (clicked_item2 != null)
-				{
-					int clicked_index2 = inventory.getInventoryPositionOfClick(x, y);
-					inventory.actualInventory[clicked_index2] = TryToPlace(clicked_item2, 1);
-				}
-			}
-			if (ItemsToGrabMenu.isWithinBounds(x, y))
-			{
-				Item clicked_item = ItemsToGrabMenu.getItemAt(x, y);
-				if (clicked_item != null)
-				{
-					int clicked_index = ItemsToGrabMenu.getInventoryPositionOfClick(x, y);
-					ItemsToGrabMenu.actualInventory[clicked_index] = TryToGrab(clicked_item, 1);
-				}
-			}
-		}
+    public override void draw(SpriteBatch b)
+    {
+      b.Draw(Game1.fadeToBlackRect, new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height), Color.Black * 0.5f);
+      this.draw(b, false, false);
+      Game1.drawDialogueBox(this.ItemsToGrabMenu.xPositionOnScreen - IClickableMenu.borderWidth - IClickableMenu.spaceToClearSideBorder, this.ItemsToGrabMenu.yPositionOnScreen - IClickableMenu.borderWidth - IClickableMenu.spaceToClearTopBorder, this.ItemsToGrabMenu.width + IClickableMenu.borderWidth * 2 + IClickableMenu.spaceToClearSideBorder * 2, this.ItemsToGrabMenu.height + IClickableMenu.spaceToClearTopBorder + IClickableMenu.borderWidth * 2, false, true);
+      this.ItemsToGrabMenu.draw(b);
+      if (!this.hoverText.Equals(""))
+        IClickableMenu.drawHoverText(b, this.hoverText, Game1.smallFont);
+      if (this.heldItem != null)
+        this.heldItem.drawInMenu(b, new Vector2((float) (Game1.getOldMouseX() + 16), (float) (Game1.getOldMouseY() + 16)), 1f);
+      this.drawMouse(b);
+      if (this.ItemsToGrabMenu.descriptionTitle == null || this.ItemsToGrabMenu.descriptionTitle.Length <= 1)
+        return;
+      IClickableMenu.drawHoverText(b, this.ItemsToGrabMenu.descriptionTitle, Game1.smallFont, 32 + (this.heldItem != null ? 16 : -21), 32 + (this.heldItem != null ? 16 : -21));
+    }
 
-		protected override void cleanupBeforeExit()
-		{
-			if (onConfirm != null)
-			{
-				onConfirm();
-			}
-			base.cleanupBeforeExit();
-		}
-
-		public override void update(GameTime time)
-		{
-			base.update(time);
-		}
-
-		public override void performHoverAction(int x, int y)
-		{
-			base.performHoverAction(x, y);
-			ItemsToGrabMenu.hover(x, y, heldItem);
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			b.Draw(Game1.fadeToBlackRect, new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height), Color.Black * 0.5f);
-			base.draw(b, drawUpperPortion: false, drawDescriptionArea: false);
-			Game1.drawDialogueBox(ItemsToGrabMenu.xPositionOnScreen - IClickableMenu.borderWidth - IClickableMenu.spaceToClearSideBorder, ItemsToGrabMenu.yPositionOnScreen - IClickableMenu.borderWidth - IClickableMenu.spaceToClearTopBorder, ItemsToGrabMenu.width + IClickableMenu.borderWidth * 2 + IClickableMenu.spaceToClearSideBorder * 2, ItemsToGrabMenu.height + IClickableMenu.spaceToClearTopBorder + IClickableMenu.borderWidth * 2, speaker: false, drawOnlyBox: true);
-			ItemsToGrabMenu.draw(b);
-			if (!hoverText.Equals(""))
-			{
-				IClickableMenu.drawHoverText(b, hoverText, Game1.smallFont);
-			}
-			if (heldItem != null)
-			{
-				heldItem.drawInMenu(b, new Vector2(Game1.getOldMouseX() + 16, Game1.getOldMouseY() + 16), 1f);
-			}
-			drawMouse(b);
-			if (ItemsToGrabMenu.descriptionTitle != null && ItemsToGrabMenu.descriptionTitle.Length > 1)
-			{
-				IClickableMenu.drawHoverText(b, ItemsToGrabMenu.descriptionTitle, Game1.smallFont, 32 + ((heldItem != null) ? 16 : (-21)), 32 + ((heldItem != null) ? 16 : (-21)));
-			}
-		}
-	}
+    public enum ChangeType
+    {
+      None,
+      Place,
+      Grab,
+    }
+  }
 }

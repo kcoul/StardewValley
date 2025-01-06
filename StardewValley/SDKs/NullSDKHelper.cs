@@ -1,66 +1,55 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.SDKs.NullSDKHelper
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 namespace StardewValley.SDKs
 {
-	public class NullSDKHelper : SDKHelper
-	{
-		public bool IsEnterButtonAssignmentFlipped => false;
+  public class NullSDKHelper : SDKHelper
+  {
+    public bool IsEnterButtonAssignmentFlipped => false;
 
-		public bool IsJapaneseRegionRelease => false;
+    public bool IsJapaneseRegionRelease => false;
 
-		public virtual string Name
-		{
-			get;
-		} = "?";
+    public void EarlyInitialize()
+    {
+    }
 
+    public void Initialize()
+    {
+    }
 
-		public SDKNetHelper Networking
-		{
-			get;
-		}
+    public void GetAchievement(string achieve)
+    {
+    }
 
-		public bool ConnectionFinished
-		{
-			get;
-		} = true;
+    public void ResetAchievements()
+    {
+    }
 
+    public void Update()
+    {
+    }
 
-		public int ConnectionProgress
-		{
-			get;
-		}
+    public void Shutdown()
+    {
+    }
 
-		public bool HasOverlay => false;
+    public void DebugInfo()
+    {
+    }
 
-		public void EarlyInitialize()
-		{
-		}
+    public string FilterDirtyWords(string words) => words;
 
-		public void Initialize()
-		{
-		}
+    public virtual string Name { get; } = "?";
 
-		public void GetAchievement(string achieve)
-		{
-		}
+    public SDKNetHelper Networking { get; }
 
-		public void ResetAchievements()
-		{
-		}
+    public bool ConnectionFinished { get; } = true;
 
-		public void Update()
-		{
-		}
+    public int ConnectionProgress { get; }
 
-		public void Shutdown()
-		{
-		}
-
-		public void DebugInfo()
-		{
-		}
-
-		public string FilterDirtyWords(string words)
-		{
-			return words;
-		}
-	}
+    public bool HasOverlay => false;
+  }
 }

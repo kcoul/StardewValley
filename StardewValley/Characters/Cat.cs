@@ -1,281 +1,257 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Characters.Cat
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
+using Netcode;
 using System.Collections.Generic;
 
 namespace StardewValley.Characters
 {
-	public class Cat : Pet
-	{
-		public const int behavior_StandUp = 54;
+  public class Cat : Pet
+  {
+    public const int behavior_StandUp = 54;
+    public const int behavior_Flop = 55;
+    public const int behavior_Leap = 56;
 
-		public const int behavior_Flop = 55;
+    public Cat()
+    {
+      this.Sprite = new AnimatedSprite(this.getPetTextureName(), 0, 32, 32);
+      this.HideShadow = true;
+      this.Breather = false;
+      this.willDestroyObjectsUnderfoot = false;
+    }
 
-		public const int behavior_Leap = 56;
+    public override void OnPetAnimationEvent(string animation_event)
+    {
+      if (this.CurrentBehavior == 1)
+        return;
+      if (animation_event == "blink")
+      {
+        bool flag = Game1.random.NextDouble() < 0.45;
+        this.Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+        {
+          new FarmerSprite.AnimationFrame(19, flag ? 200 : Game1.random.Next(1000, 9000)),
+          new FarmerSprite.AnimationFrame(18, 1, false, false, new AnimatedSprite.endOfAnimationBehavior(((Pet) this).hold))
+        });
+        this.Sprite.loop = false;
+        if (!flag || Game1.random.NextDouble() >= 0.2)
+          return;
+        this.playContentSound();
+        this.shake(200);
+      }
+      else
+      {
+        if (!(animation_event == "lick"))
+          return;
+        List<FarmerSprite.AnimationFrame> animation = new List<FarmerSprite.AnimationFrame>()
+        {
+          new FarmerSprite.AnimationFrame(19, 300),
+          new FarmerSprite.AnimationFrame(20, 200),
+          new FarmerSprite.AnimationFrame(21, 200),
+          new FarmerSprite.AnimationFrame(22, 200, false, false, new AnimatedSprite.endOfAnimationBehavior(this.lickSound)),
+          new FarmerSprite.AnimationFrame(23, 200)
+        };
+        int num = Game1.random.Next(1, 6);
+        for (int index = 0; index < num; ++index)
+        {
+          animation.Add(new FarmerSprite.AnimationFrame(21, 150));
+          animation.Add(new FarmerSprite.AnimationFrame(22, 150, false, false, new AnimatedSprite.endOfAnimationBehavior(this.lickSound)));
+          animation.Add(new FarmerSprite.AnimationFrame(23, 150));
+        }
+        animation.Add(new FarmerSprite.AnimationFrame(18, 1, false, false, new AnimatedSprite.endOfAnimationBehavior(((Pet) this).hold)));
+        this.Sprite.loop = false;
+        this.Sprite.setCurrentAnimation(animation);
+      }
+    }
 
-		public Cat()
-		{
-			Sprite = new AnimatedSprite(getPetTextureName(), 0, 32, 32);
-			base.HideShadow = true;
-			base.Breather = false;
-			base.willDestroyObjectsUnderfoot = false;
-		}
+    public Cat(int xTile, int yTile, int breed)
+    {
+      this.Name = nameof (Cat);
+      this.displayName = (string) (NetFieldBase<string, NetString>) this.name;
+      this.whichBreed.Value = breed;
+      this.Sprite = new AnimatedSprite(this.getPetTextureName(), 0, 32, 32);
+      this.Position = new Vector2((float) xTile, (float) yTile) * 64f;
+      this.Breather = false;
+      this.willDestroyObjectsUnderfoot = false;
+      this.currentLocation = Game1.currentLocation;
+      this.HideShadow = true;
+    }
 
-		public override void OnPetAnimationEvent(string animation_event)
-		{
-			if (base.CurrentBehavior == 1)
-			{
-				return;
-			}
-			if (animation_event == "blink")
-			{
-				bool blink = Game1.random.NextDouble() < 0.45;
-				Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(19, blink ? 200 : Game1.random.Next(1000, 9000)),
-					new FarmerSprite.AnimationFrame(18, 1, secondaryArm: false, flip: false, base.hold)
-				});
-				Sprite.loop = false;
-				if (blink && Game1.random.NextDouble() < 0.2)
-				{
-					playContentSound();
-					shake(200);
-				}
-			}
-			else if (animation_event == "lick")
-			{
-				List<FarmerSprite.AnimationFrame> licks = new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(19, 300),
-					new FarmerSprite.AnimationFrame(20, 200),
-					new FarmerSprite.AnimationFrame(21, 200),
-					new FarmerSprite.AnimationFrame(22, 200, secondaryArm: false, flip: false, lickSound),
-					new FarmerSprite.AnimationFrame(23, 200)
-				};
-				int extraLicks = Game1.random.Next(1, 6);
-				for (int i = 0; i < extraLicks; i++)
-				{
-					licks.Add(new FarmerSprite.AnimationFrame(21, 150));
-					licks.Add(new FarmerSprite.AnimationFrame(22, 150, secondaryArm: false, flip: false, lickSound));
-					licks.Add(new FarmerSprite.AnimationFrame(23, 150));
-				}
-				licks.Add(new FarmerSprite.AnimationFrame(18, 1, secondaryArm: false, flip: false, base.hold));
-				Sprite.loop = false;
-				Sprite.setCurrentAnimation(licks);
-			}
-		}
+    public override string getPetTextureName() => "Animals\\cat" + (this.whichBreed.Value == 0 ? "" : this.whichBreed.Value.ToString() ?? "");
 
-		public Cat(int xTile, int yTile, int breed)
-		{
-			base.Name = "Cat";
-			base.displayName = name;
-			whichBreed.Value = breed;
-			Sprite = new AnimatedSprite(getPetTextureName(), 0, 32, 32);
-			base.Position = new Vector2(xTile, yTile) * 64f;
-			base.Breather = false;
-			base.willDestroyObjectsUnderfoot = false;
-			base.currentLocation = Game1.currentLocation;
-			base.HideShadow = true;
-		}
+    public override void OnNewBehavior()
+    {
+      base.OnNewBehavior();
+      switch (this.CurrentBehavior)
+      {
+        case 2:
+          this.Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+          {
+            new FarmerSprite.AnimationFrame(16, 100, false, false),
+            new FarmerSprite.AnimationFrame(17, 100, false, false),
+            new FarmerSprite.AnimationFrame(18, 100, false, false),
+            new FarmerSprite.AnimationFrame(19, 100, false, false, new AnimatedSprite.endOfAnimationBehavior(((Pet) this).hold))
+          });
+          break;
+        case 54:
+          this.Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+          {
+            new FarmerSprite.AnimationFrame(17, 200),
+            new FarmerSprite.AnimationFrame(16, 200),
+            new FarmerSprite.AnimationFrame(0, 200)
+          });
+          this.Sprite.loop = false;
+          break;
+        case 55:
+          this.Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+          {
+            new FarmerSprite.AnimationFrame(24, 100),
+            new FarmerSprite.AnimationFrame(25, 100),
+            new FarmerSprite.AnimationFrame(26, 100),
+            new FarmerSprite.AnimationFrame(27, Game1.random.Next(8000, 30000), false, false, new AnimatedSprite.endOfAnimationBehavior(this.flopSound))
+          });
+          this.Sprite.loop = false;
+          break;
+        case 56:
+          this.Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+          {
+            new FarmerSprite.AnimationFrame(30, 300),
+            new FarmerSprite.AnimationFrame(31, 300),
+            new FarmerSprite.AnimationFrame(30, 300),
+            new FarmerSprite.AnimationFrame(31, 300),
+            new FarmerSprite.AnimationFrame(30, 300),
+            new FarmerSprite.AnimationFrame(31, 500),
+            new FarmerSprite.AnimationFrame(24, 800, false, false, new AnimatedSprite.endOfAnimationBehavior(this.leap)),
+            new FarmerSprite.AnimationFrame(4, 1)
+          });
+          this.Sprite.loop = false;
+          break;
+      }
+    }
 
-		public override string getPetTextureName()
-		{
-			return "Animals\\cat" + ((whichBreed.Value == 0) ? "" : string.Concat(whichBreed.Value));
-		}
+    public override void RunState(GameTime time)
+    {
+      base.RunState(time);
+      if (this.CurrentBehavior == 1)
+      {
+        if (Game1.IsMasterGame && Game1.timeOfDay < 2000 && Game1.random.NextDouble() < 0.001)
+          this.CurrentBehavior = 0;
+        if (Game1.random.NextDouble() < 0.002)
+          this.doEmote(24);
+      }
+      else if (this.CurrentBehavior == 2)
+      {
+        if (this.Sprite.currentFrame != 18 && this.Sprite.CurrentAnimation == null)
+          this.Sprite.currentFrame = 18;
+        else if (this.Sprite.currentFrame == 18 && Game1.IsMasterGame && Game1.random.NextDouble() < 0.01)
+        {
+          switch (Game1.random.Next(6))
+          {
+            case 0:
+            case 1:
+              this.faceDirection(2);
+              this.CurrentBehavior = 54;
+              break;
+            case 2:
+            case 3:
+              this.petAnimationEvent.Fire("lick");
+              break;
+            default:
+              this.petAnimationEvent.Fire("blink");
+              break;
+          }
+        }
+      }
+      if (this.CurrentBehavior == 54)
+      {
+        if (this.Sprite.CurrentAnimation != null)
+          return;
+        this.CurrentBehavior = 0;
+      }
+      else if (this.CurrentBehavior == 0)
+      {
+        if (!Game1.IsMasterGame || this.Sprite.CurrentAnimation != null || Game1.random.NextDouble() >= 0.01 || this.forceUpdateTimer > 0)
+          return;
+        switch (Game1.random.Next(4))
+        {
+          case 3:
+            switch (this.FacingDirection)
+            {
+              case 0:
+              case 2:
+                this.faceDirection(2);
+                this.CurrentBehavior = 2;
+                return;
+              case 1:
+                if (Game1.random.NextDouble() < 0.85)
+                {
+                  this.CurrentBehavior = 55;
+                  return;
+                }
+                this.CurrentBehavior = 56;
+                return;
+              case 3:
+                if (Game1.random.NextDouble() < 0.85)
+                {
+                  this.CurrentBehavior = 55;
+                  return;
+                }
+                this.CurrentBehavior = 56;
+                return;
+              default:
+                return;
+            }
+        }
+      }
+      else
+      {
+        if (this.CurrentBehavior != 55 && this.CurrentBehavior != 56 || !Game1.IsMasterGame)
+          return;
+        if (this.CurrentBehavior == 56 && this.yJumpOffset != 0)
+        {
+          if (this.FacingDirection == 1)
+            this.xVelocity = 4f;
+          else if (this.FacingDirection == 3)
+            this.xVelocity = -4f;
+          this.MovePosition(time, Game1.viewport, this.currentLocation);
+        }
+        if (this.Sprite.CurrentAnimation != null)
+          return;
+        this.CurrentBehavior = 0;
+      }
+    }
 
-		public override void OnNewBehavior()
-		{
-			base.OnNewBehavior();
-			switch (base.CurrentBehavior)
-			{
-			case 54:
-				Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(17, 200),
-					new FarmerSprite.AnimationFrame(16, 200),
-					new FarmerSprite.AnimationFrame(0, 200)
-				});
-				Sprite.loop = false;
-				break;
-			case 2:
-				Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(16, 100, secondaryArm: false, flip: false),
-					new FarmerSprite.AnimationFrame(17, 100, secondaryArm: false, flip: false),
-					new FarmerSprite.AnimationFrame(18, 100, secondaryArm: false, flip: false),
-					new FarmerSprite.AnimationFrame(19, 100, secondaryArm: false, flip: false, base.hold)
-				});
-				break;
-			case 55:
-				Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(24, 100),
-					new FarmerSprite.AnimationFrame(25, 100),
-					new FarmerSprite.AnimationFrame(26, 100),
-					new FarmerSprite.AnimationFrame(27, Game1.random.Next(8000, 30000), secondaryArm: false, flip: false, flopSound)
-				});
-				Sprite.loop = false;
-				break;
-			case 56:
-				Sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(30, 300),
-					new FarmerSprite.AnimationFrame(31, 300),
-					new FarmerSprite.AnimationFrame(30, 300),
-					new FarmerSprite.AnimationFrame(31, 300),
-					new FarmerSprite.AnimationFrame(30, 300),
-					new FarmerSprite.AnimationFrame(31, 500),
-					new FarmerSprite.AnimationFrame(24, 800, secondaryArm: false, flip: false, leap),
-					new FarmerSprite.AnimationFrame(4, 1)
-				});
-				Sprite.loop = false;
-				break;
-			}
-		}
+    public void lickSound(Farmer who)
+    {
+      if (!Utility.isOnScreen(this.getTileLocationPoint(), 128, this.currentLocation))
+        return;
+      Game1.playSound("Cowboy_Footstep");
+    }
 
-		public override void RunState(GameTime time)
-		{
-			base.RunState(time);
-			if (base.CurrentBehavior == 1)
-			{
-				if (Game1.IsMasterGame && Game1.timeOfDay < 2000 && Game1.random.NextDouble() < 0.001)
-				{
-					base.CurrentBehavior = 0;
-				}
-				if (Game1.random.NextDouble() < 0.002)
-				{
-					doEmote(24);
-				}
-			}
-			else if (base.CurrentBehavior == 2)
-			{
-				if (Sprite.currentFrame != 18 && Sprite.CurrentAnimation == null)
-				{
-					Sprite.currentFrame = 18;
-				}
-				else if (Sprite.currentFrame == 18 && Game1.IsMasterGame && Game1.random.NextDouble() < 0.01)
-				{
-					switch (Game1.random.Next(6))
-					{
-					case 0:
-					case 1:
-						faceDirection(2);
-						base.CurrentBehavior = 54;
-						break;
-					case 2:
-					case 3:
-						petAnimationEvent.Fire("lick");
-						break;
-					default:
-						petAnimationEvent.Fire("blink");
-						break;
-					}
-				}
-			}
-			if (base.CurrentBehavior == 54)
-			{
-				if (Sprite.CurrentAnimation == null)
-				{
-					base.CurrentBehavior = 0;
-				}
-			}
-			else if (base.CurrentBehavior == 0)
-			{
-				if (!Game1.IsMasterGame || Sprite.CurrentAnimation != null || !(Game1.random.NextDouble() < 0.01))
-				{
-					return;
-				}
-				int num = Game1.random.Next(4);
-				if ((uint)num <= 2u || num != 3)
-				{
-					return;
-				}
-				switch (FacingDirection)
-				{
-				case 0:
-				case 2:
-					faceDirection(2);
-					base.CurrentBehavior = 2;
-					break;
-				case 1:
-					if (Game1.random.NextDouble() < 0.85)
-					{
-						base.CurrentBehavior = 55;
-					}
-					else
-					{
-						base.CurrentBehavior = 56;
-					}
-					break;
-				case 3:
-					if (Game1.random.NextDouble() < 0.85)
-					{
-						base.CurrentBehavior = 55;
-					}
-					else
-					{
-						base.CurrentBehavior = 56;
-					}
-					break;
-				}
-			}
-			else
-			{
-				if ((base.CurrentBehavior != 55 && base.CurrentBehavior != 56) || !Game1.IsMasterGame)
-				{
-					return;
-				}
-				if (base.CurrentBehavior == 56 && yJumpOffset != 0)
-				{
-					if (FacingDirection == 1)
-					{
-						xVelocity = 4f;
-					}
-					else if (FacingDirection == 3)
-					{
-						xVelocity = -4f;
-					}
-					MovePosition(time, Game1.viewport, base.currentLocation);
-				}
-				if (Sprite.CurrentAnimation == null)
-				{
-					base.CurrentBehavior = 0;
-				}
-			}
-		}
+    public void leap(Farmer who)
+    {
+      if (!this.currentLocation.Equals(Game1.currentLocation))
+        return;
+      this.jump();
+    }
 
-		public void lickSound(Farmer who)
-		{
-			if (Utility.isOnScreen(getTileLocationPoint(), 128, base.currentLocation))
-			{
-				Game1.playSound("Cowboy_Footstep");
-			}
-		}
+    public void flopSound(Farmer who)
+    {
+      if (Utility.isOnScreen(this.getTileLocationPoint(), 128, this.currentLocation))
+        Game1.playSound("thudStep");
+      if (Game1.IsMasterGame)
+        return;
+      this.hold(who);
+    }
 
-		public void leap(Farmer who)
-		{
-			if (base.currentLocation.Equals(Game1.currentLocation))
-			{
-				jump();
-			}
-		}
-
-		public void flopSound(Farmer who)
-		{
-			if (Utility.isOnScreen(getTileLocationPoint(), 128, base.currentLocation))
-			{
-				Game1.playSound("thudStep");
-			}
-			if (!Game1.IsMasterGame)
-			{
-				hold(who);
-			}
-		}
-
-		public override void playContentSound()
-		{
-			if (Utility.isOnScreen(getTileLocationPoint(), 128, base.currentLocation) && !Game1.options.muteAnimalSounds)
-			{
-				Game1.playSound("cat");
-			}
-		}
-	}
+    public override void playContentSound()
+    {
+      if (!Utility.isOnScreen(this.getTileLocationPoint(), 128, this.currentLocation) || Game1.options.muteAnimalSounds)
+        return;
+      Game1.playSound("cat");
+    }
+  }
 }

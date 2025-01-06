@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.BellsAndWhistles.Frog
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -5,149 +11,141 @@ using System.Collections.Generic;
 
 namespace StardewValley.BellsAndWhistles
 {
-	public class Frog : Critter
-	{
-		private bool waterLeaper;
+  public class Frog : Critter
+  {
+    private bool waterLeaper;
+    private bool leapingIntoWater;
+    private bool splash;
+    private int characterCheckTimer = 200;
+    private int beforeFadeTimer;
+    private float alpha = 1f;
 
-		private bool leapingIntoWater;
+    public Frog(Vector2 position, bool waterLeaper = false, bool forceFlip = false)
+    {
+      this.waterLeaper = waterLeaper;
+      this.position = position * 64f;
+      this.sprite = new AnimatedSprite(Critter.critterTexture, waterLeaper ? 300 : 280, 16, 16);
+      this.sprite.loop = true;
+      if (!this.flip & forceFlip)
+        this.flip = true;
+      if (waterLeaper)
+      {
+        this.sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+        {
+          new FarmerSprite.AnimationFrame(300, 600),
+          new FarmerSprite.AnimationFrame(304, 100),
+          new FarmerSprite.AnimationFrame(305, 100),
+          new FarmerSprite.AnimationFrame(306, 300),
+          new FarmerSprite.AnimationFrame(305, 100),
+          new FarmerSprite.AnimationFrame(304, 100)
+        });
+      }
+      else
+      {
+        this.sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+        {
+          new FarmerSprite.AnimationFrame(280, 60),
+          new FarmerSprite.AnimationFrame(281, 70),
+          new FarmerSprite.AnimationFrame(282, 140),
+          new FarmerSprite.AnimationFrame(283, 90)
+        });
+        this.beforeFadeTimer = 1000;
+        this.flip = (double) this.position.X + 4.0 < (double) Game1.player.Position.X;
+      }
+      this.startingPosition = position;
+    }
 
-		private bool splash;
+    public void startSplash(Farmer who) => this.splash = true;
 
-		private int characterCheckTimer = 200;
+    public override bool update(GameTime time, GameLocation environment)
+    {
+      if (this.waterLeaper)
+      {
+        if (!this.leapingIntoWater)
+        {
+          this.characterCheckTimer -= time.ElapsedGameTime.Milliseconds;
+          if (this.characterCheckTimer <= 0)
+          {
+            if (Utility.isThereAFarmerOrCharacterWithinDistance(this.position / 64f, 6, environment) != null)
+            {
+              this.leapingIntoWater = true;
+              this.sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+              {
+                new FarmerSprite.AnimationFrame(300, 100),
+                new FarmerSprite.AnimationFrame(301, 100),
+                new FarmerSprite.AnimationFrame(302, 100),
+                new FarmerSprite.AnimationFrame(303, 1500, false, false, new AnimatedSprite.endOfAnimationBehavior(this.startSplash), true)
+              });
+              this.sprite.loop = false;
+              this.sprite.oldFrame = 303;
+              this.gravityAffectedDY = -6f;
+            }
+            else if (Game1.random.NextDouble() < 0.01)
+              Game1.playSound("croak");
+            this.characterCheckTimer = 200;
+          }
+        }
+        else
+        {
+          this.position.X += this.flip ? -4f : 4f;
+          if ((double) this.gravityAffectedDY >= 0.0 && (double) this.yJumpOffset >= 0.0)
+          {
+            this.sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+            {
+              new FarmerSprite.AnimationFrame(300, 100),
+              new FarmerSprite.AnimationFrame(301, 100),
+              new FarmerSprite.AnimationFrame(302, 100),
+              new FarmerSprite.AnimationFrame(303, 1500, false, false, new AnimatedSprite.endOfAnimationBehavior(this.startSplash), true)
+            });
+            this.sprite.loop = false;
+            this.sprite.oldFrame = 303;
+            this.gravityAffectedDY = -6f;
+            this.yJumpOffset = 0.0f;
+            if (environment.doesTileHaveProperty((int) this.position.X / 64, (int) this.position.Y / 64, "Water", "Back") != null)
+              this.splash = true;
+          }
+        }
+      }
+      else
+      {
+        this.position.X += this.flip ? -3f : 3f;
+        this.beforeFadeTimer -= time.ElapsedGameTime.Milliseconds;
+        if (this.beforeFadeTimer <= 0)
+        {
+          this.alpha -= 1f / 1000f * (float) time.ElapsedGameTime.Milliseconds;
+          if ((double) this.alpha <= 0.0)
+            return true;
+        }
+        if (environment.doesTileHaveProperty((int) this.position.X / 64, (int) this.position.Y / 64, "Water", "Back") != null)
+          this.splash = true;
+      }
+      if (!this.splash)
+        return base.update(time, environment);
+      environment.TemporarySprites.Add(new TemporaryAnimatedSprite(28, 50f, 2, 1, this.position, false, false));
+      Game1.playSound("dropItemInWater");
+      return true;
+    }
 
-		private int beforeFadeTimer;
+    public override void draw(SpriteBatch b)
+    {
+      this.sprite.draw(b, Game1.GlobalToLocal(Game1.viewport, Utility.snapDrawPosition(this.position + new Vector2(0.0f, this.yJumpOffset - 20f + this.yOffset))), (float) (((double) this.position.Y + 64.0) / 10000.0), 0, 0, Color.White * this.alpha, this.flip, 4f);
+      SpriteBatch spriteBatch = b;
+      Texture2D shadowTexture = Game1.shadowTexture;
+      Vector2 local = Game1.GlobalToLocal(Game1.viewport, this.position + new Vector2(32f, 40f));
+      Rectangle? sourceRectangle = new Rectangle?(Game1.shadowTexture.Bounds);
+      Color color = Color.White * this.alpha;
+      Rectangle bounds = Game1.shadowTexture.Bounds;
+      double x = (double) bounds.Center.X;
+      bounds = Game1.shadowTexture.Bounds;
+      double y = (double) bounds.Center.Y;
+      Vector2 origin = new Vector2((float) x, (float) y);
+      double scale = 3.0 + (double) Math.Max(-3f, (float) (((double) this.yJumpOffset + (double) this.yOffset) / 16.0));
+      double layerDepth = ((double) this.position.Y - 1.0) / 10000.0;
+      spriteBatch.Draw(shadowTexture, local, sourceRectangle, color, 0.0f, origin, (float) scale, SpriteEffects.None, (float) layerDepth);
+    }
 
-		private float alpha = 1f;
-
-		public Frog(Vector2 position, bool waterLeaper = false, bool forceFlip = false)
-		{
-			this.waterLeaper = waterLeaper;
-			base.position = position * 64f;
-			sprite = new AnimatedSprite(Critter.critterTexture, waterLeaper ? 300 : 280, 16, 16);
-			sprite.loop = true;
-			if (!flip && forceFlip)
-			{
-				flip = true;
-			}
-			if (waterLeaper)
-			{
-				sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(300, 600),
-					new FarmerSprite.AnimationFrame(304, 100),
-					new FarmerSprite.AnimationFrame(305, 100),
-					new FarmerSprite.AnimationFrame(306, 300),
-					new FarmerSprite.AnimationFrame(305, 100),
-					new FarmerSprite.AnimationFrame(304, 100)
-				});
-			}
-			else
-			{
-				sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-				{
-					new FarmerSprite.AnimationFrame(280, 60),
-					new FarmerSprite.AnimationFrame(281, 70),
-					new FarmerSprite.AnimationFrame(282, 140),
-					new FarmerSprite.AnimationFrame(283, 90)
-				});
-				beforeFadeTimer = 1000;
-				flip = (base.position.X + 4f < Game1.player.Position.X);
-			}
-			startingPosition = position;
-		}
-
-		public void startSplash(Farmer who)
-		{
-			splash = true;
-		}
-
-		public override bool update(GameTime time, GameLocation environment)
-		{
-			if (waterLeaper)
-			{
-				if (!leapingIntoWater)
-				{
-					characterCheckTimer -= time.ElapsedGameTime.Milliseconds;
-					if (characterCheckTimer <= 0)
-					{
-						if (Utility.isThereAFarmerOrCharacterWithinDistance(position / 64f, 6, environment) != null)
-						{
-							leapingIntoWater = true;
-							sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-							{
-								new FarmerSprite.AnimationFrame(300, 100),
-								new FarmerSprite.AnimationFrame(301, 100),
-								new FarmerSprite.AnimationFrame(302, 100),
-								new FarmerSprite.AnimationFrame(303, 1500, secondaryArm: false, flip: false, startSplash, behaviorAtEndOfFrame: true)
-							});
-							sprite.loop = false;
-							sprite.oldFrame = 303;
-							gravityAffectedDY = -6f;
-						}
-						else if (Game1.random.NextDouble() < 0.01)
-						{
-							Game1.playSound("croak");
-						}
-						characterCheckTimer = 200;
-					}
-				}
-				else
-				{
-					position.X += (flip ? (-4) : 4);
-					if (gravityAffectedDY >= 0f && yJumpOffset >= 0f)
-					{
-						sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-						{
-							new FarmerSprite.AnimationFrame(300, 100),
-							new FarmerSprite.AnimationFrame(301, 100),
-							new FarmerSprite.AnimationFrame(302, 100),
-							new FarmerSprite.AnimationFrame(303, 1500, secondaryArm: false, flip: false, startSplash, behaviorAtEndOfFrame: true)
-						});
-						sprite.loop = false;
-						sprite.oldFrame = 303;
-						gravityAffectedDY = -6f;
-						yJumpOffset = 0f;
-						if (environment.doesTileHaveProperty((int)position.X / 64, (int)position.Y / 64, "Water", "Back") != null)
-						{
-							splash = true;
-						}
-					}
-				}
-			}
-			else
-			{
-				position.X += (flip ? (-3) : 3);
-				beforeFadeTimer -= time.ElapsedGameTime.Milliseconds;
-				if (beforeFadeTimer <= 0)
-				{
-					alpha -= 0.001f * (float)time.ElapsedGameTime.Milliseconds;
-					if (alpha <= 0f)
-					{
-						return true;
-					}
-				}
-				if (environment.doesTileHaveProperty((int)position.X / 64, (int)position.Y / 64, "Water", "Back") != null)
-				{
-					splash = true;
-				}
-			}
-			if (splash)
-			{
-				environment.TemporarySprites.Add(new TemporaryAnimatedSprite(28, 50f, 2, 1, position, flicker: false, flipped: false));
-				Game1.playSound("dropItemInWater");
-				return true;
-			}
-			return base.update(time, environment);
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			sprite.draw(b, Game1.GlobalToLocal(Game1.viewport, Utility.snapDrawPosition(position + new Vector2(0f, -20f + yJumpOffset + yOffset))), (position.Y + 64f) / 10000f, 0, 0, Color.White * alpha, flip, 4f);
-			b.Draw(Game1.shadowTexture, Game1.GlobalToLocal(Game1.viewport, position + new Vector2(32f, 40f)), Game1.shadowTexture.Bounds, Color.White * alpha, 0f, new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y), 3f + Math.Max(-3f, (yJumpOffset + yOffset) / 16f), SpriteEffects.None, (position.Y - 1f) / 10000f);
-		}
-
-		public override void drawAboveFrontLayer(SpriteBatch b)
-		{
-		}
-	}
+    public override void drawAboveFrontLayer(SpriteBatch b)
+    {
+    }
+  }
 }

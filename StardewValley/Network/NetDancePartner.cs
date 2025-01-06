@@ -1,126 +1,77 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.NetDancePartner
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System;
 
 namespace StardewValley.Network
 {
-	public class NetDancePartner : INetObject<NetFields>
-	{
-		private readonly NetFarmerRef farmer = new NetFarmerRef();
+  public class NetDancePartner : INetObject<NetFields>
+  {
+    private readonly NetFarmerRef farmer = new NetFarmerRef();
+    private readonly NetString villager = new NetString();
 
-		private readonly NetString villager = new NetString();
+    public Character Value
+    {
+      get => this.GetCharacter();
+      set => this.SetCharacter(value);
+    }
 
-		public Character Value
-		{
-			get
-			{
-				return GetCharacter();
-			}
-			set
-			{
-				SetCharacter(value);
-			}
-		}
+    public NetFields NetFields { get; } = new NetFields();
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    public NetDancePartner() => this.NetFields.AddFields((INetSerializable) this.farmer.NetFields, (INetSerializable) this.villager);
 
+    public NetDancePartner(Farmer farmer) => this.farmer.Value = farmer;
 
-		public NetDancePartner()
-		{
-			NetFields.AddFields(farmer.NetFields, villager);
-		}
+    public NetDancePartner(string villagerName) => this.villager.Value = villagerName;
 
-		public NetDancePartner(Farmer farmer)
-		{
-			this.farmer.Value = farmer;
-		}
+    public Character GetCharacter()
+    {
+      if (this.farmer.Value != null)
+        return (Character) this.farmer.Value;
+      return Game1.CurrentEvent != null && this.villager.Value != null ? (Character) Game1.CurrentEvent.getActorByName(this.villager.Value) : (Character) null;
+    }
 
-		public NetDancePartner(string villagerName)
-		{
-			villager.Value = villagerName;
-		}
+    public void SetCharacter(Character value)
+    {
+      switch (value)
+      {
+        case null:
+          this.farmer.Value = (Farmer) null;
+          this.villager.Value = (string) null;
+          return;
+        case Farmer _:
+          this.farmer.Value = value as Farmer;
+          this.villager.Value = (string) null;
+          return;
+        case NPC _:
+          if ((value as NPC).isVillager())
+          {
+            this.farmer.Value = (Farmer) null;
+            this.villager.Value = (value as NPC).Name;
+            return;
+          }
+          break;
+      }
+      throw new ArgumentException(value.ToString());
+    }
 
-		public Character GetCharacter()
-		{
-			if (farmer.Value != null)
-			{
-				return farmer.Value;
-			}
-			if (Game1.CurrentEvent != null && villager.Value != null)
-			{
-				return Game1.CurrentEvent.getActorByName(villager.Value);
-			}
-			return null;
-		}
+    public NPC TryGetVillager()
+    {
+      if (this.farmer.Value != null)
+        return (NPC) null;
+      return Game1.CurrentEvent != null && this.villager.Value != null ? Game1.CurrentEvent.getActorByName(this.villager.Value) : (NPC) null;
+    }
 
-		public void SetCharacter(Character value)
-		{
-			if (value == null)
-			{
-				farmer.Value = null;
-				villager.Value = null;
-				return;
-			}
-			if (value is Farmer)
-			{
-				farmer.Value = (value as Farmer);
-				villager.Value = null;
-				return;
-			}
-			if (value is NPC && (value as NPC).isVillager())
-			{
-				farmer.Value = null;
-				villager.Value = (value as NPC).Name;
-				return;
-			}
-			throw new ArgumentException(value.ToString());
-		}
+    public Farmer TryGetFarmer() => this.farmer.Value;
 
-		public NPC TryGetVillager()
-		{
-			if (farmer.Value != null)
-			{
-				return null;
-			}
-			if (Game1.CurrentEvent != null && villager.Value != null)
-			{
-				return Game1.CurrentEvent.getActorByName(villager.Value);
-			}
-			return null;
-		}
+    public bool IsFarmer() => this.TryGetFarmer() != null;
 
-		public Farmer TryGetFarmer()
-		{
-			return farmer.Value;
-		}
+    public bool IsVillager() => this.TryGetVillager() != null;
 
-		public bool IsFarmer()
-		{
-			return TryGetFarmer() != null;
-		}
-
-		public bool IsVillager()
-		{
-			return TryGetVillager() != null;
-		}
-
-		public int GetGender()
-		{
-			if (IsFarmer())
-			{
-				if (!TryGetFarmer().IsMale)
-				{
-					return 1;
-				}
-				return 0;
-			}
-			if (IsVillager())
-			{
-				return TryGetVillager().Gender;
-			}
-			return 2;
-		}
-	}
+    public int GetGender() => this.IsFarmer() ? (!this.TryGetFarmer().IsMale ? 1 : 0) : (this.IsVillager() ? this.TryGetVillager().Gender : 2);
+  }
 }

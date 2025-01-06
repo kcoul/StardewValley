@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Monsters.SquidKid
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -6,239 +12,230 @@ using System;
 
 namespace StardewValley.Monsters
 {
-	public class SquidKid : Monster
-	{
-		private float lastFireball;
+  public class SquidKid : Monster
+  {
+    private float lastFireball;
+    private int yOffset;
+    private readonly NetEvent0 fireballEvent = new NetEvent0();
+    private readonly NetEvent0 hurtAnimationEvent = new NetEvent0();
+    private int numFireballsLeft;
+    private float firingTimer;
 
-		private new int yOffset;
+    public SquidKid()
+    {
+    }
 
-		private readonly NetEvent0 fireballEvent = new NetEvent0();
+    public SquidKid(Vector2 position)
+      : base("Squid Kid", position)
+    {
+      this.Sprite.SpriteHeight = 16;
+      this.IsWalkingTowardPlayer = false;
+      this.Sprite.UpdateSourceRect();
+      this.HideShadow = true;
+    }
 
-		private readonly NetEvent0 hurtAnimationEvent = new NetEvent0();
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.fireballEvent, (INetSerializable) this.hurtAnimationEvent);
+      this.fireballEvent.onEvent += (NetEvent0.Event) (() =>
+      {
+        if (Game1.IsMasterGame)
+          return;
+        this.fireballFired();
+      });
+      this.hurtAnimationEvent.onEvent += (NetEvent0.Event) (() => this.Sprite.currentFrame = this.Sprite.currentFrame - this.Sprite.currentFrame % 4 + 3);
+    }
 
-		private int numFireballsLeft;
+    public override void reloadSprite() => this.Sprite = new AnimatedSprite("Characters\\Monsters\\Squid Kid");
 
-		private float firingTimer;
+    public override int takeDamage(
+      int damage,
+      int xTrajectory,
+      int yTrajectory,
+      bool isBomb,
+      double addedPrecision,
+      Farmer who)
+    {
+      int damage1 = Math.Max(1, damage - (int) (NetFieldBase<int, NetInt>) this.resilience);
+      if (Game1.random.NextDouble() < (double) (NetFieldBase<double, NetDouble>) this.missChance - (double) (NetFieldBase<double, NetDouble>) this.missChance * addedPrecision)
+      {
+        damage1 = -1;
+      }
+      else
+      {
+        this.Health -= damage1;
+        this.setTrajectory(xTrajectory, yTrajectory);
+        this.currentLocation.playSound("hitEnemy");
+        this.hurtAnimationEvent.Fire();
+        if (this.Health <= 0)
+          this.deathAnimation();
+      }
+      return damage1;
+    }
 
-		public SquidKid()
-		{
-		}
+    protected override void sharedDeathAnimation()
+    {
+    }
 
-		public SquidKid(Vector2 position)
-			: base("Squid Kid", position)
-		{
-			Sprite.SpriteHeight = 16;
-			base.IsWalkingTowardPlayer = false;
-			Sprite.UpdateSourceRect();
-			base.HideShadow = true;
-		}
+    protected override void localDeathAnimation()
+    {
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite((string) (NetFieldBase<string, NetString>) this.Sprite.textureName, new Rectangle(0, 64, 16, 16), 70f, 7, 0, this.Position + new Vector2(0.0f, -32f), false, false)
+      {
+        scale = 4f
+      });
+      this.currentLocation.localSound("fireball");
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, this.Position + new Vector2((float) (Game1.random.Next(64) - 16), (float) (Game1.random.Next(64) - 32)), false, Game1.random.NextDouble() < 0.5)
+      {
+        delayBeforeAnimationStart = 100
+      });
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, this.Position + new Vector2((float) (Game1.random.Next(64) - 16), (float) (Game1.random.Next(64) - 32)), false, Game1.random.NextDouble() < 0.5)
+      {
+        delayBeforeAnimationStart = 200
+      });
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, this.Position + new Vector2((float) (Game1.random.Next(64) - 16), (float) (Game1.random.Next(64) - 32)), false, Game1.random.NextDouble() < 0.5)
+      {
+        delayBeforeAnimationStart = 300
+      });
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, this.Position + new Vector2((float) (Game1.random.Next(64) - 16), (float) (Game1.random.Next(64) - 32)), false, Game1.random.NextDouble() < 0.5)
+      {
+        delayBeforeAnimationStart = 400
+      });
+    }
 
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(fireballEvent, hurtAnimationEvent);
-			fireballEvent.onEvent += delegate
-			{
-				if (!Game1.IsMasterGame)
-				{
-					fireballFired();
-				}
-			};
-			hurtAnimationEvent.onEvent += delegate
-			{
-				Sprite.currentFrame = Sprite.currentFrame - Sprite.currentFrame % 4 + 3;
-			};
-		}
+    public override void drawAboveAllLayers(SpriteBatch b)
+    {
+      b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + new Vector2(32f, (float) (21 + this.yOffset)), new Rectangle?(this.Sprite.SourceRect), Color.White, 0.0f, new Vector2(8f, 16f), Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale) * 4f, this.flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) this.getStandingY() / 10000f));
+      SpriteBatch spriteBatch = b;
+      Texture2D shadowTexture = Game1.shadowTexture;
+      Vector2 position = this.getLocalPosition(Game1.viewport) + new Vector2(32f, 64f);
+      Rectangle? sourceRectangle = new Rectangle?(Game1.shadowTexture.Bounds);
+      Color white = Color.White;
+      Rectangle bounds = Game1.shadowTexture.Bounds;
+      double x = (double) bounds.Center.X;
+      bounds = Game1.shadowTexture.Bounds;
+      double y = (double) bounds.Center.Y;
+      Vector2 origin = new Vector2((float) x, (float) y);
+      double scale = 3.0 + (double) this.yOffset / 20.0;
+      double layerDepth = (double) (this.getStandingY() - 1) / 10000.0;
+      spriteBatch.Draw(shadowTexture, position, sourceRectangle, white, 0.0f, origin, (float) scale, SpriteEffects.None, (float) layerDepth);
+    }
 
-		public override void reloadSprite()
-		{
-			Sprite = new AnimatedSprite("Characters\\Monsters\\Squid Kid");
-		}
+    protected override void updateAnimation(GameTime time)
+    {
+      base.updateAnimation(time);
+      this.yOffset = (int) (Math.Sin((double) time.TotalGameTime.Milliseconds / 2000.0 * (2.0 * Math.PI)) * 15.0);
+      if (this.Sprite.currentFrame % 4 != 0 && Game1.random.NextDouble() < 0.1)
+        this.Sprite.currentFrame -= this.Sprite.currentFrame % 4;
+      if (Game1.random.NextDouble() < 0.01)
+        ++this.Sprite.currentFrame;
+      this.resetAnimationSpeed();
+    }
 
-		public override int takeDamage(int damage, int xTrajectory, int yTrajectory, bool isBomb, double addedPrecision, Farmer who)
-		{
-			int actualDamage = Math.Max(1, damage - (int)resilience);
-			if (Game1.random.NextDouble() < (double)missChance - (double)missChance * addedPrecision)
-			{
-				actualDamage = -1;
-			}
-			else
-			{
-				base.Health -= actualDamage;
-				setTrajectory(xTrajectory, yTrajectory);
-				base.currentLocation.playSound("hitEnemy");
-				hurtAnimationEvent.Fire();
-				if (base.Health <= 0)
-				{
-					deathAnimation();
-				}
-			}
-			return actualDamage;
-		}
+    protected override void updateMonsterSlaveAnimation(GameTime time)
+    {
+      if (this.isMoving())
+      {
+        if (this.FacingDirection == 0)
+          this.Sprite.AnimateUp(time);
+        else if (this.FacingDirection == 3)
+          this.Sprite.AnimateLeft(time);
+        else if (this.FacingDirection == 1)
+          this.Sprite.AnimateRight(time);
+        else if (this.FacingDirection == 2)
+          this.Sprite.AnimateDown(time);
+      }
+      this.faceGeneralDirection(this.Player.Position);
+    }
 
-		protected override void sharedDeathAnimation()
-		{
-		}
+    private Vector2 fireballFired()
+    {
+      switch (this.FacingDirection)
+      {
+        case 0:
+          this.Sprite.currentFrame = 3;
+          return Vector2.Zero;
+        case 1:
+          this.Sprite.currentFrame = 7;
+          return new Vector2(64f, 0.0f);
+        case 2:
+          this.Sprite.currentFrame = 11;
+          return new Vector2(0.0f, 32f);
+        case 3:
+          this.Sprite.currentFrame = 15;
+          return new Vector2(-32f, 0.0f);
+        default:
+          return Vector2.Zero;
+      }
+    }
 
-		protected override void localDeathAnimation()
-		{
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(Sprite.textureName, new Rectangle(0, 64, 16, 16), 70f, 7, 0, base.Position + new Vector2(0f, -32f), flicker: false, flipped: false)
-			{
-				scale = 4f
-			});
-			base.currentLocation.localSound("fireball");
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, base.Position + new Vector2(-16 + Game1.random.Next(64), Game1.random.Next(64) - 32), flicker: false, (Game1.random.NextDouble() < 0.5) ? true : false)
-			{
-				delayBeforeAnimationStart = 100
-			});
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, base.Position + new Vector2(-16 + Game1.random.Next(64), Game1.random.Next(64) - 32), flicker: false, (Game1.random.NextDouble() < 0.5) ? true : false)
-			{
-				delayBeforeAnimationStart = 200
-			});
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, base.Position + new Vector2(-16 + Game1.random.Next(64), Game1.random.Next(64) - 32), flicker: false, (Game1.random.NextDouble() < 0.5) ? true : false)
-			{
-				delayBeforeAnimationStart = 300
-			});
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(362, 30f, 6, 1, base.Position + new Vector2(-16 + Game1.random.Next(64), Game1.random.Next(64) - 32), flicker: false, (Game1.random.NextDouble() < 0.5) ? true : false)
-			{
-				delayBeforeAnimationStart = 400
-			});
-		}
+    public override void update(GameTime time, GameLocation location)
+    {
+      base.update(time, location);
+      this.fireballEvent.Poll();
+    }
 
-		public override void drawAboveAllLayers(SpriteBatch b)
-		{
-			b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + new Vector2(32f, 21 + yOffset), Sprite.SourceRect, Color.White, 0f, new Vector2(8f, 16f), Math.Max(0.2f, scale) * 4f, flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)getStandingY() / 10000f)));
-			b.Draw(Game1.shadowTexture, getLocalPosition(Game1.viewport) + new Vector2(32f, 64f), Game1.shadowTexture.Bounds, Color.White, 0f, new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y), 3f + (float)yOffset / 20f, SpriteEffects.None, (float)(getStandingY() - 1) / 10000f);
-		}
-
-		protected override void updateAnimation(GameTime time)
-		{
-			base.updateAnimation(time);
-			yOffset = (int)(Math.Sin((double)((float)time.TotalGameTime.Milliseconds / 2000f) * (Math.PI * 2.0)) * 15.0);
-			if (Sprite.currentFrame % 4 != 0 && Game1.random.NextDouble() < 0.1)
-			{
-				Sprite.currentFrame -= Sprite.currentFrame % 4;
-			}
-			if (Game1.random.NextDouble() < 0.01)
-			{
-				Sprite.currentFrame++;
-			}
-			resetAnimationSpeed();
-		}
-
-		protected override void updateMonsterSlaveAnimation(GameTime time)
-		{
-			if (isMoving())
-			{
-				if (FacingDirection == 0)
-				{
-					Sprite.AnimateUp(time);
-				}
-				else if (FacingDirection == 3)
-				{
-					Sprite.AnimateLeft(time);
-				}
-				else if (FacingDirection == 1)
-				{
-					Sprite.AnimateRight(time);
-				}
-				else if (FacingDirection == 2)
-				{
-					Sprite.AnimateDown(time);
-				}
-			}
-			faceGeneralDirection(base.Player.Position);
-		}
-
-		private Vector2 fireballFired()
-		{
-			switch (FacingDirection)
-			{
-			case 0:
-				Sprite.currentFrame = 3;
-				return Vector2.Zero;
-			case 1:
-				Sprite.currentFrame = 7;
-				return new Vector2(64f, 0f);
-			case 2:
-				Sprite.currentFrame = 11;
-				return new Vector2(0f, 32f);
-			case 3:
-				Sprite.currentFrame = 15;
-				return new Vector2(-32f, 0f);
-			default:
-				return Vector2.Zero;
-			}
-		}
-
-		public override void update(GameTime time, GameLocation location)
-		{
-			base.update(time, location);
-			fireballEvent.Poll();
-		}
-
-		public override void behaviorAtGameTick(GameTime time)
-		{
-			base.behaviorAtGameTick(time);
-			faceGeneralDirection(base.Player.Position);
-			lastFireball = Math.Max(0f, lastFireball - (float)time.ElapsedGameTime.Milliseconds);
-			if ((bool)isHardModeMonster)
-			{
-				if ((numFireballsLeft <= 0 && !withinPlayerThreshold()) || !(lastFireball <= 0f))
-				{
-					return;
-				}
-				if (lastFireball <= 0f && numFireballsLeft <= 0)
-				{
-					numFireballsLeft = 4;
-					firingTimer = 0f;
-				}
-				firingTimer -= (float)time.ElapsedGameTime.TotalMilliseconds;
-				if (firingTimer <= 0f && numFireballsLeft > 0)
-				{
-					numFireballsLeft--;
-					base.IsWalkingTowardPlayer = false;
-					Vector2 value = new Vector2(base.Position.X, base.Position.Y + 64f);
-					Halt();
-					fireballEvent.Fire();
-					_ = value + fireballFired();
-					Sprite.UpdateSourceRect();
-					Vector2 trajectory2 = Utility.getVelocityTowardPoint(getStandingPosition(), new Vector2(base.Player.GetBoundingBox().X, base.Player.GetBoundingBox().Y) + new Vector2(Game1.random.Next(-128, 128)), 8f);
-					BasicProjectile projectile2 = new BasicProjectile(15, 10, 2, 4, 0f, trajectory2.X, trajectory2.Y, getStandingPosition() - new Vector2(32f, 0f), "", "", explode: true, damagesMonsters: false, base.currentLocation, this);
-					projectile2.height.Value = 48f;
-					base.currentLocation.projectiles.Add(projectile2);
-					base.currentLocation.playSound("fireball");
-					firingTimer = 400f;
-					if (numFireballsLeft <= 0)
-					{
-						lastFireball = Game1.random.Next(3000, 6500);
-					}
-				}
-			}
-			else if (withinPlayerThreshold() && lastFireball == 0f && Game1.random.NextDouble() < 0.01)
-			{
-				base.IsWalkingTowardPlayer = false;
-				Vector2 value2 = new Vector2(base.Position.X, base.Position.Y + 64f);
-				Halt();
-				fireballEvent.Fire();
-				_ = value2 + fireballFired();
-				Sprite.UpdateSourceRect();
-				Vector2 trajectory = Utility.getVelocityTowardPlayer(Utility.Vector2ToPoint(getStandingPosition()), 8f, base.Player);
-				BasicProjectile projectile = new BasicProjectile(15, 10, 3, 4, 0f, trajectory.X, trajectory.Y, getStandingPosition() - new Vector2(32f, 0f), "", "", explode: true, damagesMonsters: false, base.currentLocation, this);
-				projectile.height.Value = 48f;
-				base.currentLocation.projectiles.Add(projectile);
-				base.currentLocation.playSound("fireball");
-				lastFireball = Game1.random.Next(1200, 3500);
-			}
-			else if (lastFireball != 0f && Game1.random.NextDouble() < 0.02)
-			{
-				Halt();
-				if (withinPlayerThreshold())
-				{
-					base.Slipperiness = 8;
-					setTrajectory((int)Utility.getVelocityTowardPlayer(Utility.Vector2ToPoint(getStandingPosition()), 8f, base.Player).X, (int)(0f - Utility.getVelocityTowardPlayer(Utility.Vector2ToPoint(getStandingPosition()), 8f, base.Player).Y));
-				}
-			}
-		}
-	}
+    public override void behaviorAtGameTick(GameTime time)
+    {
+      base.behaviorAtGameTick(time);
+      this.faceGeneralDirection(this.Player.Position);
+      this.lastFireball = Math.Max(0.0f, this.lastFireball - (float) time.ElapsedGameTime.Milliseconds);
+      if ((bool) (NetFieldBase<bool, NetBool>) this.isHardModeMonster)
+      {
+        if (this.numFireballsLeft <= 0 && !this.withinPlayerThreshold() || (double) this.lastFireball > 0.0)
+          return;
+        if ((double) this.lastFireball <= 0.0 && this.numFireballsLeft <= 0)
+        {
+          this.numFireballsLeft = 4;
+          this.firingTimer = 0.0f;
+        }
+        this.firingTimer -= (float) time.ElapsedGameTime.TotalMilliseconds;
+        if ((double) this.firingTimer > 0.0 || this.numFireballsLeft <= 0)
+          return;
+        --this.numFireballsLeft;
+        this.IsWalkingTowardPlayer = false;
+        Vector2 vector2_1 = new Vector2(this.Position.X, this.Position.Y + 64f);
+        this.Halt();
+        this.fireballEvent.Fire();
+        Vector2 vector2_2 = this.fireballFired();
+        Vector2 vector2_3 = vector2_1 + vector2_2;
+        this.Sprite.UpdateSourceRect();
+        Vector2 velocityTowardPoint = Utility.getVelocityTowardPoint(this.getStandingPosition(), new Vector2((float) this.Player.GetBoundingBox().X, (float) this.Player.GetBoundingBox().Y) + new Vector2((float) Game1.random.Next((int) sbyte.MinValue, 128)), 8f);
+        BasicProjectile basicProjectile = new BasicProjectile(15, 10, 2, 4, 0.0f, velocityTowardPoint.X, velocityTowardPoint.Y, this.getStandingPosition() - new Vector2(32f, 0.0f), "", "", true, location: this.currentLocation, firer: ((Character) this));
+        basicProjectile.height.Value = 48f;
+        this.currentLocation.projectiles.Add((Projectile) basicProjectile);
+        this.currentLocation.playSound("fireball");
+        this.firingTimer = 400f;
+        if (this.numFireballsLeft > 0)
+          return;
+        this.lastFireball = (float) Game1.random.Next(3000, 6500);
+      }
+      else if (this.withinPlayerThreshold() && (double) this.lastFireball == 0.0 && Game1.random.NextDouble() < 0.01)
+      {
+        this.IsWalkingTowardPlayer = false;
+        Vector2 vector2_4 = new Vector2(this.Position.X, this.Position.Y + 64f);
+        this.Halt();
+        this.fireballEvent.Fire();
+        Vector2 vector2_5 = this.fireballFired();
+        Vector2 vector2_6 = vector2_4 + vector2_5;
+        this.Sprite.UpdateSourceRect();
+        Vector2 velocityTowardPlayer = Utility.getVelocityTowardPlayer(Utility.Vector2ToPoint(this.getStandingPosition()), 8f, this.Player);
+        BasicProjectile basicProjectile = new BasicProjectile(15, 10, 3, 4, 0.0f, velocityTowardPlayer.X, velocityTowardPlayer.Y, this.getStandingPosition() - new Vector2(32f, 0.0f), "", "", true, location: this.currentLocation, firer: ((Character) this));
+        basicProjectile.height.Value = 48f;
+        this.currentLocation.projectiles.Add((Projectile) basicProjectile);
+        this.currentLocation.playSound("fireball");
+        this.lastFireball = (float) Game1.random.Next(1200, 3500);
+      }
+      else
+      {
+        if ((double) this.lastFireball == 0.0 || Game1.random.NextDouble() >= 0.02)
+          return;
+        this.Halt();
+        if (!this.withinPlayerThreshold())
+          return;
+        this.Slipperiness = 8;
+        this.setTrajectory((int) Utility.getVelocityTowardPlayer(Utility.Vector2ToPoint(this.getStandingPosition()), 8f, this.Player).X, (int) -(double) Utility.getVelocityTowardPlayer(Utility.Vector2ToPoint(this.getStandingPosition()), 8f, this.Player).Y);
+      }
+    }
+  }
 }

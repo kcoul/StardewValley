@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.DonateObjective
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using System;
@@ -6,157 +12,107 @@ using System.Xml.Serialization;
 
 namespace StardewValley
 {
-	public class DonateObjective : OrderObjective
-	{
-		[XmlElement("dropBox")]
-		public NetString dropBox = new NetString();
+  public class DonateObjective : OrderObjective
+  {
+    [XmlElement("dropBox")]
+    public NetString dropBox = new NetString();
+    [XmlElement("dropBoxGameLocation")]
+    public NetString dropBoxGameLocation = new NetString();
+    [XmlElement("dropBoxTileLocation")]
+    public NetVector2 dropBoxTileLocation = new NetVector2();
+    [XmlElement("acceptableContextTagSets")]
+    public NetStringList acceptableContextTagSets = new NetStringList();
+    [XmlElement("minimumCapacity")]
+    public NetInt minimumCapacity = new NetInt(-1);
+    [XmlElement("confirmed")]
+    public NetBool confirmed = new NetBool(false);
 
-		[XmlElement("dropBoxGameLocation")]
-		public NetString dropBoxGameLocation = new NetString();
+    public virtual string GetDropboxLocationName() => this.dropBoxGameLocation.Value == "Trailer" && Game1.MasterPlayer.hasOrWillReceiveMail("pamHouseUpgrade") ? "Trailer_Big" : this.dropBoxGameLocation.Value;
 
-		[XmlElement("dropBoxTileLocation")]
-		public NetVector2 dropBoxTileLocation = new NetVector2();
+    public override void Load(SpecialOrder order, Dictionary<string, string> data)
+    {
+      if (data.ContainsKey("AcceptedContextTags"))
+        this.acceptableContextTagSets.Add(order.Parse(data["AcceptedContextTags"].Trim()));
+      if (data.ContainsKey("DropBox"))
+        this.dropBox.Value = order.Parse(data["DropBox"].Trim());
+      if (data.ContainsKey("DropBoxGameLocation"))
+        this.dropBoxGameLocation.Value = order.Parse(data["DropBoxGameLocation"].Trim());
+      if (data.ContainsKey("DropBoxIndicatorLocation"))
+      {
+        string str = order.Parse(data["DropBoxIndicatorLocation"]);
+        this.dropBoxTileLocation.Value = (Vector2) (NetFieldBase<Vector2, NetVector2>) new NetVector2(new Vector2((float) Convert.ToDouble(str.Split(' ')[0]), (float) Convert.ToDouble(str.Split(' ')[1])));
+      }
+      if (!data.ContainsKey("MinimumCapacity"))
+        return;
+      this.minimumCapacity.Value = int.Parse(order.Parse(data["MinimumCapacity"]));
+    }
 
-		[XmlElement("acceptableContextTagSets")]
-		public NetStringList acceptableContextTagSets = new NetStringList();
+    public int GetAcceptCount(Item item, int stack_count) => this.IsValidItem(item) ? Math.Min(this.GetMaxCount() - this.GetCount(), stack_count) : 0;
 
-		[XmlElement("minimumCapacity")]
-		public NetInt minimumCapacity = new NetInt(-1);
+    public override bool IsComplete() => base.IsComplete();
 
-		[XmlElement("confirmed")]
-		public NetBool confirmed = new NetBool(value: false);
+    public override void OnCompletion()
+    {
+      base.OnCompletion();
+      if (!((NetFieldBase<string, NetString>) this.dropBoxGameLocation != (NetString) null))
+        return;
+      GameLocation locationFromName = Game1.getLocationFromName(this.GetDropboxLocationName());
+      if (locationFromName == null)
+        return;
+      locationFromName.showDropboxIndicator = false;
+    }
 
-		public virtual string GetDropboxLocationName()
-		{
-			if (dropBoxGameLocation.Value == "Trailer" && Game1.MasterPlayer.hasOrWillReceiveMail("pamHouseUpgrade"))
-			{
-				return "Trailer_Big";
-			}
-			return dropBoxGameLocation.Value;
-		}
+    public override bool CanComplete() => this.confirmed.Value;
 
-		public override void Load(SpecialOrder order, Dictionary<string, string> data)
-		{
-			if (data.ContainsKey("AcceptedContextTags"))
-			{
-				acceptableContextTagSets.Add(order.Parse(data["AcceptedContextTags"].Trim()));
-			}
-			if (data.ContainsKey("DropBox"))
-			{
-				dropBox.Value = order.Parse(data["DropBox"].Trim());
-			}
-			if (data.ContainsKey("DropBoxGameLocation"))
-			{
-				dropBoxGameLocation.Value = order.Parse(data["DropBoxGameLocation"].Trim());
-			}
-			if (data.ContainsKey("DropBoxIndicatorLocation"))
-			{
-				string coordinates = order.Parse(data["DropBoxIndicatorLocation"]);
-				dropBoxTileLocation.Value = new NetVector2(new Vector2((float)Convert.ToDouble(coordinates.Split(' ')[0]), (float)Convert.ToDouble(coordinates.Split(' ')[1])));
-			}
-			if (data.ContainsKey("MinimumCapacity"))
-			{
-				minimumCapacity.Value = int.Parse(order.Parse(data["MinimumCapacity"]));
-			}
-		}
+    public virtual void Confirm()
+    {
+      if (this.GetCount() >= this.GetMaxCount())
+        this.confirmed.Value = true;
+      else
+        this.confirmed.Value = false;
+    }
 
-		public int GetAcceptCount(Item item, int stack_count)
-		{
-			if (IsValidItem(item))
-			{
-				return Math.Min(GetMaxCount() - GetCount(), stack_count);
-			}
-			return 0;
-		}
+    public override bool CanUncomplete() => true;
 
-		public override bool IsComplete()
-		{
-			return base.IsComplete();
-		}
+    public override void InitializeNetFields()
+    {
+      base.InitializeNetFields();
+      this.NetFields.AddFields((INetSerializable) this.acceptableContextTagSets, (INetSerializable) this.dropBox, (INetSerializable) this.dropBoxGameLocation, (INetSerializable) this.dropBoxTileLocation, (INetSerializable) this.minimumCapacity, (INetSerializable) this.confirmed);
+      this.confirmed.fieldChangeVisibleEvent += new NetFieldBase<bool, NetBool>.FieldChange(this.OnConfirmed);
+    }
 
-		public override void OnCompletion()
-		{
-			base.OnCompletion();
-			if (dropBoxGameLocation != null)
-			{
-				GameLocation i = Game1.getLocationFromName(GetDropboxLocationName());
-				if (i != null)
-				{
-					i.showDropboxIndicator = false;
-				}
-			}
-		}
+    protected void OnConfirmed(NetBool field, bool oldValue, bool newValue)
+    {
+      if (Utility.ShouldIgnoreValueChangeCallback())
+        return;
+      this.CheckCompletion();
+    }
 
-		public override bool CanComplete()
-		{
-			return confirmed.Value;
-		}
-
-		public virtual void Confirm()
-		{
-			if (GetCount() >= GetMaxCount())
-			{
-				confirmed.Value = true;
-			}
-			else
-			{
-				confirmed.Value = false;
-			}
-		}
-
-		public override bool CanUncomplete()
-		{
-			return true;
-		}
-
-		public override void InitializeNetFields()
-		{
-			base.InitializeNetFields();
-			base.NetFields.AddFields(acceptableContextTagSets, dropBox, dropBoxGameLocation, dropBoxTileLocation, minimumCapacity, confirmed);
-			confirmed.fieldChangeVisibleEvent += OnConfirmed;
-		}
-
-		protected void OnConfirmed(NetBool field, bool oldValue, bool newValue)
-		{
-			if (!Utility.ShouldIgnoreValueChangeCallback())
-			{
-				CheckCompletion();
-			}
-		}
-
-		public virtual bool IsValidItem(Item item)
-		{
-			if (item == null)
-			{
-				return false;
-			}
-			foreach (string acceptableContextTagSet in acceptableContextTagSets)
-			{
-				bool fail = false;
-				string[] array = acceptableContextTagSet.Split(',');
-				foreach (string obj in array)
-				{
-					bool found_match = false;
-					string[] array2 = obj.Split('/');
-					foreach (string acceptable_tag in array2)
-					{
-						if (item.HasContextTag(acceptable_tag.Trim()))
-						{
-							found_match = true;
-							break;
-						}
-					}
-					if (!found_match)
-					{
-						fail = true;
-					}
-				}
-				if (!fail)
-				{
-					return true;
-				}
-			}
-			return false;
-		}
-	}
+    public virtual bool IsValidItem(Item item)
+    {
+      if (item == null)
+        return false;
+      foreach (string acceptableContextTagSet in (NetList<string, NetString>) this.acceptableContextTagSets)
+      {
+        bool flag1 = false;
+        foreach (string str1 in acceptableContextTagSet.Split(','))
+        {
+          bool flag2 = false;
+          foreach (string str2 in str1.Split('/'))
+          {
+            if (item.HasContextTag(str2.Trim()))
+            {
+              flag2 = true;
+              break;
+            }
+          }
+          if (!flag2)
+            flag1 = true;
+        }
+        if (!flag1)
+          return true;
+      }
+      return false;
+    }
+  }
 }

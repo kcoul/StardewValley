@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Util.SynchronizedShopStock
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using StardewValley.Network;
 using System;
@@ -5,146 +11,118 @@ using System.Collections.Generic;
 
 namespace StardewValley.Util
 {
-	public class SynchronizedShopStock : INetObject<NetFields>
-	{
-		public enum SynchedShop
-		{
-			Krobus,
-			TravelingMerchant,
-			Sandy,
-			Saloon
-		}
+  public class SynchronizedShopStock : INetObject<NetFields>
+  {
+    private readonly NetIntDictionary<int, NetInt> lastDayUpdated = new NetIntDictionary<int, NetInt>();
+    private readonly NetStringDictionary<int, NetInt> sharedKrobusStock = new NetStringDictionary<int, NetInt>();
+    private readonly NetStringDictionary<int, NetInt> sharedSandyStock = new NetStringDictionary<int, NetInt>();
+    private readonly NetStringDictionary<int, NetInt> sharedTravelingMerchantStock = new NetStringDictionary<int, NetInt>();
+    private readonly NetStringDictionary<int, NetInt> sharedSaloonStock = new NetStringDictionary<int, NetInt>();
 
-		private readonly NetIntDictionary<int, NetInt> lastDayUpdated = new NetIntDictionary<int, NetInt>();
+    public NetFields NetFields { get; } = new NetFields();
 
-		private readonly NetStringDictionary<int, NetInt> sharedKrobusStock = new NetStringDictionary<int, NetInt>();
+    public SynchronizedShopStock() => this.initNetFields();
 
-		private readonly NetStringDictionary<int, NetInt> sharedSandyStock = new NetStringDictionary<int, NetInt>();
+    private void initNetFields() => this.NetFields.AddFields((INetSerializable) this.lastDayUpdated, (INetSerializable) this.sharedKrobusStock, (INetSerializable) this.sharedSandyStock, (INetSerializable) this.sharedTravelingMerchantStock, (INetSerializable) this.sharedSaloonStock);
 
-		private readonly NetStringDictionary<int, NetInt> sharedTravelingMerchantStock = new NetStringDictionary<int, NetInt>();
+    private NetStringDictionary<int, NetInt> getSharedStock(
+      SynchronizedShopStock.SynchedShop shop)
+    {
+      switch (shop)
+      {
+        case SynchronizedShopStock.SynchedShop.Krobus:
+          return this.sharedKrobusStock;
+        case SynchronizedShopStock.SynchedShop.TravelingMerchant:
+          return this.sharedTravelingMerchantStock;
+        case SynchronizedShopStock.SynchedShop.Sandy:
+          return this.sharedSandyStock;
+        case SynchronizedShopStock.SynchedShop.Saloon:
+          return this.sharedSaloonStock;
+        default:
+          Console.WriteLine("Tried to get shared stock for invalid shop " + shop.ToString());
+          return (NetStringDictionary<int, NetInt>) null;
+      }
+    }
 
-		private readonly NetStringDictionary<int, NetInt> sharedSaloonStock = new NetStringDictionary<int, NetInt>();
+    private int getLastDayUpdated(SynchronizedShopStock.SynchedShop shop)
+    {
+      if (!this.lastDayUpdated.ContainsKey((int) shop))
+        this.lastDayUpdated[(int) shop] = -1;
+      return this.lastDayUpdated[(int) shop];
+    }
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    private int setLastDayUpdated(SynchronizedShopStock.SynchedShop shop, int value)
+    {
+      if (!this.lastDayUpdated.ContainsKey((int) shop))
+        this.lastDayUpdated[(int) shop] = 0;
+      return this.lastDayUpdated[(int) shop] = value;
+    }
 
+    public void OnItemPurchased(SynchronizedShopStock.SynchedShop shop, ISalable item, int amount)
+    {
+      NetStringDictionary<int, NetInt> sharedStock = this.getSharedStock(shop);
+      string descriptionFromItem = Utility.getStandardDescriptionFromItem(item as Item, 1);
+      if (!sharedStock.ContainsKey(descriptionFromItem) || sharedStock[descriptionFromItem] == int.MaxValue || item is StardewValley.Object && (item as StardewValley.Object).IsRecipe)
+        return;
+      sharedStock[descriptionFromItem] -= amount;
+    }
 
-		public SynchronizedShopStock()
-		{
-			initNetFields();
-		}
+    public void UpdateLocalStockWithSyncedQuanitities(
+      SynchronizedShopStock.SynchedShop shop,
+      Dictionary<ISalable, int[]> localStock,
+      Dictionary<string, Func<bool>> conditionalItemFilters = null)
+    {
+      List<Item> objList = new List<Item>();
+      NetStringDictionary<int, NetInt> sharedStock = this.getSharedStock(shop);
+      if (this.getLastDayUpdated(shop) != Game1.Date.TotalDays)
+      {
+        this.setLastDayUpdated(shop, Game1.Date.TotalDays);
+        sharedStock.Clear();
+        foreach (Item key in localStock.Keys)
+        {
+          string descriptionFromItem = Utility.getStandardDescriptionFromItem(key, 1);
+          sharedStock.Add(descriptionFromItem, localStock[(ISalable) key][1]);
+          if (sharedStock[descriptionFromItem] != int.MaxValue)
+            key.Stack = sharedStock[descriptionFromItem];
+        }
+      }
+      else
+      {
+        objList.Clear();
+        foreach (Item key in localStock.Keys)
+        {
+          string descriptionFromItem = Utility.getStandardDescriptionFromItem(key, 1);
+          if (sharedStock.ContainsKey(descriptionFromItem) && sharedStock[descriptionFromItem] > 0)
+          {
+            localStock[(ISalable) key][1] = sharedStock[descriptionFromItem];
+            if (sharedStock[descriptionFromItem] != int.MaxValue)
+              key.Stack = sharedStock[descriptionFromItem];
+          }
+          else
+            objList.Add(key);
+        }
+        foreach (Item key in objList)
+          localStock.Remove((ISalable) key);
+      }
+      objList.Clear();
+      if (conditionalItemFilters == null)
+        return;
+      foreach (Item key in localStock.Keys)
+      {
+        string descriptionFromItem = Utility.getStandardDescriptionFromItem(key, 1);
+        if (conditionalItemFilters.ContainsKey(descriptionFromItem) && !conditionalItemFilters[descriptionFromItem]())
+          objList.Add(key);
+      }
+      foreach (Item key in objList)
+        localStock.Remove((ISalable) key);
+    }
 
-		private void initNetFields()
-		{
-			NetFields.AddFields(lastDayUpdated, sharedKrobusStock, sharedSandyStock, sharedTravelingMerchantStock, sharedSaloonStock);
-		}
-
-		private NetStringDictionary<int, NetInt> getSharedStock(SynchedShop shop)
-		{
-			switch (shop)
-			{
-			case SynchedShop.Krobus:
-				return sharedKrobusStock;
-			case SynchedShop.Sandy:
-				return sharedSandyStock;
-			case SynchedShop.TravelingMerchant:
-				return sharedTravelingMerchantStock;
-			case SynchedShop.Saloon:
-				return sharedSaloonStock;
-			default:
-				Console.WriteLine("Tried to get shared stock for invalid shop " + shop);
-				return null;
-			}
-		}
-
-		private int getLastDayUpdated(SynchedShop shop)
-		{
-			if (!lastDayUpdated.ContainsKey((int)shop))
-			{
-				lastDayUpdated[(int)shop] = -1;
-			}
-			return lastDayUpdated[(int)shop];
-		}
-
-		private int setLastDayUpdated(SynchedShop shop, int value)
-		{
-			if (!lastDayUpdated.ContainsKey((int)shop))
-			{
-				lastDayUpdated[(int)shop] = 0;
-			}
-			return lastDayUpdated[(int)shop] = value;
-		}
-
-		public void OnItemPurchased(SynchedShop shop, ISalable item, int amount)
-		{
-			NetStringDictionary<int, NetInt> sharedStock = getSharedStock(shop);
-			string itemString = Utility.getStandardDescriptionFromItem(item as Item, 1);
-			if (sharedStock.ContainsKey(itemString) && sharedStock[itemString] != int.MaxValue && (!(item is Object) || !(item as Object).IsRecipe))
-			{
-				sharedStock[itemString] -= amount;
-			}
-		}
-
-		public void UpdateLocalStockWithSyncedQuanitities(SynchedShop shop, Dictionary<ISalable, int[]> localStock, Dictionary<string, Func<bool>> conditionalItemFilters = null)
-		{
-			List<Item> itemsToRemove = new List<Item>();
-			NetStringDictionary<int, NetInt> sharedStock = getSharedStock(shop);
-			if (getLastDayUpdated(shop) != Game1.Date.TotalDays)
-			{
-				setLastDayUpdated(shop, Game1.Date.TotalDays);
-				sharedStock.Clear();
-				foreach (Item item5 in localStock.Keys)
-				{
-					string itemString3 = Utility.getStandardDescriptionFromItem(item5, 1);
-					sharedStock.Add(itemString3, localStock[item5][1]);
-					if (sharedStock[itemString3] != int.MaxValue)
-					{
-						item5.Stack = sharedStock[itemString3];
-					}
-				}
-			}
-			else
-			{
-				itemsToRemove.Clear();
-				foreach (Item item4 in localStock.Keys)
-				{
-					string itemString2 = Utility.getStandardDescriptionFromItem(item4, 1);
-					if (sharedStock.ContainsKey(itemString2) && sharedStock[itemString2] > 0)
-					{
-						localStock[item4][1] = sharedStock[itemString2];
-						if (sharedStock[itemString2] != int.MaxValue)
-						{
-							item4.Stack = sharedStock[itemString2];
-						}
-					}
-					else
-					{
-						itemsToRemove.Add(item4);
-					}
-				}
-				foreach (Item item3 in itemsToRemove)
-				{
-					localStock.Remove(item3);
-				}
-			}
-			itemsToRemove.Clear();
-			if (conditionalItemFilters != null)
-			{
-				foreach (Item item2 in localStock.Keys)
-				{
-					string itemString = Utility.getStandardDescriptionFromItem(item2, 1);
-					if (conditionalItemFilters.ContainsKey(itemString) && !conditionalItemFilters[itemString]())
-					{
-						itemsToRemove.Add(item2);
-					}
-				}
-				foreach (Item item in itemsToRemove)
-				{
-					localStock.Remove(item);
-				}
-			}
-		}
-	}
+    public enum SynchedShop
+    {
+      Krobus,
+      TravelingMerchant,
+      Sandy,
+      Saloon,
+    }
+  }
 }

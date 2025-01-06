@@ -1,66 +1,62 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.CueWrapper
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework.Audio;
 using System;
 
 namespace StardewValley
 {
-	public class CueWrapper : ICue, IDisposable
-	{
-		private Cue cue;
+  public class CueWrapper : ICue, IDisposable
+  {
+    private Cue cue;
 
-		public bool IsStopped => cue.IsStopped;
+    public CueWrapper(Cue cue) => this.cue = cue;
 
-		public bool IsStopping => cue.IsStopping;
+    public void Play() => this.cue.Play();
 
-		public bool IsPlaying => cue.IsPlaying;
+    public void Pause() => this.cue.Pause();
 
-		public bool IsPaused => cue.IsPaused;
+    public void Resume() => this.cue.Resume();
 
-		public string Name => cue.Name;
+    public void Stop(AudioStopOptions options) => this.cue.Stop(options);
 
-		public CueWrapper(Cue cue)
-		{
-			this.cue = cue;
-		}
+    public void SetVariable(string var, int val) => this.cue.SetVariable(var, (float) val);
 
-		public void Play()
-		{
-			cue.Play();
-		}
+    public void SetVariable(string var, float val) => this.cue.SetVariable(var, val);
 
-		public void Pause()
-		{
-			cue.Pause();
-		}
+    public float GetVariable(string var) => this.cue.GetVariable(var);
 
-		public void Resume()
-		{
-			cue.Resume();
-		}
+    public bool IsStopped => this.cue.IsStopped;
 
-		public void Stop(AudioStopOptions options)
-		{
-			cue.Stop(options);
-		}
+    public bool IsStopping => this.cue.IsStopping;
 
-		public void SetVariable(string var, int val)
-		{
-			cue.SetVariable(var, val);
-		}
+    public bool IsPlaying => this.cue.IsPlaying;
 
-		public void SetVariable(string var, float val)
-		{
-			cue.SetVariable(var, val);
-		}
+    public bool IsPaused => this.cue.IsPaused;
 
-		public float GetVariable(string var)
-		{
-			return cue.GetVariable(var);
-		}
+    public string Name => this.cue.Name;
 
-		public void Dispose()
-		{
-			cue.Dispose();
-			cue = null;
-		}
-	}
+    public void Dispose()
+    {
+      this.cue.Dispose();
+      this.cue = (Cue) null;
+    }
+
+    public float Volume
+    {
+      get => this.cue.Volume;
+      set => this.cue.Volume = value;
+    }
+
+    public float Pitch
+    {
+      get => this.cue.Pitch;
+      set => this.cue.Pitch = value;
+    }
+
+    public bool IsPitchBeingControlledByRPC => this.cue.IsPitchBeingControlledByRPC;
+  }
 }

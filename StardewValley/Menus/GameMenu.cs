@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.GameMenu
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -7,542 +13,471 @@ using System.Linq;
 
 namespace StardewValley.Menus
 {
-	public class GameMenu : IClickableMenu
-	{
-		public const int inventoryTab = 0;
+  public class GameMenu : IClickableMenu
+  {
+    public const int inventoryTab = 0;
+    public const int skillsTab = 1;
+    public const int socialTab = 2;
+    public const int mapTab = 3;
+    public const int craftingTab = 4;
+    public const int collectionsTab = 5;
+    public const int optionsTab = 6;
+    public const int exitTab = 7;
+    public const int region_inventoryTab = 12340;
+    public const int region_skillsTab = 12341;
+    public const int region_socialTab = 12342;
+    public const int region_mapTab = 12343;
+    public const int region_craftingTab = 12344;
+    public const int region_collectionsTab = 12345;
+    public const int region_optionsTab = 12346;
+    public const int region_exitTab = 12347;
+    public const int numberOfTabs = 7;
+    public int currentTab;
+    public int lastOpenedNonMapTab;
+    public string hoverText = "";
+    public string descriptionText = "";
+    public List<ClickableComponent> tabs = new List<ClickableComponent>();
+    public List<IClickableMenu> pages = new List<IClickableMenu>();
+    public bool invisible;
+    public static bool forcePreventClose;
+    public static bool bundleItemHovered;
 
-		public const int skillsTab = 1;
+    public GameMenu(bool playOpeningSound = true)
+      : base(Game1.uiViewport.Width / 2 - (800 + IClickableMenu.borderWidth * 2) / 2, Game1.uiViewport.Height / 2 - (600 + IClickableMenu.borderWidth * 2) / 2, 800 + IClickableMenu.borderWidth * 2, 600 + IClickableMenu.borderWidth * 2, true)
+    {
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 64, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "inventory", Game1.content.LoadString("Strings\\UI:GameMenu_Inventory"))
+      {
+        myID = 12340,
+        downNeighborID = 0,
+        rightNeighborID = 12341,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new InventoryPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 128, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "skills", Game1.content.LoadString("Strings\\UI:GameMenu_Skills"))
+      {
+        myID = 12341,
+        downNeighborID = 1,
+        rightNeighborID = 12342,
+        leftNeighborID = 12340,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new SkillsPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width + (LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ru || LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.it ? 64 : 0), this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 192, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "social", Game1.content.LoadString("Strings\\UI:GameMenu_Social"))
+      {
+        myID = 12342,
+        downNeighborID = 2,
+        rightNeighborID = 12343,
+        leftNeighborID = 12341,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new SocialPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width + 36, this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 256, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "map", Game1.content.LoadString("Strings\\UI:GameMenu_Map"))
+      {
+        myID = 12343,
+        downNeighborID = 3,
+        rightNeighborID = 12344,
+        leftNeighborID = 12342,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new MapPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 320, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "crafting", Game1.content.LoadString("Strings\\UI:GameMenu_Crafting"))
+      {
+        myID = 12344,
+        downNeighborID = 4,
+        rightNeighborID = 12345,
+        leftNeighborID = 12343,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new CraftingPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 384, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "collections", Game1.content.LoadString("Strings\\UI:GameMenu_Collections"))
+      {
+        myID = 12345,
+        downNeighborID = 5,
+        rightNeighborID = 12346,
+        leftNeighborID = 12344,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new CollectionsPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width - 64 - 16, this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 448, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "options", Game1.content.LoadString("Strings\\UI:GameMenu_Options"))
+      {
+        myID = 12346,
+        downNeighborID = 6,
+        rightNeighborID = 12347,
+        leftNeighborID = 12345,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      int num;
+      switch (LocalizedContentManager.CurrentLanguageCode)
+      {
+        case LocalizedContentManager.LanguageCode.ru:
+          num = 96;
+          break;
+        case LocalizedContentManager.LanguageCode.fr:
+        case LocalizedContentManager.LanguageCode.tr:
+          num = 192;
+          break;
+        default:
+          num = 0;
+          break;
+      }
+      this.pages.Add((IClickableMenu) new OptionsPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width + num, this.height));
+      this.tabs.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 512, this.yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "exit", Game1.content.LoadString("Strings\\UI:GameMenu_Exit"))
+      {
+        myID = 12347,
+        downNeighborID = 7,
+        leftNeighborID = 12346,
+        tryDefaultIfNoDownNeighborExists = true,
+        fullyImmutable = true
+      });
+      this.pages.Add((IClickableMenu) new ExitPage(this.xPositionOnScreen, this.yPositionOnScreen, this.width - 64 - 16, this.height));
+      if (Game1.activeClickableMenu == null & playOpeningSound)
+        Game1.playSound("bigSelect");
+      GameMenu.forcePreventClose = false;
+      (Game1.getLocationFromName("CommunityCenter") as CommunityCenter).refreshBundlesIngredientsInfo();
+      this.pages[this.currentTab].populateClickableComponentList();
+      this.AddTabsToClickableComponents(this.pages[this.currentTab]);
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.snapToDefaultClickableComponent();
+    }
 
-		public const int socialTab = 2;
+    public void AddTabsToClickableComponents(IClickableMenu menu) => menu.allClickableComponents.AddRange((IEnumerable<ClickableComponent>) this.tabs);
 
-		public const int mapTab = 3;
+    public GameMenu(int startingTab, int extra = -1, bool playOpeningSound = true)
+      : this(playOpeningSound)
+    {
+      this.changeTab(startingTab, false);
+      if (startingTab != 6 || extra == -1)
+        return;
+      (this.pages[6] as OptionsPage).currentItemIndex = extra;
+    }
 
-		public const int craftingTab = 4;
+    public override void automaticSnapBehavior(int direction, int oldRegion, int oldID)
+    {
+      if (this.GetCurrentPage() != null)
+        this.GetCurrentPage().automaticSnapBehavior(direction, oldRegion, oldID);
+      else
+        base.automaticSnapBehavior(direction, oldRegion, oldID);
+    }
 
-		public const int collectionsTab = 5;
+    public override void snapToDefaultClickableComponent()
+    {
+      if (this.currentTab >= this.pages.Count)
+        return;
+      this.pages[this.currentTab].snapToDefaultClickableComponent();
+    }
 
-		public const int optionsTab = 6;
+    public override void receiveGamePadButton(Buttons b)
+    {
+      base.receiveGamePadButton(b);
+      switch (b)
+      {
+        case Buttons.Back:
+          if (this.currentTab == 0)
+          {
+            this.pages[this.currentTab].receiveGamePadButton(b);
+            return;
+          }
+          break;
+        case Buttons.RightTrigger:
+          if (this.currentTab == 3)
+          {
+            Game1.activeClickableMenu = (IClickableMenu) new GameMenu(4);
+            Game1.playSound("smallSelect");
+            return;
+          }
+          if (this.currentTab >= 7 || !this.pages[this.currentTab].readyToClose())
+            return;
+          this.changeTab(this.currentTab + 1);
+          return;
+        case Buttons.LeftTrigger:
+          if (this.currentTab == 3)
+          {
+            Game1.activeClickableMenu = (IClickableMenu) new GameMenu(2);
+            Game1.playSound("smallSelect");
+            return;
+          }
+          if (this.currentTab <= 0 || !this.pages[this.currentTab].readyToClose())
+            return;
+          this.changeTab(this.currentTab - 1);
+          return;
+      }
+      this.pages[this.currentTab].receiveGamePadButton(b);
+    }
 
-		public const int exitTab = 7;
+    public override void setUpForGamePadMode()
+    {
+      base.setUpForGamePadMode();
+      if (this.pages.Count <= this.currentTab)
+        return;
+      this.pages[this.currentTab].setUpForGamePadMode();
+    }
 
-		public const int region_inventoryTab = 12340;
+    public override ClickableComponent getCurrentlySnappedComponent() => this.pages[this.currentTab].getCurrentlySnappedComponent();
 
-		public const int region_skillsTab = 12341;
+    public override void setCurrentlySnappedComponentTo(int id) => this.pages[this.currentTab].setCurrentlySnappedComponentTo(id);
 
-		public const int region_socialTab = 12342;
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+      if (!(this.pages[this.currentTab] is CollectionsPage) || (this.pages[this.currentTab] as CollectionsPage).letterviewerSubMenu == null)
+        base.receiveLeftClick(x, y, playSound);
+      if (!this.invisible && !GameMenu.forcePreventClose)
+      {
+        for (int index = 0; index < this.tabs.Count; ++index)
+        {
+          if (this.tabs[index].containsPoint(x, y) && this.currentTab != index && this.pages[this.currentTab].readyToClose())
+          {
+            this.changeTab(this.getTabNumberFromName(this.tabs[index].name));
+            return;
+          }
+        }
+      }
+      this.pages[this.currentTab].receiveLeftClick(x, y);
+    }
 
-		public const int region_mapTab = 12343;
+    public static string getLabelOfTabFromIndex(int index)
+    {
+      switch (index)
+      {
+        case 0:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Inventory");
+        case 1:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Skills");
+        case 2:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Social");
+        case 3:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Map");
+        case 4:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Crafting");
+        case 5:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Collections");
+        case 6:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Options");
+        case 7:
+          return Game1.content.LoadString("Strings\\UI:GameMenu_Exit");
+        default:
+          return "";
+      }
+    }
 
-		public const int region_craftingTab = 12344;
+    public override void receiveRightClick(int x, int y, bool playSound = true) => this.pages[this.currentTab].receiveRightClick(x, y);
 
-		public const int region_collectionsTab = 12345;
+    public override void receiveScrollWheelAction(int direction)
+    {
+      base.receiveScrollWheelAction(direction);
+      this.pages[this.currentTab].receiveScrollWheelAction(direction);
+    }
 
-		public const int region_optionsTab = 12346;
+    public override void performHoverAction(int x, int y)
+    {
+      base.performHoverAction(x, y);
+      this.hoverText = "";
+      this.pages[this.currentTab].performHoverAction(x, y);
+      foreach (ClickableComponent tab in this.tabs)
+      {
+        if (tab.containsPoint(x, y))
+        {
+          this.hoverText = tab.label;
+          break;
+        }
+      }
+    }
 
-		public const int region_exitTab = 12347;
+    public int getTabNumberFromName(string name)
+    {
+      int tabNumberFromName = -1;
+      switch (name)
+      {
+        case "collections":
+          tabNumberFromName = 5;
+          break;
+        case "crafting":
+          tabNumberFromName = 4;
+          break;
+        case "exit":
+          tabNumberFromName = 7;
+          break;
+        case "inventory":
+          tabNumberFromName = 0;
+          break;
+        case "map":
+          tabNumberFromName = 3;
+          break;
+        case "options":
+          tabNumberFromName = 6;
+          break;
+        case "skills":
+          tabNumberFromName = 1;
+          break;
+        case "social":
+          tabNumberFromName = 2;
+          break;
+      }
+      return tabNumberFromName;
+    }
 
-		public const int numberOfTabs = 7;
+    public override void update(GameTime time)
+    {
+      base.update(time);
+      this.pages[this.currentTab].update(time);
+    }
 
-		public int currentTab;
+    public override void releaseLeftClick(int x, int y)
+    {
+      base.releaseLeftClick(x, y);
+      this.pages[this.currentTab].releaseLeftClick(x, y);
+    }
 
-		public int lastOpenedNonMapTab;
+    public override void leftClickHeld(int x, int y)
+    {
+      base.leftClickHeld(x, y);
+      this.pages[this.currentTab].leftClickHeld(x, y);
+    }
 
-		public string hoverText = "";
+    public override bool readyToClose() => !GameMenu.forcePreventClose && this.pages[this.currentTab].readyToClose();
 
-		public string descriptionText = "";
+    public void changeTab(int whichTab, bool playSound = true)
+    {
+      this.currentTab = this.getTabNumberFromName(this.tabs[whichTab].name);
+      if (this.currentTab == 3)
+      {
+        this.invisible = true;
+        this.width += 128;
+        this.initializeUpperRightCloseButton();
+      }
+      else
+      {
+        this.lastOpenedNonMapTab = this.currentTab;
+        this.width = 800 + IClickableMenu.borderWidth * 2;
+        this.initializeUpperRightCloseButton();
+        this.invisible = false;
+      }
+      if (playSound)
+        Game1.playSound("smallSelect");
+      this.pages[this.currentTab].populateClickableComponentList();
+      this.AddTabsToClickableComponents(this.pages[this.currentTab]);
+      this.setTabNeighborsForCurrentPage();
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.snapToDefaultClickableComponent();
+    }
 
-		public List<ClickableComponent> tabs = new List<ClickableComponent>();
+    public IClickableMenu GetCurrentPage() => this.currentTab >= this.pages.Count || this.currentTab < 0 ? (IClickableMenu) null : this.pages[this.currentTab];
 
-		public List<IClickableMenu> pages = new List<IClickableMenu>();
+    public void setTabNeighborsForCurrentPage()
+    {
+      switch (this.currentTab)
+      {
+        case 0:
+          for (int index = 0; index < this.tabs.Count; ++index)
+            this.tabs[index].downNeighborID = index;
+          break;
+        case 7:
+          for (int index = 0; index < this.tabs.Count; ++index)
+            this.tabs[index].downNeighborID = 535;
+          break;
+        default:
+          for (int index = 0; index < this.tabs.Count; ++index)
+            this.tabs[index].downNeighborID = -99999;
+          break;
+      }
+    }
 
-		public bool invisible;
+    public override void draw(SpriteBatch b)
+    {
+      if (!this.invisible)
+      {
+        if (!Game1.options.showMenuBackground)
+          b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.4f);
+        Game1.drawDialogueBox(this.xPositionOnScreen, this.yPositionOnScreen, this.pages[this.currentTab].width, this.pages[this.currentTab].height, false, true);
+        b.End();
+        b.Begin(SpriteSortMode.FrontToBack, BlendState.AlphaBlend, SamplerState.PointClamp);
+        foreach (ClickableComponent tab in this.tabs)
+        {
+          int num = 0;
+          switch (tab.name)
+          {
+            case "catalogue":
+              num = 7;
+              break;
+            case "collections":
+              num = 5;
+              break;
+            case "coop":
+              num = 1;
+              break;
+            case "crafting":
+              num = 4;
+              break;
+            case "exit":
+              num = 7;
+              break;
+            case "inventory":
+              num = 0;
+              break;
+            case "map":
+              num = 3;
+              break;
+            case "options":
+              num = 6;
+              break;
+            case "skills":
+              num = 1;
+              break;
+            case "social":
+              num = 2;
+              break;
+          }
+          b.Draw(Game1.mouseCursors, new Vector2((float) tab.bounds.X, (float) (tab.bounds.Y + (this.currentTab == this.getTabNumberFromName(tab.name) ? 8 : 0))), new Rectangle?(new Rectangle(num * 16, 368, 16, 16)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.0001f);
+          if (tab.name.Equals("skills"))
+            Game1.player.FarmerRenderer.drawMiniPortrat(b, new Vector2((float) (tab.bounds.X + 8), (float) (tab.bounds.Y + 12 + (this.currentTab == this.getTabNumberFromName(tab.name) ? 8 : 0))), 0.00011f, 3f, 2, Game1.player);
+        }
+        b.End();
+        b.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+        this.pages[this.currentTab].draw(b);
+        if (!this.hoverText.Equals(""))
+          IClickableMenu.drawHoverText(b, this.hoverText, Game1.smallFont);
+      }
+      else
+        this.pages[this.currentTab].draw(b);
+      if (!GameMenu.forcePreventClose && this.pages[this.currentTab].shouldDrawCloseButton())
+        base.draw(b);
+      if (Game1.options.SnappyMenus && this.pages[this.currentTab] is CollectionsPage && (this.pages[this.currentTab] as CollectionsPage).letterviewerSubMenu != null || Game1.options.hardwareCursor)
+        return;
+      this.drawMouse(b, true);
+    }
 
-		public static bool forcePreventClose;
+    public override bool areGamePadControlsImplemented() => false;
 
-		public static bool bundleItemHovered;
+    public override void receiveKeyPress(Keys key)
+    {
+      if (((IEnumerable<InputButton>) Game1.options.menuButton).Contains<InputButton>(new InputButton(key)) && this.readyToClose())
+      {
+        Game1.exitActiveMenu();
+        Game1.playSound("bigDeSelect");
+      }
+      this.pages[this.currentTab].receiveKeyPress(key);
+    }
 
-		public GameMenu(bool playOpeningSound = true)
-			: base(Game1.uiViewport.Width / 2 - (800 + IClickableMenu.borderWidth * 2) / 2, Game1.uiViewport.Height / 2 - (600 + IClickableMenu.borderWidth * 2) / 2, 800 + IClickableMenu.borderWidth * 2, 600 + IClickableMenu.borderWidth * 2, showUpperRightCloseButton: true)
-		{
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 64, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "inventory", Game1.content.LoadString("Strings\\UI:GameMenu_Inventory"))
-			{
-				myID = 12340,
-				downNeighborID = 0,
-				rightNeighborID = 12341,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new InventoryPage(xPositionOnScreen, yPositionOnScreen, width, height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 128, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "skills", Game1.content.LoadString("Strings\\UI:GameMenu_Skills"))
-			{
-				myID = 12341,
-				downNeighborID = 1,
-				rightNeighborID = 12342,
-				leftNeighborID = 12340,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new SkillsPage(xPositionOnScreen, yPositionOnScreen, width + ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ru || LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.it) ? 64 : 0), height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 192, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "social", Game1.content.LoadString("Strings\\UI:GameMenu_Social"))
-			{
-				myID = 12342,
-				downNeighborID = 2,
-				rightNeighborID = 12343,
-				leftNeighborID = 12341,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new SocialPage(xPositionOnScreen, yPositionOnScreen, width + 36, height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 256, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "map", Game1.content.LoadString("Strings\\UI:GameMenu_Map"))
-			{
-				myID = 12343,
-				downNeighborID = 3,
-				rightNeighborID = 12344,
-				leftNeighborID = 12342,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new MapPage(xPositionOnScreen, yPositionOnScreen, width, height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 320, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "crafting", Game1.content.LoadString("Strings\\UI:GameMenu_Crafting"))
-			{
-				myID = 12344,
-				downNeighborID = 4,
-				rightNeighborID = 12345,
-				leftNeighborID = 12343,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new CraftingPage(xPositionOnScreen, yPositionOnScreen, width, height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 384, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "collections", Game1.content.LoadString("Strings\\UI:GameMenu_Collections"))
-			{
-				myID = 12345,
-				downNeighborID = 5,
-				rightNeighborID = 12346,
-				leftNeighborID = 12344,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new CollectionsPage(xPositionOnScreen, yPositionOnScreen, width - 64 - 16, height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 448, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "options", Game1.content.LoadString("Strings\\UI:GameMenu_Options"))
-			{
-				myID = 12346,
-				downNeighborID = 6,
-				rightNeighborID = 12347,
-				leftNeighborID = 12345,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			int extraWidth = (LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ru) ? 96 : ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.tr || LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.fr) ? 192 : 0);
-			pages.Add(new OptionsPage(xPositionOnScreen, yPositionOnScreen, width + extraWidth, height));
-			tabs.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 512, yPositionOnScreen + IClickableMenu.tabYPositionRelativeToMenuY + 64, 64, 64), "exit", Game1.content.LoadString("Strings\\UI:GameMenu_Exit"))
-			{
-				myID = 12347,
-				downNeighborID = 7,
-				leftNeighborID = 12346,
-				tryDefaultIfNoDownNeighborExists = true,
-				fullyImmutable = true
-			});
-			pages.Add(new ExitPage(xPositionOnScreen, yPositionOnScreen, width - 64 - 16, height));
-			if (Game1.activeClickableMenu == null && playOpeningSound)
-			{
-				Game1.playSound("bigSelect");
-			}
-			forcePreventClose = false;
-			(Game1.getLocationFromName("CommunityCenter") as CommunityCenter).refreshBundlesIngredientsInfo();
-			pages[currentTab].populateClickableComponentList();
-			AddTabsToClickableComponents(pages[currentTab]);
-			if (Game1.options.SnappyMenus)
-			{
-				snapToDefaultClickableComponent();
-			}
-		}
+    public override void emergencyShutDown()
+    {
+      base.emergencyShutDown();
+      this.pages[this.currentTab].emergencyShutDown();
+    }
 
-		public void AddTabsToClickableComponents(IClickableMenu menu)
-		{
-			menu.allClickableComponents.AddRange(tabs);
-		}
-
-		public GameMenu(int startingTab, int extra = -1, bool playOpeningSound = true)
-			: this(playOpeningSound)
-		{
-			changeTab(startingTab, playSound: false);
-			if (startingTab == 6 && extra != -1)
-			{
-				(pages[6] as OptionsPage).currentItemIndex = extra;
-			}
-		}
-
-		public override void automaticSnapBehavior(int direction, int oldRegion, int oldID)
-		{
-			if (GetCurrentPage() != null)
-			{
-				GetCurrentPage().automaticSnapBehavior(direction, oldRegion, oldID);
-			}
-			else
-			{
-				base.automaticSnapBehavior(direction, oldRegion, oldID);
-			}
-		}
-
-		public override void snapToDefaultClickableComponent()
-		{
-			if (currentTab < pages.Count)
-			{
-				pages[currentTab].snapToDefaultClickableComponent();
-			}
-		}
-
-		public override void receiveGamePadButton(Buttons b)
-		{
-			base.receiveGamePadButton(b);
-			switch (b)
-			{
-			case Buttons.RightTrigger:
-				if (currentTab == 3)
-				{
-					Game1.activeClickableMenu = new GameMenu(4);
-					Game1.playSound("smallSelect");
-				}
-				else if (currentTab < 7 && pages[currentTab].readyToClose())
-				{
-					changeTab(currentTab + 1);
-				}
-				return;
-			case Buttons.LeftTrigger:
-				if (currentTab == 3)
-				{
-					Game1.activeClickableMenu = new GameMenu(2);
-					Game1.playSound("smallSelect");
-				}
-				else if (currentTab > 0 && pages[currentTab].readyToClose())
-				{
-					changeTab(currentTab - 1);
-				}
-				return;
-			case Buttons.Back:
-				if (currentTab == 0)
-				{
-					pages[currentTab].receiveGamePadButton(b);
-					return;
-				}
-				break;
-			}
-			pages[currentTab].receiveGamePadButton(b);
-		}
-
-		public override void setUpForGamePadMode()
-		{
-			base.setUpForGamePadMode();
-			if (pages.Count > currentTab)
-			{
-				pages[currentTab].setUpForGamePadMode();
-			}
-		}
-
-		public override ClickableComponent getCurrentlySnappedComponent()
-		{
-			return pages[currentTab].getCurrentlySnappedComponent();
-		}
-
-		public override void setCurrentlySnappedComponentTo(int id)
-		{
-			pages[currentTab].setCurrentlySnappedComponentTo(id);
-		}
-
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-			if (!(pages[currentTab] is CollectionsPage) || (pages[currentTab] as CollectionsPage).letterviewerSubMenu == null)
-			{
-				base.receiveLeftClick(x, y, playSound);
-			}
-			if (!invisible && !forcePreventClose)
-			{
-				for (int i = 0; i < tabs.Count; i++)
-				{
-					if (tabs[i].containsPoint(x, y) && currentTab != i && pages[currentTab].readyToClose())
-					{
-						changeTab(getTabNumberFromName(tabs[i].name));
-						return;
-					}
-				}
-			}
-			pages[currentTab].receiveLeftClick(x, y);
-		}
-
-		public static string getLabelOfTabFromIndex(int index)
-		{
-			switch (index)
-			{
-			case 0:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Inventory");
-			case 1:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Skills");
-			case 2:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Social");
-			case 3:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Map");
-			case 4:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Crafting");
-			case 5:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Collections");
-			case 6:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Options");
-			case 7:
-				return Game1.content.LoadString("Strings\\UI:GameMenu_Exit");
-			default:
-				return "";
-			}
-		}
-
-		public override void receiveRightClick(int x, int y, bool playSound = true)
-		{
-			pages[currentTab].receiveRightClick(x, y);
-		}
-
-		public override void receiveScrollWheelAction(int direction)
-		{
-			base.receiveScrollWheelAction(direction);
-			pages[currentTab].receiveScrollWheelAction(direction);
-		}
-
-		public override void performHoverAction(int x, int y)
-		{
-			base.performHoverAction(x, y);
-			hoverText = "";
-			pages[currentTab].performHoverAction(x, y);
-			foreach (ClickableComponent c in tabs)
-			{
-				if (c.containsPoint(x, y))
-				{
-					hoverText = c.label;
-					break;
-				}
-			}
-		}
-
-		public int getTabNumberFromName(string name)
-		{
-			int whichTab = -1;
-			switch (name)
-			{
-			case "inventory":
-				whichTab = 0;
-				break;
-			case "skills":
-				whichTab = 1;
-				break;
-			case "social":
-				whichTab = 2;
-				break;
-			case "map":
-				whichTab = 3;
-				break;
-			case "crafting":
-				whichTab = 4;
-				break;
-			case "collections":
-				whichTab = 5;
-				break;
-			case "options":
-				whichTab = 6;
-				break;
-			case "exit":
-				whichTab = 7;
-				break;
-			}
-			return whichTab;
-		}
-
-		public override void update(GameTime time)
-		{
-			base.update(time);
-			pages[currentTab].update(time);
-		}
-
-		public override void releaseLeftClick(int x, int y)
-		{
-			base.releaseLeftClick(x, y);
-			pages[currentTab].releaseLeftClick(x, y);
-		}
-
-		public override void leftClickHeld(int x, int y)
-		{
-			base.leftClickHeld(x, y);
-			pages[currentTab].leftClickHeld(x, y);
-		}
-
-		public override bool readyToClose()
-		{
-			if (!forcePreventClose)
-			{
-				return pages[currentTab].readyToClose();
-			}
-			return false;
-		}
-
-		public void changeTab(int whichTab, bool playSound = true)
-		{
-			currentTab = getTabNumberFromName(tabs[whichTab].name);
-			if (currentTab == 3)
-			{
-				invisible = true;
-				width += 128;
-				initializeUpperRightCloseButton();
-			}
-			else
-			{
-				lastOpenedNonMapTab = currentTab;
-				width = 800 + IClickableMenu.borderWidth * 2;
-				initializeUpperRightCloseButton();
-				invisible = false;
-			}
-			if (playSound)
-			{
-				Game1.playSound("smallSelect");
-			}
-			pages[currentTab].populateClickableComponentList();
-			AddTabsToClickableComponents(pages[currentTab]);
-			setTabNeighborsForCurrentPage();
-			if (Game1.options.SnappyMenus)
-			{
-				snapToDefaultClickableComponent();
-			}
-		}
-
-		public IClickableMenu GetCurrentPage()
-		{
-			if (currentTab >= pages.Count || currentTab < 0)
-			{
-				return null;
-			}
-			return pages[currentTab];
-		}
-
-		public void setTabNeighborsForCurrentPage()
-		{
-			switch (currentTab)
-			{
-			case 0:
-			{
-				for (int i = 0; i < tabs.Count; i++)
-				{
-					tabs[i].downNeighborID = i;
-				}
-				break;
-			}
-			case 7:
-			{
-				for (int j = 0; j < tabs.Count; j++)
-				{
-					tabs[j].downNeighborID = 535;
-				}
-				break;
-			}
-			default:
-			{
-				for (int k = 0; k < tabs.Count; k++)
-				{
-					tabs[k].downNeighborID = -99999;
-				}
-				break;
-			}
-			}
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			if (!invisible)
-			{
-				if (!Game1.options.showMenuBackground)
-				{
-					b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.4f);
-				}
-				Game1.drawDialogueBox(xPositionOnScreen, yPositionOnScreen, pages[currentTab].width, pages[currentTab].height, speaker: false, drawOnlyBox: true);
-				b.End();
-				b.Begin(SpriteSortMode.FrontToBack, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-				foreach (ClickableComponent c in tabs)
-				{
-					int sheetIndex = 0;
-					switch (c.name)
-					{
-					case "inventory":
-						sheetIndex = 0;
-						break;
-					case "skills":
-						sheetIndex = 1;
-						break;
-					case "social":
-						sheetIndex = 2;
-						break;
-					case "map":
-						sheetIndex = 3;
-						break;
-					case "crafting":
-						sheetIndex = 4;
-						break;
-					case "catalogue":
-						sheetIndex = 7;
-						break;
-					case "collections":
-						sheetIndex = 5;
-						break;
-					case "options":
-						sheetIndex = 6;
-						break;
-					case "exit":
-						sheetIndex = 7;
-						break;
-					case "coop":
-						sheetIndex = 1;
-						break;
-					}
-					b.Draw(Game1.mouseCursors, new Vector2(c.bounds.X, c.bounds.Y + ((currentTab == getTabNumberFromName(c.name)) ? 8 : 0)), new Rectangle(sheetIndex * 16, 368, 16, 16), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.0001f);
-					if (c.name.Equals("skills"))
-					{
-						Game1.player.FarmerRenderer.drawMiniPortrat(b, new Vector2(c.bounds.X + 8, c.bounds.Y + 12 + ((currentTab == getTabNumberFromName(c.name)) ? 8 : 0)), 0.00011f, 3f, 2, Game1.player);
-					}
-				}
-				b.End();
-				b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-				pages[currentTab].draw(b);
-				if (!hoverText.Equals(""))
-				{
-					IClickableMenu.drawHoverText(b, hoverText, Game1.smallFont);
-				}
-			}
-			else
-			{
-				pages[currentTab].draw(b);
-			}
-			if (!forcePreventClose && pages[currentTab].shouldDrawCloseButton())
-			{
-				base.draw(b);
-			}
-			if ((!Game1.options.SnappyMenus || !(pages[currentTab] is CollectionsPage) || (pages[currentTab] as CollectionsPage).letterviewerSubMenu == null) && !Game1.options.hardwareCursor)
-			{
-				drawMouse(b, ignore_transparency: true);
-			}
-		}
-
-		public override bool areGamePadControlsImplemented()
-		{
-			return false;
-		}
-
-		public override void receiveKeyPress(Keys key)
-		{
-			if (Game1.options.menuButton.Contains(new InputButton(key)) && readyToClose())
-			{
-				Game1.exitActiveMenu();
-				Game1.playSound("bigDeSelect");
-			}
-			pages[currentTab].receiveKeyPress(key);
-		}
-
-		public override void emergencyShutDown()
-		{
-			base.emergencyShutDown();
-			pages[currentTab].emergencyShutDown();
-		}
-	}
+    protected override void cleanupBeforeExit()
+    {
+      base.cleanupBeforeExit();
+      if (!Game1.options.optionsDirty)
+        return;
+      Game1.options.SaveDefaultOptions();
+    }
+  }
 }

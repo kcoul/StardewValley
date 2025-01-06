@@ -1,3 +1,10 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.LocalMultiplayer
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
+using Netcode;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -6,180 +13,148 @@ using System.Runtime.CompilerServices;
 
 namespace StardewValley
 {
-	public class LocalMultiplayer
-	{
-		public delegate void StaticInstanceMethod(object staticVarsHolder);
+  public class LocalMultiplayer
+  {
+    internal static List<FieldInfo> staticFields;
+    internal static List<object> staticDefaults;
+    public static Type StaticVarHolderType;
+    private static DynamicMethod staticDefaultMethod;
+    private static DynamicMethod staticSaveMethod;
+    private static DynamicMethod staticLoadMethod;
+    public static LocalMultiplayer.StaticInstanceMethod StaticSetDefault;
+    public static LocalMultiplayer.StaticInstanceMethod StaticSave;
+    public static LocalMultiplayer.StaticInstanceMethod StaticLoad;
 
-		internal static List<FieldInfo> staticFields;
+    public static bool IsLocalMultiplayer(bool is_local_only = false) => is_local_only ? Game1.hasLocalClientsOnly : GameRunner.instance.gameInstances.Count > 1;
 
-		internal static List<object> staticDefaults;
+    public static void Initialize()
+    {
+      LocalMultiplayer.GetStaticFieldsAndDefaults();
+      LocalMultiplayer.GenerateDynamicMethodsForStatics();
+    }
 
-		public static Type StaticVarHolderType;
+    private static void GetStaticFieldsAndDefaults()
+    {
+      LocalMultiplayer.staticFields = new List<FieldInfo>();
+      LocalMultiplayer.staticDefaults = new List<object>();
+      List<Type> typeList1 = new List<Type>();
+      HashSet<string> stringSet = new HashSet<string>((IEqualityComparer<string>) StringComparer.OrdinalIgnoreCase)
+      {
+        "Microsoft",
+        "MonoGame",
+        "mscorlib",
+        "NetCode",
+        "System",
+        "xTile",
+        "FAudio-CS"
+      };
+      List<Type> typeList2 = new List<Type>();
+      foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+      {
+        if (!stringSet.Contains(assembly.GetName().Name.Split('.')[0]))
+        {
+          foreach (Type type in assembly.GetTypes())
+            typeList2.Add(type);
+        }
+      }
+      foreach (Type type in typeList2)
+      {
+        if (type.GetCustomAttributes(typeof (CompilerGeneratedAttribute), true).Length == 0)
+        {
+          bool flag = false;
+          if (type.GetCustomAttributes(typeof (InstanceStatics), true).Length != 0)
+            flag = true;
+          foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+          {
+            if (!field.IsInitOnly && field.IsStatic && !field.IsLiteral && (flag || field.GetCustomAttributes(typeof (InstancedStatic), true).Length != 0) && field.GetCustomAttributes(typeof (NonInstancedStatic), true).Length == 0)
+            {
+              RuntimeHelpers.RunClassConstructor(field.DeclaringType.TypeHandle);
+              LocalMultiplayer.staticFields.Add(field);
+              LocalMultiplayer.staticDefaults.Add(field.GetValue((object) null));
+            }
+          }
+        }
+      }
+    }
 
-		private static DynamicMethod staticDefaultMethod;
+    private static void GenerateDynamicMethodsForStatics()
+    {
+      TypeBuilder typeBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName("StardewValley.StaticInstanceVars"), AssemblyBuilderAccess.RunAndCollect).DefineDynamicModule("MainModule").DefineType("StardewValley.StaticInstanceVars", TypeAttributes.Public | TypeAttributes.AutoClass);
+      foreach (FieldInfo staticField in LocalMultiplayer.staticFields)
+        typeBuilder.DefineField(staticField.DeclaringType.Name + "_" + staticField.Name, staticField.FieldType, FieldAttributes.Public);
+      LocalMultiplayer.StaticVarHolderType = typeBuilder.CreateType();
+      LocalMultiplayer.staticDefaultMethod = new DynamicMethod("SetStaticVarsToDefault", (Type) null, new Type[1]
+      {
+        typeof (object)
+      }, typeof (Game1).Module, true);
+      ILGenerator ilGenerator1 = LocalMultiplayer.staticDefaultMethod.GetILGenerator();
+      LocalBuilder localBuilder1 = ilGenerator1.DeclareLocal(LocalMultiplayer.StaticVarHolderType);
+      ilGenerator1.Emit(OpCodes.Ldarg_0);
+      ilGenerator1.Emit(OpCodes.Castclass, LocalMultiplayer.StaticVarHolderType);
+      ilGenerator1.Emit(OpCodes.Stloc_0);
+      FieldInfo field = typeof (LocalMultiplayer).GetField("staticDefaults", BindingFlags.Static | BindingFlags.NonPublic);
+      MethodInfo method = typeof (List<object>).GetMethod("get_Item");
+      for (int index = 0; index < LocalMultiplayer.staticFields.Count; ++index)
+      {
+        FieldInfo staticField = LocalMultiplayer.staticFields[index];
+        ilGenerator1.Emit(OpCodes.Ldloc, localBuilder1.LocalIndex);
+        ilGenerator1.Emit(OpCodes.Ldsfld, field);
+        ilGenerator1.Emit(OpCodes.Ldc_I4, index);
+        ilGenerator1.Emit(OpCodes.Callvirt, method);
+        if (staticField.FieldType.IsValueType)
+          ilGenerator1.Emit(OpCodes.Unbox_Any, staticField.FieldType);
+        else
+          ilGenerator1.Emit(OpCodes.Castclass, staticField.FieldType);
+        ilGenerator1.Emit(OpCodes.Stfld, LocalMultiplayer.StaticVarHolderType.GetField(staticField.DeclaringType.Name + "_" + staticField.Name));
+      }
+      ilGenerator1.Emit(OpCodes.Ret);
+      LocalMultiplayer.StaticSetDefault = (LocalMultiplayer.StaticInstanceMethod) LocalMultiplayer.staticDefaultMethod.CreateDelegate(typeof (LocalMultiplayer.StaticInstanceMethod));
+      LocalMultiplayer.staticSaveMethod = new DynamicMethod("SaveStaticVars", (Type) null, new Type[1]
+      {
+        typeof (object)
+      }, typeof (Game1).Module, true);
+      ILGenerator ilGenerator2 = LocalMultiplayer.staticSaveMethod.GetILGenerator();
+      LocalBuilder localBuilder2 = ilGenerator2.DeclareLocal(LocalMultiplayer.StaticVarHolderType);
+      ilGenerator2.Emit(OpCodes.Ldarg_0);
+      ilGenerator2.Emit(OpCodes.Castclass, LocalMultiplayer.StaticVarHolderType);
+      ilGenerator2.Emit(OpCodes.Stloc_0);
+      foreach (FieldInfo staticField in LocalMultiplayer.staticFields)
+      {
+        ilGenerator2.Emit(OpCodes.Ldloc, localBuilder2.LocalIndex);
+        ilGenerator2.Emit(OpCodes.Ldsfld, staticField);
+        ilGenerator2.Emit(OpCodes.Stfld, LocalMultiplayer.StaticVarHolderType.GetField(staticField.DeclaringType.Name + "_" + staticField.Name));
+      }
+      ilGenerator2.Emit(OpCodes.Ret);
+      LocalMultiplayer.StaticSave = (LocalMultiplayer.StaticInstanceMethod) LocalMultiplayer.staticSaveMethod.CreateDelegate(typeof (LocalMultiplayer.StaticInstanceMethod));
+      LocalMultiplayer.staticLoadMethod = new DynamicMethod("LoadStaticVars", (Type) null, new Type[1]
+      {
+        typeof (object)
+      }, typeof (Game1).Module, true);
+      ILGenerator ilGenerator3 = LocalMultiplayer.staticLoadMethod.GetILGenerator();
+      LocalBuilder localBuilder3 = ilGenerator3.DeclareLocal(LocalMultiplayer.StaticVarHolderType);
+      ilGenerator3.Emit(OpCodes.Ldarg_0);
+      ilGenerator3.Emit(OpCodes.Castclass, LocalMultiplayer.StaticVarHolderType);
+      ilGenerator3.Emit(OpCodes.Stloc_0);
+      foreach (FieldInfo staticField in LocalMultiplayer.staticFields)
+      {
+        ilGenerator3.Emit(OpCodes.Ldloc, localBuilder3.LocalIndex);
+        ilGenerator3.Emit(OpCodes.Ldfld, LocalMultiplayer.StaticVarHolderType.GetField(staticField.DeclaringType.Name + "_" + staticField.Name));
+        ilGenerator3.Emit(OpCodes.Stsfld, staticField);
+      }
+      ilGenerator3.Emit(OpCodes.Ret);
+      LocalMultiplayer.StaticLoad = (LocalMultiplayer.StaticInstanceMethod) LocalMultiplayer.staticLoadMethod.CreateDelegate(typeof (LocalMultiplayer.StaticInstanceMethod));
+    }
 
-		private static DynamicMethod staticSaveMethod;
+    public static void SaveOptions()
+    {
+      if (Game1.player == null || !(bool) (NetFieldBase<bool, NetBool>) Game1.player.isCustomized)
+        return;
+      if (!Game1.splitscreenOptions.ContainsKey(Game1.player.UniqueMultiplayerID))
+        Game1.splitscreenOptions.Add(Game1.player.UniqueMultiplayerID, Game1.options);
+      else
+        Game1.splitscreenOptions[(long) Game1.player.uniqueMultiplayerID] = Game1.options;
+    }
 
-		private static DynamicMethod staticLoadMethod;
-
-		public static StaticInstanceMethod StaticSetDefault;
-
-		public static StaticInstanceMethod StaticSave;
-
-		public static StaticInstanceMethod StaticLoad;
-
-		public static bool IsLocalMultiplayer(bool is_local_only = false)
-		{
-			if (is_local_only)
-			{
-				return Game1.hasLocalClientsOnly;
-			}
-			return GameRunner.instance.gameInstances.Count > 1;
-		}
-
-		public static void Initialize()
-		{
-			GetStaticFieldsAndDefaults();
-			GenerateDynamicMethodsForStatics();
-		}
-
-		private static void GetStaticFieldsAndDefaults()
-		{
-			staticFields = new List<FieldInfo>();
-			staticDefaults = new List<object>();
-			new List<Type>();
-			HashSet<string> ignored_assembly_roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-			{
-				"Microsoft",
-				"MonoGame",
-				"mscorlib",
-				"NetCode",
-				"System",
-				"xTile"
-			};
-			List<Type> types = new List<Type>();
-			Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-			foreach (Assembly assembly in assemblies)
-			{
-				if (!ignored_assembly_roots.Contains(assembly.GetName().Name.Split('.')[0]))
-				{
-					Type[] types2 = assembly.GetTypes();
-					foreach (Type type in types2)
-					{
-						types.Add(type);
-					}
-				}
-			}
-			foreach (Type type2 in types)
-			{
-				if (type2.GetCustomAttributes(typeof(CompilerGeneratedAttribute), inherit: true).Length == 0)
-				{
-					bool include_by_default = false;
-					if (type2.GetCustomAttributes(typeof(InstanceStatics), inherit: true).Length != 0)
-					{
-						include_by_default = true;
-					}
-					FieldInfo[] fields = type2.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-					foreach (FieldInfo field in fields)
-					{
-						if (!field.IsInitOnly && field.IsStatic && !field.IsLiteral && (include_by_default || field.GetCustomAttributes(typeof(InstancedStatic), inherit: true).Length != 0) && field.GetCustomAttributes(typeof(NonInstancedStatic), inherit: true).Length == 0)
-						{
-							RuntimeHelpers.RunClassConstructor(field.DeclaringType.TypeHandle);
-							staticFields.Add(field);
-							staticDefaults.Add(field.GetValue(null));
-						}
-					}
-				}
-			}
-		}
-
-		private static void GenerateDynamicMethodsForStatics()
-		{
-			TypeBuilder typeBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName("StardewValley.StaticInstanceVars"), AssemblyBuilderAccess.RunAndCollect).DefineDynamicModule("MainModule").DefineType("StardewValley.StaticInstanceVars", TypeAttributes.Public | TypeAttributes.AutoClass);
-			foreach (FieldInfo field4 in staticFields)
-			{
-				typeBuilder.DefineField(field4.DeclaringType.Name + "_" + field4.Name, field4.FieldType, FieldAttributes.Public);
-			}
-			StaticVarHolderType = typeBuilder.CreateType();
-			staticDefaultMethod = new DynamicMethod("SetStaticVarsToDefault", null, new Type[1]
-			{
-				typeof(object)
-			}, typeof(Game1).Module, skipVisibility: true);
-			ILGenerator il3 = staticDefaultMethod.GetILGenerator();
-			LocalBuilder local3 = il3.DeclareLocal(StaticVarHolderType);
-			il3.Emit(OpCodes.Ldarg_0);
-			il3.Emit(OpCodes.Castclass, StaticVarHolderType);
-			il3.Emit(OpCodes.Stloc_0);
-			FieldInfo defaultsField = typeof(LocalMultiplayer).GetField("staticDefaults", BindingFlags.Static | BindingFlags.NonPublic);
-			MethodInfo listIndexOperator = typeof(List<object>).GetMethod("get_Item");
-			for (int i = 0; i < staticFields.Count; i++)
-			{
-				FieldInfo field = staticFields[i];
-				il3.Emit(OpCodes.Ldloc, local3.LocalIndex);
-				il3.Emit(OpCodes.Ldsfld, defaultsField);
-				il3.Emit(OpCodes.Ldc_I4, i);
-				il3.Emit(OpCodes.Callvirt, listIndexOperator);
-				if (field.FieldType.IsValueType)
-				{
-					il3.Emit(OpCodes.Unbox_Any, field.FieldType);
-				}
-				else
-				{
-					il3.Emit(OpCodes.Castclass, field.FieldType);
-				}
-				il3.Emit(OpCodes.Stfld, StaticVarHolderType.GetField(field.DeclaringType.Name + "_" + field.Name));
-			}
-			il3.Emit(OpCodes.Ret);
-			StaticSetDefault = (StaticInstanceMethod)staticDefaultMethod.CreateDelegate(typeof(StaticInstanceMethod));
-			staticSaveMethod = new DynamicMethod("SaveStaticVars", null, new Type[1]
-			{
-				typeof(object)
-			}, typeof(Game1).Module, skipVisibility: true);
-			il3 = staticSaveMethod.GetILGenerator();
-			local3 = il3.DeclareLocal(StaticVarHolderType);
-			il3.Emit(OpCodes.Ldarg_0);
-			il3.Emit(OpCodes.Castclass, StaticVarHolderType);
-			il3.Emit(OpCodes.Stloc_0);
-			foreach (FieldInfo field3 in staticFields)
-			{
-				il3.Emit(OpCodes.Ldloc, local3.LocalIndex);
-				il3.Emit(OpCodes.Ldsfld, field3);
-				il3.Emit(OpCodes.Stfld, StaticVarHolderType.GetField(field3.DeclaringType.Name + "_" + field3.Name));
-			}
-			il3.Emit(OpCodes.Ret);
-			StaticSave = (StaticInstanceMethod)staticSaveMethod.CreateDelegate(typeof(StaticInstanceMethod));
-			staticLoadMethod = new DynamicMethod("LoadStaticVars", null, new Type[1]
-			{
-				typeof(object)
-			}, typeof(Game1).Module, skipVisibility: true);
-			il3 = staticLoadMethod.GetILGenerator();
-			local3 = il3.DeclareLocal(StaticVarHolderType);
-			il3.Emit(OpCodes.Ldarg_0);
-			il3.Emit(OpCodes.Castclass, StaticVarHolderType);
-			il3.Emit(OpCodes.Stloc_0);
-			foreach (FieldInfo field2 in staticFields)
-			{
-				il3.Emit(OpCodes.Ldloc, local3.LocalIndex);
-				il3.Emit(OpCodes.Ldfld, StaticVarHolderType.GetField(field2.DeclaringType.Name + "_" + field2.Name));
-				il3.Emit(OpCodes.Stsfld, field2);
-			}
-			il3.Emit(OpCodes.Ret);
-			StaticLoad = (StaticInstanceMethod)staticLoadMethod.CreateDelegate(typeof(StaticInstanceMethod));
-		}
-
-		public static void SaveOptions()
-		{
-			if (Game1.player != null && (bool)Game1.player.isCustomized)
-			{
-				if (!Game1.splitscreenOptions.ContainsKey(Game1.player.UniqueMultiplayerID))
-				{
-					Game1.splitscreenOptions.Add(Game1.player.UniqueMultiplayerID, Game1.options);
-				}
-				else
-				{
-					Game1.splitscreenOptions[Game1.player.uniqueMultiplayerID] = Game1.options;
-				}
-			}
-		}
-	}
+    public delegate void StaticInstanceMethod(object staticVarsHolder);
+  }
 }

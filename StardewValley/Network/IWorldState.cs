@@ -1,177 +1,91 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.IWorldState
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System.Collections.Generic;
 
 namespace StardewValley.Network
 {
-	public interface IWorldState : INetObject<NetFields>
-	{
-		WorldDate Date
-		{
-			get;
-		}
+  public interface IWorldState : INetObject<NetFields>
+  {
+    ServerPrivacy ServerPrivacy { get; set; }
 
-		bool IsTimePaused
-		{
-			get;
-			set;
-		}
+    WorldDate Date { get; }
 
-		bool IsPaused
-		{
-			get;
-			set;
-		}
+    bool IsTimePaused { get; set; }
 
-		bool IsGoblinRemoved
-		{
-			get;
-			set;
-		}
+    bool IsPaused { get; set; }
 
-		bool IsSubmarineLocked
-		{
-			get;
-			set;
-		}
+    bool IsGoblinRemoved { get; set; }
 
-		int MinesDifficulty
-		{
-			get;
-			set;
-		}
+    bool IsSubmarineLocked { get; set; }
 
-		int SkullCavesDifficulty
-		{
-			get;
-			set;
-		}
+    int MinesDifficulty { get; set; }
 
-		int LowestMineLevelForOrder
-		{
-			get;
-			set;
-		}
+    int SkullCavesDifficulty { get; set; }
 
-		int LowestMineLevel
-		{
-			get;
-			set;
-		}
+    int LowestMineLevelForOrder { get; set; }
 
-		int WeatherForTomorrow
-		{
-			get;
-			set;
-		}
+    int LowestMineLevel { get; set; }
 
-		Dictionary<string, string> BundleData
-		{
-			get;
-		}
+    int WeatherForTomorrow { get; set; }
 
-		NetBundles Bundles
-		{
-			get;
-		}
+    Dictionary<string, string> BundleData { get; }
 
-		NetIntDictionary<bool, NetBool> BundleRewards
-		{
-			get;
-		}
+    NetBundles Bundles { get; }
 
-		NetVector2Dictionary<int, NetInt> MuseumPieces
-		{
-			get;
-		}
+    NetIntDictionary<bool, NetBool> BundleRewards { get; }
 
-		NetIntDelta LostBooksFound
-		{
-			get;
-		}
+    NetVector2Dictionary<int, NetInt> MuseumPieces { get; }
 
-		NetIntDelta GoldenWalnuts
-		{
-			get;
-		}
+    NetIntDelta LostBooksFound { get; }
 
-		NetIntDelta GoldenWalnutsFound
-		{
-			get;
-		}
+    NetIntDelta GoldenWalnuts { get; }
 
-		NetIntDelta MiniShippingBinsObtained
-		{
-			get;
-		}
+    NetIntDelta GoldenWalnutsFound { get; }
 
-		NetBool GoldenCoconutCracked
-		{
-			get;
-		}
+    NetIntDelta MiniShippingBinsObtained { get; }
 
-		NetBool ParrotPlatformsUnlocked
-		{
-			get;
-		}
+    NetBool GoldenCoconutCracked { get; }
 
-		NetStringDictionary<bool, NetBool> FoundBuriedNuts
-		{
-			get;
-		}
+    NetBool ParrotPlatformsUnlocked { get; }
 
-		NetStringDictionary<bool, NetBool> IslandVisitors
-		{
-			get;
-		}
+    NetStringDictionary<bool, NetBool> FoundBuriedNuts { get; }
 
-		NetIntDictionary<LocationWeather, NetRef<LocationWeather>> LocationWeather
-		{
-			get;
-		}
+    NetStringDictionary<bool, NetBool> IslandVisitors { get; }
 
-		int VisitsUntilY1Guarantee
-		{
-			get;
-			set;
-		}
+    NetIntDictionary<global::LocationWeather, NetRef<global::LocationWeather>> LocationWeather { get; }
 
-		Game1.MineChestType ShuffleMineChests
-		{
-			get;
-			set;
-		}
+    int VisitsUntilY1Guarantee { get; set; }
 
-		NetInt HighestPlayerLimit
-		{
-			get;
-		}
+    Game1.MineChestType ShuffleMineChests { get; set; }
 
-		NetInt CurrentPlayerLimit
-		{
-			get;
-		}
+    NetInt HighestPlayerLimit { get; }
 
-		NetRef<Object> DishOfTheDay
-		{
-			get;
-		}
+    NetInt CurrentPlayerLimit { get; }
 
-		void RegisterSpecialCurrencies();
+    NetRef<Object> DishOfTheDay { get; }
 
-		LocationWeather GetWeatherForLocation(GameLocation.LocationContext location_context);
+    void RegisterSpecialCurrencies();
 
-		Dictionary<string, string> GetUnlocalizedBundleData();
+    global::LocationWeather GetWeatherForLocation(
+      GameLocation.LocationContext location_context);
 
-		void SetBundleData(Dictionary<string, string> data);
+    Dictionary<string, string> GetUnlocalizedBundleData();
 
-		bool hasWorldStateID(string id);
+    void SetBundleData(Dictionary<string, string> data);
 
-		void addWorldStateID(string id);
+    bool hasWorldStateID(string id);
 
-		void removeWorldStateID(string id);
+    void addWorldStateID(string id);
 
-		void UpdateFromGame1();
+    void removeWorldStateID(string id);
 
-		void WriteToGame1();
-	}
+    void UpdateFromGame1();
+
+    void WriteToGame1();
+  }
 }

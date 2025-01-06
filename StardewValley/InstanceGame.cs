@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.InstanceGame
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
@@ -5,103 +11,72 @@ using System;
 
 namespace StardewValley
 {
-	public class InstanceGame
-	{
-		public object staticVarHolder;
+  public class InstanceGame
+  {
+    public object staticVarHolder;
 
-		public bool IsMainInstance
-		{
-			get
-			{
-				if (GameRunner.instance.gameInstances.Count != 0)
-				{
-					return GameRunner.instance.gameInstances[0] == this;
-				}
-				return true;
-			}
-		}
+    public bool IsMainInstance => GameRunner.instance.gameInstances.Count == 0 || GameRunner.instance.gameInstances[0] == this;
 
-		public GraphicsDevice GraphicsDevice => GameRunner.instance.GraphicsDevice;
+    protected virtual void Initialize()
+    {
+    }
 
-		public ContentManager Content => GameRunner.instance.Content;
+    protected virtual void LoadContent()
+    {
+    }
 
-		public GameComponentCollection Components => GameRunner.instance.Components;
+    protected virtual void UnloadContent()
+    {
+    }
 
-		public GameWindow Window => GameRunner.instance.Window;
+    protected virtual void Update(GameTime game_time)
+    {
+    }
 
-		public bool IsFixedTimeStep
-		{
-			get
-			{
-				return GameRunner.instance.IsFixedTimeStep;
-			}
-			set
-			{
-				GameRunner.instance.IsFixedTimeStep = value;
-			}
-		}
+    protected virtual void OnActivated(object sender, EventArgs args)
+    {
+    }
 
-		public bool IsActive => GameRunner.instance.IsActive;
+    protected virtual void Draw(GameTime game_time)
+    {
+    }
 
-		public bool IsMouseVisible
-		{
-			get
-			{
-				return GameRunner.instance.IsMouseVisible;
-			}
-			set
-			{
-				GameRunner.instance.IsMouseVisible = value;
-			}
-		}
+    public GraphicsDevice GraphicsDevice => GameRunner.instance.GraphicsDevice;
 
-		public TimeSpan TargetElapsedTime
-		{
-			get
-			{
-				return GameRunner.instance.TargetElapsedTime;
-			}
-			set
-			{
-				GameRunner.instance.TargetElapsedTime = value;
-			}
-		}
+    public ContentManager Content => GameRunner.instance.Content;
 
-		protected virtual void Initialize()
-		{
-		}
+    public GameComponentCollection Components => GameRunner.instance.Components;
 
-		protected virtual void LoadContent()
-		{
-		}
+    public GameWindow Window => GameRunner.instance.Window;
 
-		protected virtual void UnloadContent()
-		{
-		}
+    public bool IsFixedTimeStep
+    {
+      get => GameRunner.instance.IsFixedTimeStep;
+      set => GameRunner.instance.IsFixedTimeStep = value;
+    }
 
-		protected virtual void Update(GameTime game_time)
-		{
-		}
+    public bool IsActive => GameRunner.instance.IsActive;
 
-		protected virtual void OnActivated(object sender, EventArgs args)
-		{
-		}
+    public bool IsMouseVisible
+    {
+      get => GameRunner.instance.IsMouseVisible;
+      set => GameRunner.instance.IsMouseVisible = value;
+    }
 
-		protected virtual void Draw(GameTime game_time)
-		{
-		}
+    protected virtual void BeginDraw()
+    {
+    }
 
-		protected virtual void BeginDraw()
-		{
-		}
+    protected virtual void EndDraw()
+    {
+    }
 
-		protected virtual void EndDraw()
-		{
-		}
+    public void Exit() => GameRunner.instance.Exit();
 
-		public void Exit()
-		{
-			GameRunner.instance.Exit();
-		}
-	}
+    public TimeSpan TargetElapsedTime
+    {
+      get => GameRunner.instance.TargetElapsedTime;
+      set => GameRunner.instance.TargetElapsedTime = value;
+    }
+  }
 }

@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.AdvancedGameOptions
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -6,641 +12,532 @@ using System.Collections.Generic;
 
 namespace StardewValley.Menus
 {
-	public class AdvancedGameOptions : IClickableMenu
-	{
-		public const int itemsPerPage = 7;
+  public class AdvancedGameOptions : IClickableMenu
+  {
+    public const int itemsPerPage = 7;
+    private string hoverText = "";
+    public List<ClickableComponent> optionSlots = new List<ClickableComponent>();
+    public int currentItemIndex;
+    private ClickableTextureComponent upArrow;
+    private ClickableTextureComponent downArrow;
+    private ClickableTextureComponent scrollBar;
+    public ClickableTextureComponent okButton;
+    public List<Action> applySettingCallbacks = new List<Action>();
+    public Dictionary<OptionsElement, string> tooltips = new Dictionary<OptionsElement, string>();
+    public int ID_okButton = 10000;
+    private bool scrolling;
+    public List<OptionsElement> options = new List<OptionsElement>();
+    private Rectangle scrollBarBounds;
+    protected static int _lastSelectedIndex;
+    protected static int _lastCurrentItemIndex;
+    protected int _lastHoveredIndex;
+    protected int _hoverDuration;
+    public const int WINDOW_WIDTH = 800;
+    public const int WINDOW_HEIGHT = 500;
+    public bool initialMonsterSpawnAtValue;
+    private int optionsSlotHeld = -1;
 
-		private string hoverText = "";
+    public AdvancedGameOptions()
+      : base(Game1.uiViewport.Width / 2 - 400, Game1.uiViewport.Height / 2 - 250, 800, 500)
+    {
+      int x = this.xPositionOnScreen + this.width + 16;
+      this.upArrow = new ClickableTextureComponent(new Rectangle(x, this.yPositionOnScreen, 44, 48), Game1.mouseCursors, new Rectangle(421, 459, 11, 12), 4f);
+      this.downArrow = new ClickableTextureComponent(new Rectangle(x, this.yPositionOnScreen + this.height - 64, 44, 48), Game1.mouseCursors, new Rectangle(421, 472, 11, 12), 4f);
+      this.scrollBarBounds = new Rectangle();
+      this.scrollBarBounds.X = this.upArrow.bounds.X + 12;
+      this.scrollBarBounds.Width = 24;
+      this.scrollBarBounds.Y = this.upArrow.bounds.Y + this.upArrow.bounds.Height + 4;
+      this.scrollBarBounds.Height = this.downArrow.bounds.Y - 4 - this.scrollBarBounds.Y;
+      this.scrollBar = new ClickableTextureComponent(new Rectangle(this.scrollBarBounds.X, this.scrollBarBounds.Y, 24, 40), Game1.mouseCursors, new Rectangle(435, 463, 6, 10), 4f);
+      for (int index = 0; index < 7; ++index)
+        this.optionSlots.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 16, this.yPositionOnScreen + index * ((this.height - 16) / 7), this.width - 16, this.height / 7), index.ToString() ?? "")
+        {
+          myID = index,
+          downNeighborID = index < 6 ? index + 1 : -7777,
+          upNeighborID = index > 0 ? index - 1 : -7777,
+          fullyImmutable = true
+        });
+      this.PopulateOptions();
+      ClickableTextureComponent textureComponent = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen, this.yPositionOnScreen + this.height + 32, 64, 64), Game1.mouseCursors, Game1.getSourceRectForStandardTileSheet(Game1.mouseCursors, 46), 1f);
+      textureComponent.myID = this.ID_okButton;
+      textureComponent.upNeighborID = -99998;
+      this.okButton = textureComponent;
+      this.populateClickableComponentList();
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.setCurrentlySnappedComponentTo(this.ID_okButton);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public List<ClickableComponent> optionSlots = new List<ClickableComponent>();
+    protected override void customSnapBehavior(int direction, int oldRegion, int oldID)
+    {
+      base.customSnapBehavior(direction, oldRegion, oldID);
+      if (oldID == 6 && direction == 2)
+      {
+        if (this.currentItemIndex < Math.Max(0, this.options.Count - 7))
+        {
+          this.downArrowPressed();
+          Game1.playSound("shiny4");
+        }
+        else
+        {
+          this.currentlySnappedComponent = this.getComponentWithID(this.ID_okButton);
+          if (this.currentlySnappedComponent == null)
+            return;
+          this.currentlySnappedComponent.upNeighborID = Math.Min(this.options.Count, 7) - 1;
+        }
+      }
+      else
+      {
+        if (oldID != 0 || direction != 0)
+          return;
+        if (this.currentItemIndex > 0)
+        {
+          this.upArrowPressed();
+          Game1.playSound("shiny4");
+        }
+        else
+          this.snapCursorToCurrentSnappedComponent();
+      }
+    }
 
-		public int currentItemIndex;
+    public virtual void PopulateOptions()
+    {
+      this.options.Clear();
+      this.tooltips.Clear();
+      this.applySettingCallbacks.Clear();
+      this.options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_Label")));
+      this.options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_CCB"))
+      {
+        style = OptionsElement.Style.OptionLabel
+      });
+      this.AddDropdown<Game1.BundleType>("", Game1.content.LoadString("Strings\\UI:AGO_CCB_Tooltip"), (Func<Game1.BundleType>) (() => Game1.bundleType), (Action<Game1.BundleType>) (val => Game1.bundleType = val), new KeyValuePair<string, Game1.BundleType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Normal"), Game1.BundleType.Default), new KeyValuePair<string, Game1.BundleType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Remixed"), Game1.BundleType.Remixed));
+      this.AddCheckbox(Game1.content.LoadString("Strings\\UI:AGO_Year1Completable"), Game1.content.LoadString("Strings\\UI:AGO_Year1Completable_Tooltip"), (Func<bool>) (() => Game1.game1.GetNewGameOption<bool>("YearOneCompletable")), (Action<bool>) (val => Game1.game1.SetNewGameOption<bool>("YearOneCompletable", val)));
+      this.options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_MineTreasureShuffle"))
+      {
+        style = OptionsElement.Style.OptionLabel
+      });
+      this.AddDropdown<Game1.MineChestType>("", Game1.content.LoadString("Strings\\UI:AGO_MineTreasureShuffle_Tooltip"), (Func<Game1.MineChestType>) (() => Game1.game1.GetNewGameOption<Game1.MineChestType>("MineChests")), (Action<Game1.MineChestType>) (val => Game1.game1.SetNewGameOption<Game1.MineChestType>("MineChests", val)), new KeyValuePair<string, Game1.MineChestType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Normal"), Game1.MineChestType.Default), new KeyValuePair<string, Game1.MineChestType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Remixed"), Game1.MineChestType.Remixed));
+      this.AddCheckbox(Game1.content.LoadString("Strings\\UI:AGO_FarmMonsters"), Game1.content.LoadString("Strings\\UI:AGO_FarmMonsters_Tooltip"), (Func<bool>) (() =>
+      {
+        bool flag = Game1.spawnMonstersAtNight;
+        if (Game1.game1.newGameSetupOptions.ContainsKey("SpawnMonstersAtNight"))
+          flag = Game1.game1.GetNewGameOption<bool>("SpawnMonstersAtNight");
+        this.initialMonsterSpawnAtValue = flag;
+        return flag;
+      }), (Action<bool>) (val =>
+      {
+        if (this.initialMonsterSpawnAtValue == val)
+          return;
+        Game1.game1.SetNewGameOption<bool>("SpawnMonstersAtNight", val);
+      }));
+      this.AddDropdown<float>(Game1.content.LoadString("Strings\\UI:Character_Difficulty"), Game1.content.LoadString("Strings\\UI:AGO_ProfitMargin_Tooltip"), (Func<float>) (() => Game1.player.difficultyModifier), (Action<float>) (val => Game1.player.difficultyModifier = val), new KeyValuePair<string, float>(Game1.content.LoadString("Strings\\UI:Character_Normal"), 1f), new KeyValuePair<string, float>("75%", 0.75f), new KeyValuePair<string, float>("50%", 0.5f), new KeyValuePair<string, float>("25%", 0.25f));
+      this.options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_MPOptions_Label")));
+      this.AddDropdown<int>(Game1.content.LoadString("Strings\\UI:Character_StartingCabins"), Game1.content.LoadString("Strings\\UI:AGO_StartingCabins_Tooltip"), (Func<int>) (() => Game1.startingCabins), (Action<int>) (val => Game1.startingCabins = val), new KeyValuePair<string, int>(Game1.content.LoadString("Strings\\UI:Character_none"), 0), new KeyValuePair<string, int>("1", 1), new KeyValuePair<string, int>("2", 2), new KeyValuePair<string, int>("3", 3));
+      this.AddDropdown<bool>(Game1.content.LoadString("Strings\\UI:Character_CabinLayout"), Game1.content.LoadString("Strings\\UI:AGO_CabinLayout_Tooltip"), (Func<bool>) (() => Game1.cabinsSeparate), (Action<bool>) (val => Game1.cabinsSeparate = val), new KeyValuePair<string, bool>(Game1.content.LoadString("Strings\\UI:Character_Close"), false), new KeyValuePair<string, bool>(Game1.content.LoadString("Strings\\UI:Character_Separate"), true));
+      this.options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_OtherOptions_Label")));
+      this.options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_RandomSeed"))
+      {
+        style = OptionsElement.Style.OptionLabel
+      });
+      OptionsTextEntry optionsTextEntry = this.AddTextEntry("", Game1.content.LoadString("Strings\\UI:AGO_RandomSeed_Tooltip"), (Func<string>) (() => !Game1.startingGameSeed.HasValue ? "" : Game1.startingGameSeed.Value.ToString()), (Action<string>) (val =>
+      {
+        val.Trim();
+        if (string.IsNullOrEmpty(val))
+        {
+          Game1.startingGameSeed = new ulong?();
+        }
+        else
+        {
+          ulong result = 0;
+          for (; val.Length > 0; val = val.Substring(0, val.Length - 1))
+          {
+            if (ulong.TryParse(val, out result))
+            {
+              Game1.startingGameSeed = new ulong?(result);
+              break;
+            }
+          }
+        }
+      }));
+      optionsTextEntry.textBox.numbersOnly = true;
+      optionsTextEntry.textBox.textLimit = 9;
+      for (int count = this.options.Count; count < 7; ++count)
+        this.options.Add(new OptionsElement(""));
+    }
 
-		private ClickableTextureComponent upArrow;
+    public virtual void CloseAndApply()
+    {
+      foreach (Action applySettingCallback in this.applySettingCallbacks)
+        applySettingCallback();
+      this.applySettingCallbacks.Clear();
+      this.exitThisMenu();
+    }
 
-		private ClickableTextureComponent downArrow;
+    public virtual OptionsTextEntry AddTextEntry(
+      string label,
+      string tooltip,
+      Func<string> get,
+      Action<string> set)
+    {
+      OptionsTextEntry option_element = new OptionsTextEntry(label, -999);
+      this.tooltips[(OptionsElement) option_element] = tooltip;
+      option_element.textBox.Text = get();
+      this.applySettingCallbacks.Add((Action) (() => set(option_element.textBox.Text)));
+      this.options.Add((OptionsElement) option_element);
+      return option_element;
+    }
 
-		private ClickableTextureComponent scrollBar;
+    public OptionsDropDown AddDropdown<T>(
+      string label,
+      string tooltip,
+      Func<T> get,
+      Action<T> set,
+      params KeyValuePair<string, T>[] dropdown_options)
+    {
+      OptionsDropDown option_element = new OptionsDropDown(label, -999);
+      this.tooltips[(OptionsElement) option_element] = tooltip;
+      foreach (KeyValuePair<string, T> dropdownOption in dropdown_options)
+      {
+        option_element.dropDownDisplayOptions.Add(dropdownOption.Key);
+        option_element.dropDownOptions.Add(dropdownOption.Value.ToString());
+      }
+      option_element.RecalculateBounds();
+      T obj = get();
+      int num = 0;
+      for (int index = 0; index < dropdown_options.Length; ++index)
+      {
+        KeyValuePair<string, T> dropdownOption = dropdown_options[index];
+        if ((object) dropdownOption.Value == null && (object) obj == null || (object) dropdownOption.Value != null && (object) obj != null && dropdownOption.Value.Equals((object) obj))
+        {
+          num = index;
+          break;
+        }
+      }
+      option_element.selectedOption = num;
+      this.applySettingCallbacks.Add((Action) (() => set(dropdown_options[option_element.selectedOption].Value)));
+      this.options.Add((OptionsElement) option_element);
+      return option_element;
+    }
 
-		public ClickableTextureComponent okButton;
+    public virtual OptionsCheckbox AddCheckbox(
+      string label,
+      string tooltip,
+      Func<bool> get,
+      Action<bool> set)
+    {
+      OptionsCheckbox option_element = new OptionsCheckbox(label, -999);
+      this.tooltips[(OptionsElement) option_element] = tooltip;
+      option_element.isChecked = get();
+      this.applySettingCallbacks.Add((Action) (() => set(option_element.isChecked)));
+      this.options.Add((OptionsElement) option_element);
+      return option_element;
+    }
 
-		public List<Action> applySettingCallbacks = new List<Action>();
+    public override bool readyToClose() => false;
 
-		public Dictionary<OptionsElement, string> tooltips = new Dictionary<OptionsElement, string>();
+    public override void snapToDefaultClickableComponent()
+    {
+      base.snapToDefaultClickableComponent();
+      this.currentlySnappedComponent = this.getComponentWithID(this.ID_okButton);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public int ID_okButton = 10000;
+    public override void applyMovementKey(int direction)
+    {
+      if (this.IsDropdownActive())
+      {
+        if (this.optionsSlotHeld == -1 || this.optionsSlotHeld + this.currentItemIndex >= this.options.Count || !(this.options[this.currentItemIndex + this.optionsSlotHeld] is OptionsDropDown) || direction == 2)
+          ;
+      }
+      else
+        base.applyMovementKey(direction);
+    }
 
-		private bool scrolling;
+    private void setScrollBarToCurrentIndex()
+    {
+      if (this.options.Count <= 0)
+        return;
+      this.scrollBar.bounds.Y = this.scrollBarBounds.Y + this.scrollBarBounds.Height / Math.Max(1, this.options.Count - 7) * this.currentItemIndex;
+      if (this.currentItemIndex != this.options.Count - 7)
+        return;
+      this.scrollBar.bounds.Y = this.downArrow.bounds.Y - this.scrollBar.bounds.Height - 4;
+    }
 
-		public List<OptionsElement> options = new List<OptionsElement>();
+    public override void snapCursorToCurrentSnappedComponent()
+    {
+      if (this.currentlySnappedComponent != null && this.currentlySnappedComponent.myID < this.options.Count)
+      {
+        if (this.options[this.currentlySnappedComponent.myID + this.currentItemIndex] is OptionsDropDown option)
+          Game1.setMousePosition(this.currentlySnappedComponent.bounds.Left + option.bounds.Right - 32, this.currentlySnappedComponent.bounds.Center.Y - 4);
+        else if (this.options[this.currentlySnappedComponent.myID + this.currentItemIndex] is OptionsPlusMinusButton)
+          Game1.setMousePosition(this.currentlySnappedComponent.bounds.Left + 64, this.currentlySnappedComponent.bounds.Center.Y + 4);
+        else if (this.options[this.currentlySnappedComponent.myID + this.currentItemIndex] is OptionsInputListener)
+          Game1.setMousePosition(this.currentlySnappedComponent.bounds.Right - 48, this.currentlySnappedComponent.bounds.Center.Y - 12);
+        else
+          Game1.setMousePosition(this.currentlySnappedComponent.bounds.Left + 48, this.currentlySnappedComponent.bounds.Center.Y - 12);
+      }
+      else
+      {
+        if (this.currentlySnappedComponent == null)
+          return;
+        base.snapCursorToCurrentSnappedComponent();
+      }
+    }
 
-		private Rectangle scrollBarBounds;
+    protected override void cleanupBeforeExit() => base.cleanupBeforeExit();
 
-		protected static int _lastSelectedIndex;
+    public virtual void SetScrollFromY(int y)
+    {
+      int y1 = this.scrollBar.bounds.Y;
+      this.currentItemIndex = (int) Utility.Lerp(0.0f, (float) (this.options.Count - 7), Utility.Clamp((float) (y - this.scrollBarBounds.Y) / (float) this.scrollBarBounds.Height, 0.0f, 1f));
+      this.setScrollBarToCurrentIndex();
+      int y2 = this.scrollBar.bounds.Y;
+      if (y1 == y2)
+        return;
+      Game1.playSound("shiny4");
+    }
 
-		protected static int _lastCurrentItemIndex;
+    public override void leftClickHeld(int x, int y)
+    {
+      if (GameMenu.forcePreventClose)
+        return;
+      base.leftClickHeld(x, y);
+      if (this.scrolling)
+      {
+        this.SetScrollFromY(y);
+      }
+      else
+      {
+        if (this.optionsSlotHeld == -1 || this.optionsSlotHeld + this.currentItemIndex >= this.options.Count)
+          return;
+        this.options[this.currentItemIndex + this.optionsSlotHeld].leftClickHeld(x - this.optionSlots[this.optionsSlotHeld].bounds.X, y - this.optionSlots[this.optionsSlotHeld].bounds.Y);
+      }
+    }
 
-		protected int _lastHoveredIndex;
+    public override ClickableComponent getCurrentlySnappedComponent() => this.currentlySnappedComponent;
 
-		protected int _hoverDuration;
+    public override void setCurrentlySnappedComponentTo(int id)
+    {
+      this.currentlySnappedComponent = this.getComponentWithID(id);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public const int WINDOW_WIDTH = 800;
+    public override void receiveKeyPress(Keys key)
+    {
+      if (this.optionsSlotHeld != -1 && this.optionsSlotHeld + this.currentItemIndex < this.options.Count || Game1.options.snappyMenus && Game1.options.gamepadControls)
+      {
+        if (this.currentlySnappedComponent != null && Game1.options.snappyMenus && Game1.options.gamepadControls && this.options.Count > this.currentItemIndex + this.currentlySnappedComponent.myID && this.currentItemIndex + this.currentlySnappedComponent.myID >= 0)
+          this.options[this.currentItemIndex + this.currentlySnappedComponent.myID].receiveKeyPress(key);
+        else if (this.options.Count > this.currentItemIndex + this.optionsSlotHeld && this.currentItemIndex + this.optionsSlotHeld >= 0)
+          this.options[this.currentItemIndex + this.optionsSlotHeld].receiveKeyPress(key);
+      }
+      base.receiveKeyPress(key);
+    }
 
-		public const int WINDOW_HEIGHT = 500;
+    public override void receiveScrollWheelAction(int direction)
+    {
+      if (GameMenu.forcePreventClose || this.IsDropdownActive())
+        return;
+      base.receiveScrollWheelAction(direction);
+      if (direction > 0 && this.currentItemIndex > 0)
+      {
+        this.upArrowPressed();
+        Game1.playSound("shiny4");
+      }
+      else if (direction < 0 && this.currentItemIndex < Math.Max(0, this.options.Count - 7))
+      {
+        this.downArrowPressed();
+        Game1.playSound("shiny4");
+      }
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public bool initialMonsterSpawnAtValue;
+    public override void releaseLeftClick(int x, int y)
+    {
+      if (GameMenu.forcePreventClose)
+        return;
+      base.releaseLeftClick(x, y);
+      if (this.optionsSlotHeld != -1 && this.optionsSlotHeld + this.currentItemIndex < this.options.Count)
+        this.options[this.currentItemIndex + this.optionsSlotHeld].leftClickReleased(x - this.optionSlots[this.optionsSlotHeld].bounds.X, y - this.optionSlots[this.optionsSlotHeld].bounds.Y);
+      this.optionsSlotHeld = -1;
+      this.scrolling = false;
+    }
 
-		private int optionsSlotHeld = -1;
+    public bool IsDropdownActive() => this.optionsSlotHeld != -1 && this.optionsSlotHeld + this.currentItemIndex < this.options.Count && this.options[this.currentItemIndex + this.optionsSlotHeld] is OptionsDropDown;
 
-		public AdvancedGameOptions()
-			: base(Game1.uiViewport.Width / 2 - 400, Game1.uiViewport.Height / 2 - 250, 800, 500)
-		{
-			int scrollbar_x = xPositionOnScreen + width + 16;
-			upArrow = new ClickableTextureComponent(new Rectangle(scrollbar_x, yPositionOnScreen, 44, 48), Game1.mouseCursors, new Rectangle(421, 459, 11, 12), 4f);
-			downArrow = new ClickableTextureComponent(new Rectangle(scrollbar_x, yPositionOnScreen + height - 64, 44, 48), Game1.mouseCursors, new Rectangle(421, 472, 11, 12), 4f);
-			scrollBarBounds = default(Rectangle);
-			scrollBarBounds.X = upArrow.bounds.X + 12;
-			scrollBarBounds.Width = 24;
-			scrollBarBounds.Y = upArrow.bounds.Y + upArrow.bounds.Height + 4;
-			scrollBarBounds.Height = downArrow.bounds.Y - 4 - scrollBarBounds.Y;
-			scrollBar = new ClickableTextureComponent(new Rectangle(scrollBarBounds.X, scrollBarBounds.Y, 24, 40), Game1.mouseCursors, new Rectangle(435, 463, 6, 10), 4f);
-			for (int i = 0; i < 7; i++)
-			{
-				optionSlots.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 16, yPositionOnScreen + i * ((height - 16) / 7), width - 16, height / 7), string.Concat(i))
-				{
-					myID = i,
-					downNeighborID = ((i < 6) ? (i + 1) : (-7777)),
-					upNeighborID = ((i > 0) ? (i - 1) : (-7777)),
-					fullyImmutable = true
-				});
-			}
-			PopulateOptions();
-			okButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen, yPositionOnScreen + height + 32, 64, 64), Game1.mouseCursors, Game1.getSourceRectForStandardTileSheet(Game1.mouseCursors, 46), 1f)
-			{
-				myID = ID_okButton,
-				upNeighborID = -99998
-			};
-			populateClickableComponentList();
-			if (Game1.options.SnappyMenus)
-			{
-				setCurrentlySnappedComponentTo(ID_okButton);
-				snapCursorToCurrentSnappedComponent();
-			}
-		}
+    private void downArrowPressed()
+    {
+      if (this.IsDropdownActive())
+        return;
+      this.downArrow.scale = this.downArrow.baseScale;
+      ++this.currentItemIndex;
+      this.UnsubscribeFromSelectedTextbox();
+      this.setScrollBarToCurrentIndex();
+    }
 
-		protected override void customSnapBehavior(int direction, int oldRegion, int oldID)
-		{
-			base.customSnapBehavior(direction, oldRegion, oldID);
-			if (oldID == 6 && direction == 2)
-			{
-				if (currentItemIndex < Math.Max(0, options.Count - 7))
-				{
-					downArrowPressed();
-					Game1.playSound("shiny4");
-					return;
-				}
-				currentlySnappedComponent = getComponentWithID(ID_okButton);
-				if (currentlySnappedComponent != null)
-				{
-					currentlySnappedComponent.upNeighborID = Math.Min(options.Count, 7) - 1;
-				}
-			}
-			else if (oldID == 0 && direction == 0)
-			{
-				if (currentItemIndex > 0)
-				{
-					upArrowPressed();
-					Game1.playSound("shiny4");
-				}
-				else
-				{
-					snapCursorToCurrentSnappedComponent();
-				}
-			}
-		}
+    public virtual void UnsubscribeFromSelectedTextbox()
+    {
+      if (Game1.keyboardDispatcher.Subscriber == null)
+        return;
+      foreach (OptionsElement option in this.options)
+      {
+        if (option is OptionsTextEntry && Game1.keyboardDispatcher.Subscriber == (option as OptionsTextEntry).textBox)
+        {
+          Game1.keyboardDispatcher.Subscriber = (IKeyboardSubscriber) null;
+          break;
+        }
+      }
+    }
 
-		public virtual void PopulateOptions()
-		{
-			options.Clear();
-			tooltips.Clear();
-			applySettingCallbacks.Clear();
-			options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_Label")));
-			options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_CCB"))
-			{
-				style = OptionsElement.Style.OptionLabel
-			});
-			AddDropdown("", Game1.content.LoadString("Strings\\UI:AGO_CCB_Tooltip"), () => Game1.bundleType, delegate(Game1.BundleType val)
-			{
-				Game1.bundleType = val;
-			}, new KeyValuePair<string, Game1.BundleType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Normal"), Game1.BundleType.Default), new KeyValuePair<string, Game1.BundleType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Remixed"), Game1.BundleType.Remixed));
-			AddCheckbox(Game1.content.LoadString("Strings\\UI:AGO_Year1Completable"), Game1.content.LoadString("Strings\\UI:AGO_Year1Completable_Tooltip"), () => Game1.game1.GetNewGameOption<bool>("YearOneCompletable"), delegate(bool val)
-			{
-				Game1.game1.SetNewGameOption("YearOneCompletable", val);
-			});
-			options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_MineTreasureShuffle"))
-			{
-				style = OptionsElement.Style.OptionLabel
-			});
-			AddDropdown("", Game1.content.LoadString("Strings\\UI:AGO_MineTreasureShuffle_Tooltip"), () => Game1.game1.GetNewGameOption<Game1.MineChestType>("MineChests"), delegate(Game1.MineChestType val)
-			{
-				Game1.game1.SetNewGameOption("MineChests", val);
-			}, new KeyValuePair<string, Game1.MineChestType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Normal"), Game1.MineChestType.Default), new KeyValuePair<string, Game1.MineChestType>(Game1.content.LoadString("Strings\\UI:AGO_CCB_Remixed"), Game1.MineChestType.Remixed));
-			AddCheckbox(Game1.content.LoadString("Strings\\UI:AGO_FarmMonsters"), Game1.content.LoadString("Strings\\UI:AGO_FarmMonsters_Tooltip"), delegate
-			{
-				bool result2 = Game1.spawnMonstersAtNight;
-				if (Game1.game1.newGameSetupOptions.ContainsKey("SpawnMonstersAtNight"))
-				{
-					result2 = Game1.game1.GetNewGameOption<bool>("SpawnMonstersAtNight");
-				}
-				initialMonsterSpawnAtValue = result2;
-				return result2;
-			}, delegate(bool val)
-			{
-				if (initialMonsterSpawnAtValue != val)
-				{
-					Game1.game1.SetNewGameOption("SpawnMonstersAtNight", val);
-				}
-			});
-			AddDropdown(Game1.content.LoadString("Strings\\UI:Character_Difficulty"), Game1.content.LoadString("Strings\\UI:AGO_ProfitMargin_Tooltip"), () => Game1.player.difficultyModifier, delegate(float val)
-			{
-				Game1.player.difficultyModifier = val;
-			}, new KeyValuePair<string, float>(Game1.content.LoadString("Strings\\UI:Character_Normal"), 1f), new KeyValuePair<string, float>("75%", 0.75f), new KeyValuePair<string, float>("50%", 0.5f), new KeyValuePair<string, float>("25%", 0.25f));
-			options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_MPOptions_Label")));
-			AddDropdown(Game1.content.LoadString("Strings\\UI:Character_StartingCabins"), Game1.content.LoadString("Strings\\UI:AGO_StartingCabins_Tooltip"), () => Game1.startingCabins, delegate(int val)
-			{
-				Game1.startingCabins = val;
-			}, new KeyValuePair<string, int>(Game1.content.LoadString("Strings\\UI:Character_none"), 0), new KeyValuePair<string, int>("1", 1), new KeyValuePair<string, int>("2", 2), new KeyValuePair<string, int>("3", 3));
-			AddDropdown(Game1.content.LoadString("Strings\\UI:Character_CabinLayout"), Game1.content.LoadString("Strings\\UI:AGO_CabinLayout_Tooltip"), () => Game1.cabinsSeparate, delegate(bool val)
-			{
-				Game1.cabinsSeparate = val;
-			}, new KeyValuePair<string, bool>(Game1.content.LoadString("Strings\\UI:Character_Close"), value: false), new KeyValuePair<string, bool>(Game1.content.LoadString("Strings\\UI:Character_Separate"), value: true));
-			options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_OtherOptions_Label")));
-			options.Add(new OptionsElement(Game1.content.LoadString("Strings\\UI:AGO_RandomSeed"))
-			{
-				style = OptionsElement.Style.OptionLabel
-			});
-			OptionsTextEntry optionsTextEntry = AddTextEntry("", Game1.content.LoadString("Strings\\UI:AGO_RandomSeed_Tooltip"), () => (!Game1.startingGameSeed.HasValue) ? "" : Game1.startingGameSeed.Value.ToString(), delegate(string val)
-			{
-				val.Trim();
-				if (string.IsNullOrEmpty(val))
-				{
-					Game1.startingGameSeed = null;
-				}
-				else
-				{
-					ulong result = 0uL;
-					while (true)
-					{
-						if (val.Length <= 0)
-						{
-							return;
-						}
-						if (ulong.TryParse(val, out result))
-						{
-							break;
-						}
-						val = val.Substring(0, val.Length - 1);
-					}
-					Game1.startingGameSeed = result;
-				}
-			});
-			optionsTextEntry.textBox.numbersOnly = true;
-			optionsTextEntry.textBox.textLimit = 9;
-			for (int i = options.Count; i < 7; i++)
-			{
-				options.Add(new OptionsElement(""));
-			}
-		}
+    public void preWindowSizeChange()
+    {
+      AdvancedGameOptions._lastSelectedIndex = this.getCurrentlySnappedComponent() != null ? this.getCurrentlySnappedComponent().myID : -1;
+      AdvancedGameOptions._lastCurrentItemIndex = this.currentItemIndex;
+    }
 
-		public virtual void CloseAndApply()
-		{
-			foreach (Action applySettingCallback in applySettingCallbacks)
-			{
-				applySettingCallback();
-			}
-			applySettingCallbacks.Clear();
-			exitThisMenu();
-		}
+    public void postWindowSizeChange()
+    {
+      if (Game1.options.SnappyMenus)
+        Game1.activeClickableMenu.setCurrentlySnappedComponentTo(AdvancedGameOptions._lastSelectedIndex);
+      this.currentItemIndex = AdvancedGameOptions._lastCurrentItemIndex;
+      this.setScrollBarToCurrentIndex();
+    }
 
-		public virtual OptionsTextEntry AddTextEntry(string label, string tooltip, Func<string> get, Action<string> set)
-		{
-			OptionsTextEntry option_element = new OptionsTextEntry(label, -999);
-			tooltips[option_element] = tooltip;
-			option_element.textBox.Text = get();
-			applySettingCallbacks.Add(delegate
-			{
-				set(option_element.textBox.Text);
-			});
-			options.Add(option_element);
-			return option_element;
-		}
+    private void upArrowPressed()
+    {
+      if (this.IsDropdownActive())
+        return;
+      this.upArrow.scale = this.upArrow.baseScale;
+      --this.currentItemIndex;
+      this.UnsubscribeFromSelectedTextbox();
+      this.setScrollBarToCurrentIndex();
+    }
 
-		public OptionsDropDown AddDropdown<T>(string label, string tooltip, Func<T> get, Action<T> set, params KeyValuePair<string, T>[] dropdown_options)
-		{
-			OptionsDropDown option_element = new OptionsDropDown(label, -999);
-			tooltips[option_element] = tooltip;
-			KeyValuePair<string, T>[] array = dropdown_options;
-			for (int j = 0; j < array.Length; j++)
-			{
-				KeyValuePair<string, T> option = array[j];
-				option_element.dropDownDisplayOptions.Add(option.Key);
-				option_element.dropDownOptions.Add(option.Value.ToString());
-			}
-			option_element.RecalculateBounds();
-			T selected_value = get();
-			int selected_option = 0;
-			for (int i = 0; i < dropdown_options.Length; i++)
-			{
-				KeyValuePair<string, T> dropdown_option = dropdown_options[i];
-				if ((dropdown_option.Value == null && selected_value == null) || (dropdown_option.Value != null && selected_value != null && dropdown_option.Value.Equals(selected_value)))
-				{
-					selected_option = i;
-					break;
-				}
-			}
-			option_element.selectedOption = selected_option;
-			applySettingCallbacks.Add(delegate
-			{
-				set(dropdown_options[option_element.selectedOption].Value);
-			});
-			options.Add(option_element);
-			return option_element;
-		}
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+      if (GameMenu.forcePreventClose)
+        return;
+      if (this.downArrow.containsPoint(x, y) && this.currentItemIndex < Math.Max(0, this.options.Count - 7))
+      {
+        this.downArrowPressed();
+        Game1.playSound("shwip");
+      }
+      else if (this.upArrow.containsPoint(x, y) && this.currentItemIndex > 0)
+      {
+        this.upArrowPressed();
+        Game1.playSound("shwip");
+      }
+      else if (this.scrollBar.containsPoint(x, y))
+        this.scrolling = true;
+      else if (!this.downArrow.containsPoint(x, y) && x > this.xPositionOnScreen + this.width && x < this.xPositionOnScreen + this.width + 128 && y > this.yPositionOnScreen && y < this.yPositionOnScreen + this.height)
+      {
+        this.scrolling = true;
+        this.leftClickHeld(x, y);
+        this.releaseLeftClick(x, y);
+      }
+      this.currentItemIndex = Math.Max(0, Math.Min(this.options.Count - 7, this.currentItemIndex));
+      if (this.okButton.containsPoint(x, y))
+      {
+        this.CloseAndApply();
+      }
+      else
+      {
+        this.UnsubscribeFromSelectedTextbox();
+        for (int index = 0; index < this.optionSlots.Count; ++index)
+        {
+          if (this.optionSlots[index].bounds.Contains(x, y) && this.currentItemIndex + index < this.options.Count && this.options[this.currentItemIndex + index].bounds.Contains(x - this.optionSlots[index].bounds.X, y - this.optionSlots[index].bounds.Y))
+          {
+            this.options[this.currentItemIndex + index].receiveLeftClick(x - this.optionSlots[index].bounds.X, y - this.optionSlots[index].bounds.Y);
+            this.optionsSlotHeld = index;
+            break;
+          }
+        }
+      }
+    }
 
-		public virtual OptionsCheckbox AddCheckbox(string label, string tooltip, Func<bool> get, Action<bool> set)
-		{
-			OptionsCheckbox option_element = new OptionsCheckbox(label, -999);
-			tooltips[option_element] = tooltip;
-			option_element.isChecked = get();
-			applySettingCallbacks.Add(delegate
-			{
-				set(option_element.isChecked);
-			});
-			options.Add(option_element);
-			return option_element;
-		}
+    public override void receiveRightClick(int x, int y, bool playSound = true)
+    {
+    }
 
-		public override bool readyToClose()
-		{
-			return false;
-		}
+    public override void performHoverAction(int x, int y)
+    {
+      this.okButton.tryHover(x, y);
+      for (int index = 0; index < this.optionSlots.Count; ++index)
+      {
+        if (this.currentItemIndex >= 0 && this.currentItemIndex + index < this.options.Count && this.options[this.currentItemIndex + index].bounds.Contains(x - this.optionSlots[index].bounds.X, y - this.optionSlots[index].bounds.Y))
+        {
+          Game1.SetFreeCursorDrag();
+          break;
+        }
+      }
+      if (this.scrollBarBounds.Contains(x, y))
+        Game1.SetFreeCursorDrag();
+      if (GameMenu.forcePreventClose)
+        return;
+      this.hoverText = "";
+      int num1 = -1;
+      if (!this.IsDropdownActive())
+      {
+        for (int index = 0; index < this.optionSlots.Count; ++index)
+        {
+          if (this.optionSlots[index].containsPoint(x, y) && index + this.currentItemIndex < this.options.Count && this.hoverText == "")
+            num1 = index + this.currentItemIndex;
+        }
+      }
+      if (this._lastHoveredIndex != num1)
+      {
+        this._lastHoveredIndex = num1;
+        this._hoverDuration = 0;
+      }
+      else
+        this._hoverDuration += (int) Game1.currentGameTime.ElapsedGameTime.TotalMilliseconds;
+      if (this._lastHoveredIndex >= 0 && this._hoverDuration >= 500)
+      {
+        OptionsElement option = this.options[this._lastHoveredIndex];
+        if (this.tooltips.ContainsKey(option))
+          this.hoverText = this.tooltips[option];
+      }
+      this.upArrow.tryHover(x, y);
+      this.downArrow.tryHover(x, y);
+      this.scrollBar.tryHover(x, y);
+      int num2 = this.scrolling ? 1 : 0;
+    }
 
-		public override void snapToDefaultClickableComponent()
-		{
-			base.snapToDefaultClickableComponent();
-			currentlySnappedComponent = getComponentWithID(ID_okButton);
-			snapCursorToCurrentSnappedComponent();
-		}
-
-		public override void applyMovementKey(int direction)
-		{
-			if (IsDropdownActive())
-			{
-				if (optionsSlotHeld != -1 && optionsSlotHeld + currentItemIndex < options.Count && options[currentItemIndex + optionsSlotHeld] is OptionsDropDown && direction == 2)
-				{
-				}
-			}
-			else
-			{
-				base.applyMovementKey(direction);
-			}
-		}
-
-		private void setScrollBarToCurrentIndex()
-		{
-			if (options.Count > 0)
-			{
-				scrollBar.bounds.Y = scrollBarBounds.Y + scrollBarBounds.Height / Math.Max(1, options.Count - 7) * currentItemIndex;
-				if (currentItemIndex == options.Count - 7)
-				{
-					scrollBar.bounds.Y = downArrow.bounds.Y - scrollBar.bounds.Height - 4;
-				}
-			}
-		}
-
-		public override void snapCursorToCurrentSnappedComponent()
-		{
-			if (currentlySnappedComponent != null && currentlySnappedComponent.myID < options.Count)
-			{
-				OptionsDropDown dropdown;
-				if ((dropdown = (options[currentlySnappedComponent.myID + currentItemIndex] as OptionsDropDown)) != null)
-				{
-					Game1.setMousePosition(currentlySnappedComponent.bounds.Left + dropdown.bounds.Right - 32, currentlySnappedComponent.bounds.Center.Y - 4);
-				}
-				else if (options[currentlySnappedComponent.myID + currentItemIndex] is OptionsPlusMinusButton)
-				{
-					Game1.setMousePosition(currentlySnappedComponent.bounds.Left + 64, currentlySnappedComponent.bounds.Center.Y + 4);
-				}
-				else if (options[currentlySnappedComponent.myID + currentItemIndex] is OptionsInputListener)
-				{
-					Game1.setMousePosition(currentlySnappedComponent.bounds.Right - 48, currentlySnappedComponent.bounds.Center.Y - 12);
-				}
-				else
-				{
-					Game1.setMousePosition(currentlySnappedComponent.bounds.Left + 48, currentlySnappedComponent.bounds.Center.Y - 12);
-				}
-			}
-			else if (currentlySnappedComponent != null)
-			{
-				base.snapCursorToCurrentSnappedComponent();
-			}
-		}
-
-		protected override void cleanupBeforeExit()
-		{
-			base.cleanupBeforeExit();
-		}
-
-		public virtual void SetScrollFromY(int y)
-		{
-			int y2 = scrollBar.bounds.Y;
-			float percentage = (float)(y - scrollBarBounds.Y) / (float)scrollBarBounds.Height;
-			currentItemIndex = (int)Utility.Lerp(t: Utility.Clamp(percentage, 0f, 1f), a: 0f, b: options.Count - 7);
-			setScrollBarToCurrentIndex();
-			if (y2 != scrollBar.bounds.Y)
-			{
-				Game1.playSound("shiny4");
-			}
-		}
-
-		public override void leftClickHeld(int x, int y)
-		{
-			if (!GameMenu.forcePreventClose)
-			{
-				base.leftClickHeld(x, y);
-				if (scrolling)
-				{
-					SetScrollFromY(y);
-				}
-				else if (optionsSlotHeld != -1 && optionsSlotHeld + currentItemIndex < options.Count)
-				{
-					options[currentItemIndex + optionsSlotHeld].leftClickHeld(x - optionSlots[optionsSlotHeld].bounds.X, y - optionSlots[optionsSlotHeld].bounds.Y);
-				}
-			}
-		}
-
-		public override ClickableComponent getCurrentlySnappedComponent()
-		{
-			return currentlySnappedComponent;
-		}
-
-		public override void setCurrentlySnappedComponentTo(int id)
-		{
-			currentlySnappedComponent = getComponentWithID(id);
-			snapCursorToCurrentSnappedComponent();
-		}
-
-		public override void receiveKeyPress(Keys key)
-		{
-			if ((optionsSlotHeld != -1 && optionsSlotHeld + currentItemIndex < options.Count) || (Game1.options.snappyMenus && Game1.options.gamepadControls))
-			{
-				if (currentlySnappedComponent != null && Game1.options.snappyMenus && Game1.options.gamepadControls && options.Count > currentItemIndex + currentlySnappedComponent.myID && currentItemIndex + currentlySnappedComponent.myID >= 0)
-				{
-					options[currentItemIndex + currentlySnappedComponent.myID].receiveKeyPress(key);
-				}
-				else if (options.Count > currentItemIndex + optionsSlotHeld && currentItemIndex + optionsSlotHeld >= 0)
-				{
-					options[currentItemIndex + optionsSlotHeld].receiveKeyPress(key);
-				}
-			}
-			base.receiveKeyPress(key);
-		}
-
-		public override void receiveScrollWheelAction(int direction)
-		{
-			if (!GameMenu.forcePreventClose && !IsDropdownActive())
-			{
-				base.receiveScrollWheelAction(direction);
-				if (direction > 0 && currentItemIndex > 0)
-				{
-					upArrowPressed();
-					Game1.playSound("shiny4");
-				}
-				else if (direction < 0 && currentItemIndex < Math.Max(0, options.Count - 7))
-				{
-					downArrowPressed();
-					Game1.playSound("shiny4");
-				}
-				if (Game1.options.SnappyMenus)
-				{
-					snapCursorToCurrentSnappedComponent();
-				}
-			}
-		}
-
-		public override void releaseLeftClick(int x, int y)
-		{
-			if (!GameMenu.forcePreventClose)
-			{
-				base.releaseLeftClick(x, y);
-				if (optionsSlotHeld != -1 && optionsSlotHeld + currentItemIndex < options.Count)
-				{
-					options[currentItemIndex + optionsSlotHeld].leftClickReleased(x - optionSlots[optionsSlotHeld].bounds.X, y - optionSlots[optionsSlotHeld].bounds.Y);
-				}
-				optionsSlotHeld = -1;
-				scrolling = false;
-			}
-		}
-
-		public bool IsDropdownActive()
-		{
-			if (optionsSlotHeld != -1 && optionsSlotHeld + currentItemIndex < options.Count && options[currentItemIndex + optionsSlotHeld] is OptionsDropDown)
-			{
-				return true;
-			}
-			return false;
-		}
-
-		private void downArrowPressed()
-		{
-			if (!IsDropdownActive())
-			{
-				downArrow.scale = downArrow.baseScale;
-				currentItemIndex++;
-				UnsubscribeFromSelectedTextbox();
-				setScrollBarToCurrentIndex();
-			}
-		}
-
-		public virtual void UnsubscribeFromSelectedTextbox()
-		{
-			if (Game1.keyboardDispatcher.Subscriber != null)
-			{
-				foreach (OptionsElement option in options)
-				{
-					if (option is OptionsTextEntry && Game1.keyboardDispatcher.Subscriber == (option as OptionsTextEntry).textBox)
-					{
-						Game1.keyboardDispatcher.Subscriber = null;
-						break;
-					}
-				}
-			}
-		}
-
-		public void preWindowSizeChange()
-		{
-			_lastSelectedIndex = ((getCurrentlySnappedComponent() != null) ? getCurrentlySnappedComponent().myID : (-1));
-			_lastCurrentItemIndex = currentItemIndex;
-		}
-
-		public void postWindowSizeChange()
-		{
-			if (Game1.options.SnappyMenus)
-			{
-				Game1.activeClickableMenu.setCurrentlySnappedComponentTo(_lastSelectedIndex);
-			}
-			currentItemIndex = _lastCurrentItemIndex;
-			setScrollBarToCurrentIndex();
-		}
-
-		private void upArrowPressed()
-		{
-			if (!IsDropdownActive())
-			{
-				upArrow.scale = upArrow.baseScale;
-				currentItemIndex--;
-				UnsubscribeFromSelectedTextbox();
-				setScrollBarToCurrentIndex();
-			}
-		}
-
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-			if (GameMenu.forcePreventClose)
-			{
-				return;
-			}
-			if (downArrow.containsPoint(x, y) && currentItemIndex < Math.Max(0, options.Count - 7))
-			{
-				downArrowPressed();
-				Game1.playSound("shwip");
-			}
-			else if (upArrow.containsPoint(x, y) && currentItemIndex > 0)
-			{
-				upArrowPressed();
-				Game1.playSound("shwip");
-			}
-			else if (scrollBar.containsPoint(x, y))
-			{
-				scrolling = true;
-			}
-			else if (!downArrow.containsPoint(x, y) && x > xPositionOnScreen + width && x < xPositionOnScreen + width + 128 && y > yPositionOnScreen && y < yPositionOnScreen + height)
-			{
-				scrolling = true;
-				leftClickHeld(x, y);
-				releaseLeftClick(x, y);
-			}
-			currentItemIndex = Math.Max(0, Math.Min(options.Count - 7, currentItemIndex));
-			if (okButton.containsPoint(x, y))
-			{
-				CloseAndApply();
-				return;
-			}
-			UnsubscribeFromSelectedTextbox();
-			int i = 0;
-			while (true)
-			{
-				if (i < optionSlots.Count)
-				{
-					if (optionSlots[i].bounds.Contains(x, y) && currentItemIndex + i < options.Count && options[currentItemIndex + i].bounds.Contains(x - optionSlots[i].bounds.X, y - optionSlots[i].bounds.Y))
-					{
-						break;
-					}
-					i++;
-					continue;
-				}
-				return;
-			}
-			options[currentItemIndex + i].receiveLeftClick(x - optionSlots[i].bounds.X, y - optionSlots[i].bounds.Y);
-			optionsSlotHeld = i;
-		}
-
-		public override void receiveRightClick(int x, int y, bool playSound = true)
-		{
-		}
-
-		public override void performHoverAction(int x, int y)
-		{
-			okButton.tryHover(x, y);
-			for (int i = 0; i < optionSlots.Count; i++)
-			{
-				if (currentItemIndex >= 0 && currentItemIndex + i < options.Count && options[currentItemIndex + i].bounds.Contains(x - optionSlots[i].bounds.X, y - optionSlots[i].bounds.Y))
-				{
-					Game1.SetFreeCursorDrag();
-					break;
-				}
-			}
-			if (scrollBarBounds.Contains(x, y))
-			{
-				Game1.SetFreeCursorDrag();
-			}
-			if (GameMenu.forcePreventClose)
-			{
-				return;
-			}
-			hoverText = "";
-			int hovered_index = -1;
-			if (!IsDropdownActive())
-			{
-				for (int j = 0; j < optionSlots.Count; j++)
-				{
-					if (optionSlots[j].containsPoint(x, y) && j + currentItemIndex < options.Count && hoverText == "")
-					{
-						hovered_index = j + currentItemIndex;
-					}
-				}
-			}
-			if (_lastHoveredIndex != hovered_index)
-			{
-				_lastHoveredIndex = hovered_index;
-				_hoverDuration = 0;
-			}
-			else
-			{
-				_hoverDuration += (int)Game1.currentGameTime.ElapsedGameTime.TotalMilliseconds;
-			}
-			if (_lastHoveredIndex >= 0 && _hoverDuration >= 500)
-			{
-				OptionsElement option = options[_lastHoveredIndex];
-				if (tooltips.ContainsKey(option))
-				{
-					hoverText = tooltips[option];
-				}
-			}
-			upArrow.tryHover(x, y);
-			downArrow.tryHover(x, y);
-			scrollBar.tryHover(x, y);
-			_ = scrolling;
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			b.Draw(Game1.staminaRect, new Rectangle(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height), Color.Black * 0.75f);
-			Game1.DrawBox(xPositionOnScreen, yPositionOnScreen, width, height);
-			okButton.draw(b);
-			b.End();
-			b.Begin(SpriteSortMode.FrontToBack, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-			for (int i = 0; i < optionSlots.Count; i++)
-			{
-				if (currentItemIndex >= 0 && currentItemIndex + i < options.Count)
-				{
-					options[currentItemIndex + i].draw(b, optionSlots[i].bounds.X, optionSlots[i].bounds.Y, this);
-				}
-			}
-			b.End();
-			b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-			if (options.Count > 7)
-			{
-				upArrow.draw(b);
-				downArrow.draw(b);
-				IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(403, 383, 6, 6), scrollBarBounds.X, scrollBarBounds.Y, scrollBarBounds.Width, scrollBarBounds.Height, Color.White, 4f, drawShadow: false);
-				scrollBar.draw(b);
-			}
-			if (!hoverText.Equals(""))
-			{
-				IClickableMenu.drawHoverText(b, hoverText, Game1.smallFont);
-			}
-			drawMouse(b);
-		}
-	}
+    public override void draw(SpriteBatch b)
+    {
+      SpriteBatch spriteBatch = b;
+      Texture2D staminaRect = Game1.staminaRect;
+      Viewport viewport = Game1.graphics.GraphicsDevice.Viewport;
+      int width = viewport.Width;
+      viewport = Game1.graphics.GraphicsDevice.Viewport;
+      int height = viewport.Height;
+      Rectangle destinationRectangle = new Rectangle(0, 0, width, height);
+      Color color = Color.Black * 0.75f;
+      spriteBatch.Draw(staminaRect, destinationRectangle, color);
+      Game1.DrawBox(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
+      this.okButton.draw(b);
+      b.End();
+      b.Begin(SpriteSortMode.FrontToBack, BlendState.AlphaBlend, SamplerState.PointClamp);
+      for (int index = 0; index < this.optionSlots.Count; ++index)
+      {
+        if (this.currentItemIndex >= 0 && this.currentItemIndex + index < this.options.Count)
+          this.options[this.currentItemIndex + index].draw(b, this.optionSlots[index].bounds.X, this.optionSlots[index].bounds.Y, (IClickableMenu) this);
+      }
+      b.End();
+      b.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+      if (this.options.Count > 7)
+      {
+        this.upArrow.draw(b);
+        this.downArrow.draw(b);
+        IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(403, 383, 6, 6), this.scrollBarBounds.X, this.scrollBarBounds.Y, this.scrollBarBounds.Width, this.scrollBarBounds.Height, Color.White, 4f, false);
+        this.scrollBar.draw(b);
+      }
+      if (!this.hoverText.Equals(""))
+        IClickableMenu.drawHoverText(b, this.hoverText, Game1.smallFont);
+      this.drawMouse(b);
+    }
+  }
 }

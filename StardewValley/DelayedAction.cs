@@ -1,273 +1,250 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.DelayedAction
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 
 namespace StardewValley
 {
-	public class DelayedAction
-	{
-		public delegate void delayedBehavior();
+  public class DelayedAction
+  {
+    public int timeUntilAction;
+    public float floatData;
+    public string stringData;
+    public Point pointData;
+    public NPC character;
+    public GameLocation location;
+    public DelayedAction.delayedBehavior behavior;
+    public Game1.afterFadeFunction afterFadeBehavior;
+    public bool waitUntilMenusGone;
+    public TemporaryAnimatedSprite temporarySpriteData;
 
-		public int timeUntilAction;
+    public DelayedAction(int timeUntilAction) => this.timeUntilAction = timeUntilAction;
 
-		public float floatData;
+    public DelayedAction(int timeUntilAction, DelayedAction.delayedBehavior behavior)
+    {
+      this.timeUntilAction = timeUntilAction;
+      this.behavior = behavior;
+    }
 
-		public string stringData;
+    public bool update(GameTime time)
+    {
+      if (!this.waitUntilMenusGone || Game1.activeClickableMenu == null)
+      {
+        this.timeUntilAction -= time.ElapsedGameTime.Milliseconds;
+        if (this.timeUntilAction <= 0)
+          this.behavior();
+      }
+      return this.timeUntilAction <= 0;
+    }
 
-		public Point pointData;
+    public static void warpAfterDelay(string nameToWarpTo, Point pointToWarp, int timer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.warp);
+      delayedAction.stringData = nameToWarpTo;
+      delayedAction.pointData = pointToWarp;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public NPC character;
+    public static void addTemporarySpriteAfterDelay(
+      TemporaryAnimatedSprite t,
+      GameLocation l,
+      int timer,
+      bool waitUntilMenusGone = false)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.addTempSprite);
+      delayedAction.temporarySpriteData = t;
+      delayedAction.location = l;
+      delayedAction.waitUntilMenusGone = waitUntilMenusGone;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public GameLocation location;
+    public static void playSoundAfterDelay(
+      string soundName,
+      int timer,
+      GameLocation location = null,
+      int pitch = -1)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.playSound);
+      delayedAction.stringData = soundName;
+      delayedAction.location = location;
+      delayedAction.floatData = (float) pitch;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public delayedBehavior behavior;
+    public static void removeTemporarySpriteAfterDelay(
+      GameLocation location,
+      float idOfTempSprite,
+      int timer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.removeTemporarySprite);
+      delayedAction.location = location;
+      delayedAction.floatData = idOfTempSprite;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public Game1.afterFadeFunction afterFadeBehavior;
+    public static DelayedAction playMusicAfterDelay(
+      string musicName,
+      int timer,
+      bool interruptable = true)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.changeMusicTrack);
+      delayedAction.stringData = musicName;
+      delayedAction.floatData = !interruptable ? 0.0f : 1f;
+      Game1.delayedActions.Add(delayedAction);
+      return delayedAction;
+    }
 
-		public bool waitUntilMenusGone;
+    public static void textAboveHeadAfterDelay(string text, NPC who, int timer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.showTextAboveHead);
+      delayedAction.stringData = text;
+      delayedAction.character = who;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public TemporaryAnimatedSprite temporarySpriteData;
+    public static void stopFarmerGlowing(int timer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.stopGlowing);
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public DelayedAction(int timeUntilAction)
-		{
-			this.timeUntilAction = timeUntilAction;
-		}
+    public static void showDialogueAfterDelay(string dialogue, int timer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.showDialogue);
+      delayedAction.stringData = dialogue;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public DelayedAction(int timeUntilAction, delayedBehavior behavior)
-		{
-			this.timeUntilAction = timeUntilAction;
-			this.behavior = behavior;
-		}
+    public static void screenFlashAfterDelay(float intensity, int timer, string sound = "")
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.screenFlash);
+      delayedAction.stringData = sound;
+      delayedAction.floatData = intensity;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public bool update(GameTime time)
-		{
-			if (!waitUntilMenusGone || Game1.activeClickableMenu == null)
-			{
-				timeUntilAction -= time.ElapsedGameTime.Milliseconds;
-				if (timeUntilAction <= 0)
-				{
-					behavior();
-				}
-			}
-			return timeUntilAction <= 0;
-		}
+    public static void removeTileAfterDelay(
+      int x,
+      int y,
+      int timer,
+      GameLocation l,
+      string whichLayer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.removeBuildingsTile);
+      delayedAction.pointData = new Point(x, y);
+      delayedAction.location = l;
+      delayedAction.stringData = whichLayer;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public static void warpAfterDelay(string nameToWarpTo, Point pointToWarp, int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.warp;
-			action.stringData = nameToWarpTo;
-			action.pointData = pointToWarp;
-			Game1.delayedActions.Add(action);
-		}
+    public static void fadeAfterDelay(Game1.afterFadeFunction behaviorAfterFade, int timer)
+    {
+      DelayedAction delayedAction = new DelayedAction(timer);
+      delayedAction.behavior = new DelayedAction.delayedBehavior(delayedAction.doGlobalFade);
+      delayedAction.afterFadeBehavior = behaviorAfterFade;
+      Game1.delayedActions.Add(delayedAction);
+    }
 
-		public static void addTemporarySpriteAfterDelay(TemporaryAnimatedSprite t, GameLocation l, int timer, bool waitUntilMenusGone = false)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.addTempSprite;
-			action.temporarySpriteData = t;
-			action.location = l;
-			action.waitUntilMenusGone = waitUntilMenusGone;
-			Game1.delayedActions.Add(action);
-		}
+    public static void functionAfterDelay(DelayedAction.delayedBehavior func, int timer) => Game1.delayedActions.Add(new DelayedAction(timer)
+    {
+      behavior = func
+    });
 
-		public static void playSoundAfterDelay(string soundName, int timer, GameLocation location = null, int pitch = -1)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.playSound;
-			action.stringData = soundName;
-			action.location = location;
-			action.floatData = pitch;
-			Game1.delayedActions.Add(action);
-		}
+    public void doGlobalFade() => Game1.globalFadeToBlack(this.afterFadeBehavior);
 
-		public static void removeTemporarySpriteAfterDelay(GameLocation location, float idOfTempSprite, int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.removeTemporarySprite;
-			action.location = location;
-			action.floatData = idOfTempSprite;
-			Game1.delayedActions.Add(action);
-		}
+    public void showTextAboveHead()
+    {
+      if (this.character == null || this.stringData == null)
+        return;
+      this.character.showTextAboveHead(this.stringData);
+    }
 
-		public static DelayedAction playMusicAfterDelay(string musicName, int timer, bool interruptable = true)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.changeMusicTrack;
-			action.stringData = musicName;
-			if (interruptable)
-			{
-				action.floatData = 1f;
-			}
-			else
-			{
-				action.floatData = 0f;
-			}
-			Game1.delayedActions.Add(action);
-			return action;
-		}
+    public void addTempSprite()
+    {
+      if (this.location == null || this.temporarySpriteData == null)
+        return;
+      this.location.TemporarySprites.Add(this.temporarySpriteData);
+    }
 
-		public static void textAboveHeadAfterDelay(string text, NPC who, int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.showTextAboveHead;
-			action.stringData = text;
-			action.character = who;
-			Game1.delayedActions.Add(action);
-		}
+    public void stopGlowing()
+    {
+      Game1.player.stopGlowing();
+      Game1.player.stopJittering();
+      Game1.screenGlowHold = false;
+      if (!Game1.isFestival() || !Game1.currentSeason.Equals("fall"))
+        return;
+      Game1.changeMusicTrack("fallFest");
+    }
 
-		public static void stopFarmerGlowing(int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.stopGlowing;
-			Game1.delayedActions.Add(action);
-		}
+    public void showDialogue() => Game1.drawObjectDialogue(this.stringData);
 
-		public static void showDialogueAfterDelay(string dialogue, int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.showDialogue;
-			action.stringData = dialogue;
-			Game1.delayedActions.Add(action);
-		}
+    public void warp()
+    {
+      if (this.stringData == null)
+        return;
+      Point pointData = this.pointData;
+      Game1.warpFarmer(this.stringData, this.pointData.X, this.pointData.Y, false);
+    }
 
-		public static void screenFlashAfterDelay(float intensity, int timer, string sound = "")
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.screenFlash;
-			action.stringData = sound;
-			action.floatData = intensity;
-			Game1.delayedActions.Add(action);
-		}
+    public void removeBuildingsTile()
+    {
+      Point pointData = this.pointData;
+      if (this.location == null || this.stringData == null)
+        return;
+      this.location.removeTile(this.pointData.X, this.pointData.Y, this.stringData);
+    }
 
-		public static void removeTileAfterDelay(int x, int y, int timer, GameLocation l, string whichLayer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.removeBuildingsTile;
-			action.pointData = new Point(x, y);
-			action.location = l;
-			action.stringData = whichLayer;
-			Game1.delayedActions.Add(action);
-		}
+    public void removeTemporarySprite()
+    {
+      if (this.location == null)
+        return;
+      this.location.removeTemporarySpritesWithID(this.floatData);
+    }
 
-		public static void fadeAfterDelay(Game1.afterFadeFunction behaviorAfterFade, int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = action.doGlobalFade;
-			action.afterFadeBehavior = behaviorAfterFade;
-			Game1.delayedActions.Add(action);
-		}
+    public void playSound()
+    {
+      if (this.stringData == null)
+        return;
+      if (this.location == null)
+      {
+        if ((double) this.floatData != -1.0)
+          Game1.playSoundPitched(this.stringData, (int) this.floatData);
+        else
+          Game1.playSound(this.stringData);
+      }
+      else if ((double) this.floatData != -1.0)
+        this.location.playSoundPitched(this.stringData, (int) this.floatData);
+      else
+        this.location.playSound(this.stringData);
+    }
 
-		public static void functionAfterDelay(delayedBehavior func, int timer)
-		{
-			DelayedAction action = new DelayedAction(timer);
-			action.behavior = func;
-			Game1.delayedActions.Add(action);
-		}
+    public void changeMusicTrack()
+    {
+      if (this.stringData == null)
+        return;
+      Game1.changeMusicTrack(this.stringData, (double) this.floatData > 0.0);
+    }
 
-		public void doGlobalFade()
-		{
-			Game1.globalFadeToBlack(afterFadeBehavior);
-		}
+    public void screenFlash()
+    {
+      if (this.stringData != null && this.stringData.Length > 0)
+        Game1.playSound(this.stringData);
+      Game1.flashAlpha = this.floatData;
+    }
 
-		public void showTextAboveHead()
-		{
-			if (character != null && stringData != null)
-			{
-				character.showTextAboveHead(stringData);
-			}
-		}
-
-		public void addTempSprite()
-		{
-			if (location != null && temporarySpriteData != null)
-			{
-				location.TemporarySprites.Add(temporarySpriteData);
-			}
-		}
-
-		public void stopGlowing()
-		{
-			Game1.player.stopGlowing();
-			Game1.player.stopJittering();
-			Game1.screenGlowHold = false;
-			if (Game1.isFestival() && Game1.currentSeason.Equals("fall"))
-			{
-				Game1.changeMusicTrack("fallFest");
-			}
-		}
-
-		public void showDialogue()
-		{
-			Game1.drawObjectDialogue(stringData);
-		}
-
-		public void warp()
-		{
-			if (stringData != null)
-			{
-				_ = pointData;
-				Game1.warpFarmer(stringData, pointData.X, pointData.Y, flip: false);
-			}
-		}
-
-		public void removeBuildingsTile()
-		{
-			_ = pointData;
-			if (location != null && stringData != null)
-			{
-				location.removeTile(pointData.X, pointData.Y, stringData);
-			}
-		}
-
-		public void removeTemporarySprite()
-		{
-			if (location != null)
-			{
-				location.removeTemporarySpritesWithID(floatData);
-			}
-		}
-
-		public void playSound()
-		{
-			if (stringData == null)
-			{
-				return;
-			}
-			if (location == null)
-			{
-				if (floatData != -1f)
-				{
-					Game1.playSoundPitched(stringData, (int)floatData);
-				}
-				else
-				{
-					Game1.playSound(stringData);
-				}
-			}
-			else if (floatData != -1f)
-			{
-				location.playSoundPitched(stringData, (int)floatData);
-			}
-			else
-			{
-				location.playSound(stringData);
-			}
-		}
-
-		public void changeMusicTrack()
-		{
-			if (stringData != null)
-			{
-				Game1.changeMusicTrack(stringData, floatData > 0f);
-			}
-		}
-
-		public void screenFlash()
-		{
-			if (stringData != null && stringData.Length > 0)
-			{
-				Game1.playSound(stringData);
-			}
-			Game1.flashAlpha = floatData;
-		}
-	}
+    public delegate void delayedBehavior();
+  }
 }

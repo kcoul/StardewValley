@@ -1,6 +1,13 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.QuestLog
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Netcode;
 using StardewValley.BellsAndWhistles;
 using StardewValley.Quests;
 using System;
@@ -9,737 +16,637 @@ using System.Linq;
 
 namespace StardewValley.Menus
 {
-	public class QuestLog : IClickableMenu
-	{
-		public const int questsPerPage = 6;
+  public class QuestLog : IClickableMenu
+  {
+    public const int questsPerPage = 6;
+    public const int region_forwardButton = 101;
+    public const int region_backButton = 102;
+    public const int region_rewardBox = 103;
+    public const int region_cancelQuestButton = 104;
+    private List<List<IQuest>> pages;
+    public List<ClickableComponent> questLogButtons;
+    private int currentPage;
+    private int questPage = -1;
+    public ClickableTextureComponent forwardButton;
+    public ClickableTextureComponent backButton;
+    public ClickableTextureComponent rewardBox;
+    public ClickableTextureComponent cancelQuestButton;
+    protected IQuest _shownQuest;
+    protected List<string> _objectiveText;
+    protected float _contentHeight;
+    protected float _scissorRectHeight;
+    public float scrollAmount;
+    public ClickableTextureComponent upArrow;
+    public ClickableTextureComponent downArrow;
+    public ClickableTextureComponent scrollBar;
+    private bool scrolling;
+    public Rectangle scrollBarBounds;
+    private string hoverText = "";
 
-		public const int region_forwardButton = 101;
+    public QuestLog()
+      : base(0, 0, 0, 0, true)
+    {
+      Game1.dayTimeMoneyBox.DismissQuestPing();
+      Game1.playSound("bigSelect");
+      this.paginateQuests();
+      this.width = 832;
+      this.height = 576;
+      if (LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko || LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.fr)
+        this.height += 64;
+      Vector2 centeringOnScreen = Utility.getTopLeftPositionForCenteringOnScreen(this.width, this.height);
+      this.xPositionOnScreen = (int) centeringOnScreen.X;
+      this.yPositionOnScreen = (int) centeringOnScreen.Y + 32;
+      this.questLogButtons = new List<ClickableComponent>();
+      for (int index = 0; index < 6; ++index)
+        this.questLogButtons.Add(new ClickableComponent(new Rectangle(this.xPositionOnScreen + 16, this.yPositionOnScreen + 16 + index * ((this.height - 32) / 6), this.width - 32, (this.height - 32) / 6 + 4), index.ToString() ?? "")
+        {
+          myID = index,
+          downNeighborID = -7777,
+          upNeighborID = index > 0 ? index - 1 : -1,
+          rightNeighborID = -7777,
+          leftNeighborID = -7777,
+          fullyImmutable = true
+        });
+      this.upperRightCloseButton = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + this.width - 20, this.yPositionOnScreen - 8, 48, 48), Game1.mouseCursors, new Rectangle(337, 494, 12, 12), 4f);
+      ClickableTextureComponent textureComponent1 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen - 64, this.yPositionOnScreen + 8, 48, 44), Game1.mouseCursors, new Rectangle(352, 495, 12, 11), 4f);
+      textureComponent1.myID = 102;
+      textureComponent1.rightNeighborID = -7777;
+      this.backButton = textureComponent1;
+      ClickableTextureComponent textureComponent2 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + this.width + 64 - 48, this.yPositionOnScreen + this.height - 48, 48, 44), Game1.mouseCursors, new Rectangle(365, 495, 12, 11), 4f);
+      textureComponent2.myID = 101;
+      this.forwardButton = textureComponent2;
+      ClickableTextureComponent textureComponent3 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + this.width / 2 - 80, this.yPositionOnScreen + this.height - 32 - 96, 96, 96), Game1.mouseCursors, new Rectangle(293, 360, 24, 24), 4f, true);
+      textureComponent3.myID = 103;
+      this.rewardBox = textureComponent3;
+      ClickableTextureComponent textureComponent4 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + 4, this.yPositionOnScreen + this.height + 4, 48, 48), Game1.mouseCursors, new Rectangle(322, 498, 12, 12), 4f, true);
+      textureComponent4.myID = 104;
+      this.cancelQuestButton = textureComponent4;
+      int x = this.xPositionOnScreen + this.width + 16;
+      this.upArrow = new ClickableTextureComponent(new Rectangle(x, this.yPositionOnScreen + 96, 44, 48), Game1.mouseCursors, new Rectangle(421, 459, 11, 12), 4f);
+      this.downArrow = new ClickableTextureComponent(new Rectangle(x, this.yPositionOnScreen + this.height - 64, 44, 48), Game1.mouseCursors, new Rectangle(421, 472, 11, 12), 4f);
+      this.scrollBarBounds = new Rectangle();
+      this.scrollBarBounds.X = this.upArrow.bounds.X + 12;
+      this.scrollBarBounds.Width = 24;
+      this.scrollBarBounds.Y = this.upArrow.bounds.Y + this.upArrow.bounds.Height + 4;
+      this.scrollBarBounds.Height = this.downArrow.bounds.Y - 4 - this.scrollBarBounds.Y;
+      this.scrollBar = new ClickableTextureComponent(new Rectangle(this.scrollBarBounds.X, this.scrollBarBounds.Y, 24, 40), Game1.mouseCursors, new Rectangle(435, 463, 6, 10), 4f);
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.populateClickableComponentList();
+      this.snapToDefaultClickableComponent();
+    }
 
-		public const int region_backButton = 102;
+    protected override void customSnapBehavior(int direction, int oldRegion, int oldID)
+    {
+      if (oldID >= 0 && oldID < 6 && this.questPage == -1)
+      {
+        switch (direction)
+        {
+          case 1:
+            if (this.currentPage < this.pages.Count - 1)
+            {
+              this.currentlySnappedComponent = this.getComponentWithID(101);
+              this.currentlySnappedComponent.leftNeighborID = oldID;
+              break;
+            }
+            break;
+          case 2:
+            if (oldID < 5 && this.pages[this.currentPage].Count - 1 > oldID)
+            {
+              this.currentlySnappedComponent = this.getComponentWithID(oldID + 1);
+              break;
+            }
+            break;
+          case 3:
+            if (this.currentPage > 0)
+            {
+              this.currentlySnappedComponent = this.getComponentWithID(102);
+              this.currentlySnappedComponent.rightNeighborID = oldID;
+              break;
+            }
+            break;
+        }
+      }
+      else if (oldID == 102)
+      {
+        if (this.questPage != -1)
+          return;
+        this.currentlySnappedComponent = this.getComponentWithID(0);
+      }
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public const int region_rewardBox = 103;
+    public override void snapToDefaultClickableComponent()
+    {
+      this.currentlySnappedComponent = this.getComponentWithID(0);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public const int region_cancelQuestButton = 104;
+    public override void receiveGamePadButton(Buttons b)
+    {
+      if (b == Buttons.RightTrigger && this.questPage == -1 && this.currentPage < this.pages.Count - 1)
+      {
+        this.nonQuestPageForwardButton();
+      }
+      else
+      {
+        if (b != Buttons.LeftTrigger || this.questPage != -1 || this.currentPage <= 0)
+          return;
+        this.nonQuestPageBackButton();
+      }
+    }
 
-		private List<List<IQuest>> pages;
+    private void paginateQuests()
+    {
+      this.pages = new List<List<IQuest>>();
+      for (int index = Game1.player.team.specialOrders.Count - 1; index >= 0; --index)
+      {
+        int num = index;
+        while (this.pages.Count <= num / 6)
+          this.pages.Add(new List<IQuest>());
+        if (!Game1.player.team.specialOrders[index].IsHidden())
+          this.pages[num / 6].Add((IQuest) Game1.player.team.specialOrders[index]);
+      }
+      for (int index = Game1.player.questLog.Count - 1; index >= 0; --index)
+      {
+        if (Game1.player.questLog[index] == null || (bool) (NetFieldBase<bool, NetBool>) Game1.player.questLog[index].destroy)
+          Game1.player.questLog.RemoveAt(index);
+        else if (Game1.player.questLog[index] == null || !Game1.player.questLog[index].IsHidden())
+        {
+          int num = Game1.player.visibleQuestCount - 1 - index;
+          while (this.pages.Count <= num / 6)
+            this.pages.Add(new List<IQuest>());
+          this.pages[num / 6].Add((IQuest) Game1.player.questLog[index]);
+        }
+      }
+      if (this.pages.Count == 0)
+        this.pages.Add(new List<IQuest>());
+      this.currentPage = Math.Min(Math.Max(this.currentPage, 0), this.pages.Count - 1);
+      this.questPage = -1;
+    }
 
-		public List<ClickableComponent> questLogButtons;
+    public bool NeedsScroll() => (this._shownQuest == null || !this._shownQuest.ShouldDisplayAsComplete()) && this.questPage != -1 && (double) this._contentHeight > (double) this._scissorRectHeight;
 
-		private int currentPage;
+    public override void receiveScrollWheelAction(int direction)
+    {
+      if (this.NeedsScroll())
+      {
+        float num = this.scrollAmount - (float) (Math.Sign(direction) * 64 / 2);
+        if ((double) num < 0.0)
+          num = 0.0f;
+        if ((double) num > (double) this._contentHeight - (double) this._scissorRectHeight)
+          num = this._contentHeight - this._scissorRectHeight;
+        if ((double) this.scrollAmount != (double) num)
+        {
+          this.scrollAmount = num;
+          Game1.playSound("shiny4");
+          this.SetScrollBarFromAmount();
+        }
+      }
+      base.receiveScrollWheelAction(direction);
+    }
 
-		private int questPage = -1;
+    public override void receiveRightClick(int x, int y, bool playSound = true)
+    {
+    }
 
-		public ClickableTextureComponent forwardButton;
+    public override void performHoverAction(int x, int y)
+    {
+      this.hoverText = "";
+      base.performHoverAction(x, y);
+      if (this.questPage == -1)
+      {
+        for (int index = 0; index < this.questLogButtons.Count; ++index)
+        {
+          if (this.pages.Count > 0 && this.pages[0].Count > index && this.questLogButtons[index].containsPoint(x, y) && !this.questLogButtons[index].containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY()))
+            Game1.playSound("Cowboy_gunshot");
+        }
+      }
+      else if (this._shownQuest.CanBeCancelled() && this.cancelQuestButton.containsPoint(x, y))
+        this.hoverText = Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11364");
+      this.forwardButton.tryHover(x, y, 0.2f);
+      this.backButton.tryHover(x, y, 0.2f);
+      this.cancelQuestButton.tryHover(x, y, 0.2f);
+      if (!this.NeedsScroll())
+        return;
+      this.upArrow.tryHover(x, y);
+      this.downArrow.tryHover(x, y);
+      this.scrollBar.tryHover(x, y);
+      int num = this.scrolling ? 1 : 0;
+    }
 
-		public ClickableTextureComponent backButton;
+    public override void receiveKeyPress(Keys key)
+    {
+      if (Game1.isAnyGamePadButtonBeingPressed() && this.questPage != -1 && Game1.options.doesInputListContain(Game1.options.menuButton, key))
+        this.exitQuestPage();
+      else
+        base.receiveKeyPress(key);
+      if (!Game1.options.doesInputListContain(Game1.options.journalButton, key) || !this.readyToClose())
+        return;
+      Game1.exitActiveMenu();
+      Game1.playSound("bigDeSelect");
+    }
 
-		public ClickableTextureComponent rewardBox;
+    private void nonQuestPageForwardButton()
+    {
+      ++this.currentPage;
+      Game1.playSound("shwip");
+      if (!Game1.options.SnappyMenus || this.currentPage != this.pages.Count - 1)
+        return;
+      this.currentlySnappedComponent = this.getComponentWithID(0);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public ClickableTextureComponent cancelQuestButton;
+    private void nonQuestPageBackButton()
+    {
+      --this.currentPage;
+      Game1.playSound("shwip");
+      if (!Game1.options.SnappyMenus || this.currentPage != 0)
+        return;
+      this.currentlySnappedComponent = this.getComponentWithID(0);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		protected IQuest _shownQuest;
+    public override void leftClickHeld(int x, int y)
+    {
+      if (GameMenu.forcePreventClose)
+        return;
+      base.leftClickHeld(x, y);
+      if (!this.scrolling)
+        return;
+      this.SetScrollFromY(y);
+    }
 
-		protected List<string> _objectiveText;
+    public override void releaseLeftClick(int x, int y)
+    {
+      if (GameMenu.forcePreventClose)
+        return;
+      base.releaseLeftClick(x, y);
+      this.scrolling = false;
+    }
 
-		protected float _contentHeight;
+    public virtual void SetScrollFromY(int y)
+    {
+      int y1 = this.scrollBar.bounds.Y;
+      this.scrollAmount = Utility.Clamp((float) (y - this.scrollBarBounds.Y) / (float) (this.scrollBarBounds.Height - this.scrollBar.bounds.Height), 0.0f, 1f) * (this._contentHeight - this._scissorRectHeight);
+      this.SetScrollBarFromAmount();
+      int y2 = this.scrollBar.bounds.Y;
+      if (y1 == y2)
+        return;
+      Game1.playSound("shiny4");
+    }
 
-		protected float _scissorRectHeight;
+    public void UpArrowPressed()
+    {
+      this.upArrow.scale = this.upArrow.baseScale;
+      this.scrollAmount -= 64f;
+      if ((double) this.scrollAmount < 0.0)
+        this.scrollAmount = 0.0f;
+      this.SetScrollBarFromAmount();
+    }
 
-		public float scrollAmount;
+    public void DownArrowPressed()
+    {
+      this.downArrow.scale = this.downArrow.baseScale;
+      this.scrollAmount += 64f;
+      if ((double) this.scrollAmount > (double) this._contentHeight - (double) this._scissorRectHeight)
+        this.scrollAmount = this._contentHeight - this._scissorRectHeight;
+      this.SetScrollBarFromAmount();
+    }
 
-		public ClickableTextureComponent upArrow;
+    private void SetScrollBarFromAmount()
+    {
+      if (!this.NeedsScroll())
+      {
+        this.scrollAmount = 0.0f;
+      }
+      else
+      {
+        if ((double) this.scrollAmount < 8.0)
+          this.scrollAmount = 0.0f;
+        if ((double) this.scrollAmount > (double) this._contentHeight - (double) this._scissorRectHeight - 8.0)
+          this.scrollAmount = this._contentHeight - this._scissorRectHeight;
+        this.scrollBar.bounds.Y = (int) ((double) this.scrollBarBounds.Y + (double) (this.scrollBarBounds.Height - this.scrollBar.bounds.Height) / (double) Math.Max(1f, this._contentHeight - this._scissorRectHeight) * (double) this.scrollAmount);
+      }
+    }
 
-		public ClickableTextureComponent downArrow;
+    public override void applyMovementKey(int direction)
+    {
+      base.applyMovementKey(direction);
+      if (!this.NeedsScroll())
+        return;
+      if (direction == 0)
+      {
+        this.UpArrowPressed();
+      }
+      else
+      {
+        if (direction != 2)
+          return;
+        this.DownArrowPressed();
+      }
+    }
 
-		public ClickableTextureComponent scrollBar;
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+      base.receiveLeftClick(x, y, playSound);
+      if (Game1.activeClickableMenu == null)
+        return;
+      if (this.questPage == -1)
+      {
+        for (int index = 0; index < this.questLogButtons.Count; ++index)
+        {
+          if (this.pages.Count > 0 && this.pages[this.currentPage].Count > index && this.questLogButtons[index].containsPoint(x, y))
+          {
+            Game1.playSound("smallSelect");
+            this.questPage = index;
+            this._shownQuest = this.pages[this.currentPage][index];
+            this._objectiveText = this._shownQuest.GetObjectiveDescriptions();
+            this._shownQuest.MarkAsViewed();
+            this.scrollAmount = 0.0f;
+            this.SetScrollBarFromAmount();
+            if (!Game1.options.SnappyMenus)
+              return;
+            this.currentlySnappedComponent = this.getComponentWithID(102);
+            this.currentlySnappedComponent.rightNeighborID = -7777;
+            this.currentlySnappedComponent.downNeighborID = this.HasMoneyReward() ? 103 : (this._shownQuest.CanBeCancelled() ? 104 : -1);
+            this.snapCursorToCurrentSnappedComponent();
+            return;
+          }
+        }
+        if (this.currentPage < this.pages.Count - 1 && this.forwardButton.containsPoint(x, y))
+          this.nonQuestPageForwardButton();
+        else if (this.currentPage > 0 && this.backButton.containsPoint(x, y))
+        {
+          this.nonQuestPageBackButton();
+        }
+        else
+        {
+          Game1.playSound("bigDeSelect");
+          this.exitThisMenu();
+        }
+      }
+      else
+      {
+        Quest shownQuest = this._shownQuest as Quest;
+        if (this.questPage != -1 && this._shownQuest.ShouldDisplayAsComplete() && this._shownQuest.HasMoneyReward() && this.rewardBox.containsPoint(x, y))
+        {
+          Game1.player.Money += this._shownQuest.GetMoneyReward();
+          Game1.playSound("purchaseRepeat");
+          this._shownQuest.OnMoneyRewardClaimed();
+        }
+        else if (this.questPage != -1 && shownQuest != null && !(bool) (NetFieldBase<bool, NetBool>) shownQuest.completed && (bool) (NetFieldBase<bool, NetBool>) shownQuest.canBeCancelled && this.cancelQuestButton.containsPoint(x, y))
+        {
+          shownQuest.accepted.Value = false;
+          if (shownQuest.dailyQuest.Value && shownQuest.dayQuestAccepted.Value == Game1.Date.TotalDays)
+            Game1.player.acceptedDailyQuest.Set(false);
+          Game1.player.questLog.Remove(shownQuest);
+          this.pages[this.currentPage].RemoveAt(this.questPage);
+          this.questPage = -1;
+          Game1.playSound("trashcan");
+          if (Game1.options.SnappyMenus && this.currentPage == 0)
+          {
+            this.currentlySnappedComponent = this.getComponentWithID(0);
+            this.snapCursorToCurrentSnappedComponent();
+          }
+        }
+        else if (!this.NeedsScroll() || this.backButton.containsPoint(x, y))
+          this.exitQuestPage();
+        if (!this.NeedsScroll())
+          return;
+        if (this.downArrow.containsPoint(x, y) && (double) this.scrollAmount < (double) this._contentHeight - (double) this._scissorRectHeight)
+        {
+          this.DownArrowPressed();
+          Game1.playSound("shwip");
+        }
+        else if (this.upArrow.containsPoint(x, y) && (double) this.scrollAmount > 0.0)
+        {
+          this.UpArrowPressed();
+          Game1.playSound("shwip");
+        }
+        else if (this.scrollBar.containsPoint(x, y))
+          this.scrolling = true;
+        else if (this.scrollBarBounds.Contains(x, y))
+        {
+          this.scrolling = true;
+        }
+        else
+        {
+          if (this.downArrow.containsPoint(x, y) || x <= this.xPositionOnScreen + this.width || x >= this.xPositionOnScreen + this.width + 128 || y <= this.yPositionOnScreen || y >= this.yPositionOnScreen + this.height)
+            return;
+          this.scrolling = true;
+          this.leftClickHeld(x, y);
+          this.releaseLeftClick(x, y);
+        }
+      }
+    }
 
-		private bool scrolling;
+    public bool HasReward() => this._shownQuest.HasReward();
 
-		public Rectangle scrollBarBounds;
+    public bool HasMoneyReward() => this._shownQuest.HasMoneyReward();
 
-		private string hoverText = "";
+    public void exitQuestPage()
+    {
+      if (this._shownQuest.OnLeaveQuestPage())
+        this.pages[this.currentPage].RemoveAt(this.questPage);
+      this.questPage = -1;
+      this.paginateQuests();
+      Game1.playSound("shwip");
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.snapToDefaultClickableComponent();
+    }
 
-		public QuestLog()
-			: base(0, 0, 0, 0, showUpperRightCloseButton: true)
-		{
-			Game1.dayTimeMoneyBox.DismissQuestPing();
-			Game1.playSound("bigSelect");
-			paginateQuests();
-			width = 832;
-			height = 576;
-			if (LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko || LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.fr)
-			{
-				height += 64;
-			}
-			Vector2 topLeft = Utility.getTopLeftPositionForCenteringOnScreen(width, height);
-			xPositionOnScreen = (int)topLeft.X;
-			yPositionOnScreen = (int)topLeft.Y + 32;
-			questLogButtons = new List<ClickableComponent>();
-			for (int i = 0; i < 6; i++)
-			{
-				questLogButtons.Add(new ClickableComponent(new Rectangle(xPositionOnScreen + 16, yPositionOnScreen + 16 + i * ((height - 32) / 6), width - 32, (height - 32) / 6 + 4), string.Concat(i))
-				{
-					myID = i,
-					downNeighborID = -7777,
-					upNeighborID = ((i > 0) ? (i - 1) : (-1)),
-					rightNeighborID = -7777,
-					leftNeighborID = -7777,
-					fullyImmutable = true
-				});
-			}
-			upperRightCloseButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + width - 20, yPositionOnScreen - 8, 48, 48), Game1.mouseCursors, new Rectangle(337, 494, 12, 12), 4f);
-			backButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen - 64, yPositionOnScreen + 8, 48, 44), Game1.mouseCursors, new Rectangle(352, 495, 12, 11), 4f)
-			{
-				myID = 102,
-				rightNeighborID = -7777
-			};
-			forwardButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + width + 64 - 48, yPositionOnScreen + height - 48, 48, 44), Game1.mouseCursors, new Rectangle(365, 495, 12, 11), 4f)
-			{
-				myID = 101
-			};
-			rewardBox = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + width / 2 - 80, yPositionOnScreen + height - 32 - 96, 96, 96), Game1.mouseCursors, new Rectangle(293, 360, 24, 24), 4f, drawShadow: true)
-			{
-				myID = 103
-			};
-			cancelQuestButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + 4, yPositionOnScreen + height + 4, 48, 48), Game1.mouseCursors, new Rectangle(322, 498, 12, 12), 4f, drawShadow: true)
-			{
-				myID = 104
-			};
-			int scrollbar_x = xPositionOnScreen + width + 16;
-			upArrow = new ClickableTextureComponent(new Rectangle(scrollbar_x, yPositionOnScreen + 96, 44, 48), Game1.mouseCursors, new Rectangle(421, 459, 11, 12), 4f);
-			downArrow = new ClickableTextureComponent(new Rectangle(scrollbar_x, yPositionOnScreen + height - 64, 44, 48), Game1.mouseCursors, new Rectangle(421, 472, 11, 12), 4f);
-			scrollBarBounds = default(Rectangle);
-			scrollBarBounds.X = upArrow.bounds.X + 12;
-			scrollBarBounds.Width = 24;
-			scrollBarBounds.Y = upArrow.bounds.Y + upArrow.bounds.Height + 4;
-			scrollBarBounds.Height = downArrow.bounds.Y - 4 - scrollBarBounds.Y;
-			scrollBar = new ClickableTextureComponent(new Rectangle(scrollBarBounds.X, scrollBarBounds.Y, 24, 40), Game1.mouseCursors, new Rectangle(435, 463, 6, 10), 4f);
-			if (Game1.options.SnappyMenus)
-			{
-				populateClickableComponentList();
-				snapToDefaultClickableComponent();
-			}
-		}
+    public override void update(GameTime time)
+    {
+      base.update(time);
+      if (this.questPage == -1 || !this.HasReward())
+        return;
+      this.rewardBox.scale = this.rewardBox.baseScale + Game1.dialogueButtonScale / 20f;
+    }
 
-		protected override void customSnapBehavior(int direction, int oldRegion, int oldID)
-		{
-			if (oldID >= 0 && oldID < 6 && questPage == -1)
-			{
-				switch (direction)
-				{
-				case 2:
-					if (oldID < 5 && pages[currentPage].Count - 1 > oldID)
-					{
-						currentlySnappedComponent = getComponentWithID(oldID + 1);
-					}
-					break;
-				case 1:
-					if (currentPage < pages.Count - 1)
-					{
-						currentlySnappedComponent = getComponentWithID(101);
-						currentlySnappedComponent.leftNeighborID = oldID;
-					}
-					break;
-				case 3:
-					if (currentPage > 0)
-					{
-						currentlySnappedComponent = getComponentWithID(102);
-						currentlySnappedComponent.rightNeighborID = oldID;
-					}
-					break;
-				}
-			}
-			else if (oldID == 102)
-			{
-				if (questPage != -1)
-				{
-					return;
-				}
-				currentlySnappedComponent = getComponentWithID(0);
-			}
-			snapCursorToCurrentSnappedComponent();
-		}
-
-		public override void snapToDefaultClickableComponent()
-		{
-			currentlySnappedComponent = getComponentWithID(0);
-			snapCursorToCurrentSnappedComponent();
-		}
-
-		public override void receiveGamePadButton(Buttons b)
-		{
-			if (b == Buttons.RightTrigger && questPage == -1 && currentPage < pages.Count - 1)
-			{
-				nonQuestPageForwardButton();
-			}
-			else if (b == Buttons.LeftTrigger && questPage == -1 && currentPage > 0)
-			{
-				nonQuestPageBackButton();
-			}
-		}
-
-		private void paginateQuests()
-		{
-			pages = new List<List<IQuest>>();
-			for (int j = Game1.player.team.specialOrders.Count - 1; j >= 0; j--)
-			{
-				int which = j;
-				while (pages.Count <= which / 6)
-				{
-					pages.Add(new List<IQuest>());
-				}
-				if (!Game1.player.team.specialOrders[j].IsHidden())
-				{
-					pages[which / 6].Add(Game1.player.team.specialOrders[j]);
-				}
-			}
-			for (int i = Game1.player.questLog.Count - 1; i >= 0; i--)
-			{
-				if (Game1.player.questLog[i] == null || (bool)Game1.player.questLog[i].destroy)
-				{
-					Game1.player.questLog.RemoveAt(i);
-				}
-				else if (Game1.player.questLog[i] == null || !Game1.player.questLog[i].IsHidden())
-				{
-					int which2 = Game1.player.visibleQuestCount - 1 - i;
-					while (pages.Count <= which2 / 6)
-					{
-						pages.Add(new List<IQuest>());
-					}
-					pages[which2 / 6].Add(Game1.player.questLog[i]);
-				}
-			}
-			if (pages.Count == 0)
-			{
-				pages.Add(new List<IQuest>());
-			}
-			currentPage = Math.Min(Math.Max(currentPage, 0), pages.Count - 1);
-			questPage = -1;
-		}
-
-		public bool NeedsScroll()
-		{
-			if (_shownQuest != null && _shownQuest.ShouldDisplayAsComplete())
-			{
-				return false;
-			}
-			if (questPage != -1)
-			{
-				return _contentHeight > _scissorRectHeight;
-			}
-			return false;
-		}
-
-		public override void receiveScrollWheelAction(int direction)
-		{
-			if (NeedsScroll())
-			{
-				float new_scroll = scrollAmount - (float)(Math.Sign(direction) * 64 / 2);
-				if (new_scroll < 0f)
-				{
-					new_scroll = 0f;
-				}
-				if (new_scroll > _contentHeight - _scissorRectHeight)
-				{
-					new_scroll = _contentHeight - _scissorRectHeight;
-				}
-				if (scrollAmount != new_scroll)
-				{
-					scrollAmount = new_scroll;
-					Game1.playSound("shiny4");
-					SetScrollBarFromAmount();
-				}
-			}
-			base.receiveScrollWheelAction(direction);
-		}
-
-		public override void receiveRightClick(int x, int y, bool playSound = true)
-		{
-		}
-
-		public override void performHoverAction(int x, int y)
-		{
-			hoverText = "";
-			base.performHoverAction(x, y);
-			if (questPage == -1)
-			{
-				for (int i = 0; i < questLogButtons.Count; i++)
-				{
-					if (pages.Count > 0 && pages[0].Count > i && questLogButtons[i].containsPoint(x, y) && !questLogButtons[i].containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY()))
-					{
-						Game1.playSound("Cowboy_gunshot");
-					}
-				}
-			}
-			else if (_shownQuest.CanBeCancelled() && cancelQuestButton.containsPoint(x, y))
-			{
-				hoverText = Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11364");
-			}
-			forwardButton.tryHover(x, y, 0.2f);
-			backButton.tryHover(x, y, 0.2f);
-			cancelQuestButton.tryHover(x, y, 0.2f);
-			if (NeedsScroll())
-			{
-				upArrow.tryHover(x, y);
-				downArrow.tryHover(x, y);
-				scrollBar.tryHover(x, y);
-				_ = scrolling;
-			}
-		}
-
-		public override void receiveKeyPress(Keys key)
-		{
-			if (Game1.isAnyGamePadButtonBeingPressed() && questPage != -1 && Game1.options.doesInputListContain(Game1.options.menuButton, key))
-			{
-				exitQuestPage();
-			}
-			else
-			{
-				base.receiveKeyPress(key);
-			}
-			if (Game1.options.doesInputListContain(Game1.options.journalButton, key) && readyToClose())
-			{
-				Game1.exitActiveMenu();
-				Game1.playSound("bigDeSelect");
-			}
-		}
-
-		private void nonQuestPageForwardButton()
-		{
-			currentPage++;
-			Game1.playSound("shwip");
-			if (Game1.options.SnappyMenus && currentPage == pages.Count - 1)
-			{
-				currentlySnappedComponent = getComponentWithID(0);
-				snapCursorToCurrentSnappedComponent();
-			}
-		}
-
-		private void nonQuestPageBackButton()
-		{
-			currentPage--;
-			Game1.playSound("shwip");
-			if (Game1.options.SnappyMenus && currentPage == 0)
-			{
-				currentlySnappedComponent = getComponentWithID(0);
-				snapCursorToCurrentSnappedComponent();
-			}
-		}
-
-		public override void leftClickHeld(int x, int y)
-		{
-			if (!GameMenu.forcePreventClose)
-			{
-				base.leftClickHeld(x, y);
-				if (scrolling)
-				{
-					SetScrollFromY(y);
-				}
-			}
-		}
-
-		public override void releaseLeftClick(int x, int y)
-		{
-			if (!GameMenu.forcePreventClose)
-			{
-				base.releaseLeftClick(x, y);
-				scrolling = false;
-			}
-		}
-
-		public virtual void SetScrollFromY(int y)
-		{
-			int y2 = scrollBar.bounds.Y;
-			float percentage2 = (float)(y - scrollBarBounds.Y) / (float)(scrollBarBounds.Height - scrollBar.bounds.Height);
-			percentage2 = Utility.Clamp(percentage2, 0f, 1f);
-			scrollAmount = percentage2 * (_contentHeight - _scissorRectHeight);
-			SetScrollBarFromAmount();
-			if (y2 != scrollBar.bounds.Y)
-			{
-				Game1.playSound("shiny4");
-			}
-		}
-
-		public void UpArrowPressed()
-		{
-			upArrow.scale = upArrow.baseScale;
-			scrollAmount -= 64f;
-			if (scrollAmount < 0f)
-			{
-				scrollAmount = 0f;
-			}
-			SetScrollBarFromAmount();
-		}
-
-		public void DownArrowPressed()
-		{
-			downArrow.scale = downArrow.baseScale;
-			scrollAmount += 64f;
-			if (scrollAmount > _contentHeight - _scissorRectHeight)
-			{
-				scrollAmount = _contentHeight - _scissorRectHeight;
-			}
-			SetScrollBarFromAmount();
-		}
-
-		private void SetScrollBarFromAmount()
-		{
-			if (!NeedsScroll())
-			{
-				scrollAmount = 0f;
-				return;
-			}
-			if (scrollAmount < 8f)
-			{
-				scrollAmount = 0f;
-			}
-			if (scrollAmount > _contentHeight - _scissorRectHeight - 8f)
-			{
-				scrollAmount = _contentHeight - _scissorRectHeight;
-			}
-			scrollBar.bounds.Y = (int)((float)scrollBarBounds.Y + (float)(scrollBarBounds.Height - scrollBar.bounds.Height) / Math.Max(1f, _contentHeight - _scissorRectHeight) * scrollAmount);
-		}
-
-		public override void applyMovementKey(int direction)
-		{
-			base.applyMovementKey(direction);
-			if (NeedsScroll())
-			{
-				switch (direction)
-				{
-				case 0:
-					UpArrowPressed();
-					break;
-				case 2:
-					DownArrowPressed();
-					break;
-				}
-			}
-		}
-
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-			base.receiveLeftClick(x, y, playSound);
-			if (Game1.activeClickableMenu == null)
-			{
-				return;
-			}
-			if (questPage == -1)
-			{
-				for (int i = 0; i < questLogButtons.Count; i++)
-				{
-					if (pages.Count > 0 && pages[currentPage].Count > i && questLogButtons[i].containsPoint(x, y))
-					{
-						Game1.playSound("smallSelect");
-						questPage = i;
-						_shownQuest = pages[currentPage][i];
-						_objectiveText = _shownQuest.GetObjectiveDescriptions();
-						_shownQuest.MarkAsViewed();
-						scrollAmount = 0f;
-						SetScrollBarFromAmount();
-						if (Game1.options.SnappyMenus)
-						{
-							currentlySnappedComponent = getComponentWithID(102);
-							currentlySnappedComponent.rightNeighborID = -7777;
-							currentlySnappedComponent.downNeighborID = (HasMoneyReward() ? 103 : (_shownQuest.CanBeCancelled() ? 104 : (-1)));
-							snapCursorToCurrentSnappedComponent();
-						}
-						return;
-					}
-				}
-				if (currentPage < pages.Count - 1 && forwardButton.containsPoint(x, y))
-				{
-					nonQuestPageForwardButton();
-					return;
-				}
-				if (currentPage > 0 && backButton.containsPoint(x, y))
-				{
-					nonQuestPageBackButton();
-					return;
-				}
-				Game1.playSound("bigDeSelect");
-				exitThisMenu();
-				return;
-			}
-			Quest quest = _shownQuest as Quest;
-			if (questPage != -1 && _shownQuest.ShouldDisplayAsComplete() && _shownQuest.HasMoneyReward() && rewardBox.containsPoint(x, y))
-			{
-				Game1.player.Money += _shownQuest.GetMoneyReward();
-				Game1.playSound("purchaseRepeat");
-				_shownQuest.OnMoneyRewardClaimed();
-			}
-			else if (questPage != -1 && quest != null && !quest.completed && (bool)quest.canBeCancelled && cancelQuestButton.containsPoint(x, y))
-			{
-				quest.accepted.Value = false;
-				if (quest.dailyQuest.Value && quest.dayQuestAccepted.Value == Game1.Date.TotalDays)
-				{
-					Game1.player.acceptedDailyQuest.Set(newValue: false);
-				}
-				Game1.player.questLog.Remove(quest);
-				pages[currentPage].RemoveAt(questPage);
-				questPage = -1;
-				Game1.playSound("trashcan");
-				if (Game1.options.SnappyMenus && currentPage == 0)
-				{
-					currentlySnappedComponent = getComponentWithID(0);
-					snapCursorToCurrentSnappedComponent();
-				}
-			}
-			else if (!NeedsScroll() || backButton.containsPoint(x, y))
-			{
-				exitQuestPage();
-			}
-			if (NeedsScroll())
-			{
-				if (downArrow.containsPoint(x, y) && scrollAmount < _contentHeight - _scissorRectHeight)
-				{
-					DownArrowPressed();
-					Game1.playSound("shwip");
-				}
-				else if (upArrow.containsPoint(x, y) && scrollAmount > 0f)
-				{
-					UpArrowPressed();
-					Game1.playSound("shwip");
-				}
-				else if (scrollBar.containsPoint(x, y))
-				{
-					scrolling = true;
-				}
-				else if (scrollBarBounds.Contains(x, y))
-				{
-					scrolling = true;
-				}
-				else if (!downArrow.containsPoint(x, y) && x > xPositionOnScreen + width && x < xPositionOnScreen + width + 128 && y > yPositionOnScreen && y < yPositionOnScreen + height)
-				{
-					scrolling = true;
-					leftClickHeld(x, y);
-					releaseLeftClick(x, y);
-				}
-			}
-		}
-
-		public bool HasReward()
-		{
-			return _shownQuest.HasReward();
-		}
-
-		public bool HasMoneyReward()
-		{
-			return _shownQuest.HasMoneyReward();
-		}
-
-		public void exitQuestPage()
-		{
-			if (_shownQuest.OnLeaveQuestPage())
-			{
-				pages[currentPage].RemoveAt(questPage);
-			}
-			questPage = -1;
-			paginateQuests();
-			Game1.playSound("shwip");
-			if (Game1.options.SnappyMenus)
-			{
-				snapToDefaultClickableComponent();
-			}
-		}
-
-		public override void update(GameTime time)
-		{
-			base.update(time);
-			if (questPage != -1 && HasReward())
-			{
-				rewardBox.scale = rewardBox.baseScale + Game1.dialogueButtonScale / 20f;
-			}
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.75f);
-			SpriteText.drawStringWithScrollCenteredAt(b, Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11373"), xPositionOnScreen + base.width / 2, yPositionOnScreen - 64);
-			IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(384, 373, 18, 18), xPositionOnScreen, yPositionOnScreen, base.width, height, Color.White, 4f);
-			if (questPage == -1)
-			{
-				for (int k = 0; k < questLogButtons.Count; k++)
-				{
-					if (pages.Count() > 0 && pages[currentPage].Count() > k)
-					{
-						IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(384, 396, 15, 15), questLogButtons[k].bounds.X, questLogButtons[k].bounds.Y, questLogButtons[k].bounds.Width, questLogButtons[k].bounds.Height, questLogButtons[k].containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY()) ? Color.Wheat : Color.White, 4f, drawShadow: false);
-						if (pages[currentPage][k].ShouldDisplayAsNew() || pages[currentPage][k].ShouldDisplayAsComplete())
-						{
-							Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2(questLogButtons[k].bounds.X + 64 + 4, questLogButtons[k].bounds.Y + 44), new Rectangle(pages[currentPage][k].ShouldDisplayAsComplete() ? 341 : 317, 410, 23, 9), Color.White, 0f, new Vector2(11f, 4f), 4f + Game1.dialogueButtonScale * 10f / 250f, flipped: false, 0.99f);
-						}
-						else
-						{
-							Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2(questLogButtons[k].bounds.X + 32, questLogButtons[k].bounds.Y + 28), pages[currentPage][k].IsTimedQuest() ? new Rectangle(410, 501, 9, 9) : new Rectangle(395 + (pages[currentPage][k].IsTimedQuest() ? 3 : 0), 497, 3, 8), Color.White, 0f, Vector2.Zero, 4f, flipped: false, 0.99f);
-						}
-						pages[currentPage][k].IsTimedQuest();
-						SpriteText.drawString(b, pages[currentPage][k].GetName(), questLogButtons[k].bounds.X + 128 + 4, questLogButtons[k].bounds.Y + 20);
-					}
-				}
-			}
-			else
-			{
-				SpriteText.drawStringHorizontallyCenteredAt(b, _shownQuest.GetName(), xPositionOnScreen + base.width / 2 + ((_shownQuest.IsTimedQuest() && _shownQuest.GetDaysLeft() > 0) ? (Math.Max(32, SpriteText.getWidthOfString(_shownQuest.GetName()) / 3) - 32) : 0), yPositionOnScreen + 32);
-				if (_shownQuest.IsTimedQuest() && _shownQuest.GetDaysLeft() > 0)
-				{
-					Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2(xPositionOnScreen + 32, yPositionOnScreen + 48 - 8), new Rectangle(410, 501, 9, 9), Color.White, 0f, Vector2.Zero, 4f, flipped: false, 0.99f);
-					Utility.drawTextWithShadow(b, Game1.parseText((pages[currentPage][questPage].GetDaysLeft() > 1) ? Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11374", pages[currentPage][questPage].GetDaysLeft()) : Game1.content.LoadString("Strings\\StringsFromCSFiles:Quest_FinalDay"), Game1.dialogueFont, base.width - 128), Game1.dialogueFont, new Vector2(xPositionOnScreen + 80, yPositionOnScreen + 48 - 8), Game1.textColor);
-				}
-				string description = Game1.parseText(_shownQuest.GetDescription(), Game1.dialogueFont, base.width - 128);
-				Rectangle cached_scissor_rect = b.GraphicsDevice.ScissorRectangle;
-				Vector2 description_size = Game1.dialogueFont.MeasureString(description);
-				Rectangle scissor_rect = default(Rectangle);
-				scissor_rect.X = xPositionOnScreen + 32;
-				scissor_rect.Y = yPositionOnScreen + 96;
-				scissor_rect.Height = yPositionOnScreen + height - 32 - scissor_rect.Y;
-				scissor_rect.Width = base.width - 64;
-				_scissorRectHeight = scissor_rect.Height;
-				scissor_rect = Utility.ConstrainScissorRectToScreen(scissor_rect);
-				b.End();
-				b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, new RasterizerState
-				{
-					ScissorTestEnable = true
-				});
-				Game1.graphics.GraphicsDevice.ScissorRectangle = scissor_rect;
-				Utility.drawTextWithShadow(b, description, Game1.dialogueFont, new Vector2(xPositionOnScreen + 64, (float)yPositionOnScreen - scrollAmount + 96f), Game1.textColor);
-				float yPos = (float)(yPositionOnScreen + 96) + description_size.Y + 32f - scrollAmount;
-				if (_shownQuest.ShouldDisplayAsComplete())
-				{
-					b.End();
-					b.GraphicsDevice.ScissorRectangle = cached_scissor_rect;
-					b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-					SpriteText.drawString(b, Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11376"), xPositionOnScreen + 32 + 4, rewardBox.bounds.Y + 21 + 4);
-					rewardBox.draw(b);
-					if (HasMoneyReward())
-					{
-						b.Draw(Game1.mouseCursors, new Vector2(rewardBox.bounds.X + 16, (float)(rewardBox.bounds.Y + 16) - Game1.dialogueButtonScale / 2f), new Rectangle(280, 410, 16, 16), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 1f);
-						SpriteText.drawString(b, Game1.content.LoadString("Strings\\StringsFromCSFiles:LoadGameMenu.cs.11020", _shownQuest.GetMoneyReward()), xPositionOnScreen + 448, rewardBox.bounds.Y + 21 + 4);
-					}
-				}
-				else
-				{
-					for (int j = 0; j < _objectiveText.Count; j++)
-					{
-						if (_shownQuest != null)
-						{
-							_ = (_shownQuest is SpecialOrder);
-						}
-						string parsed_text = Game1.parseText(_objectiveText[j], width: base.width - 192, whichFont: Game1.dialogueFont);
-						bool display_as_complete = false;
-						if (_shownQuest != null && _shownQuest is SpecialOrder)
-						{
-							display_as_complete = (_shownQuest as SpecialOrder).objectives[j].IsComplete();
-						}
-						if (!display_as_complete)
-						{
-							Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2((float)(xPositionOnScreen + 96) + 8f * Game1.dialogueButtonScale / 10f, yPos), new Rectangle(412, 495, 5, 4), Color.White, (float)Math.PI / 2f, Vector2.Zero);
-						}
-						Color text_color = Color.DarkBlue;
-						if (display_as_complete)
-						{
-							text_color = Game1.unselectedOptionColor;
-						}
-						Utility.drawTextWithShadow(b, parsed_text, Game1.dialogueFont, new Vector2(xPositionOnScreen + 128, yPos - 8f), text_color);
-						yPos += Game1.dialogueFont.MeasureString(parsed_text).Y;
-						if (_shownQuest != null && _shownQuest is SpecialOrder)
-						{
-							OrderObjective order_objective = (_shownQuest as SpecialOrder).objectives[j];
-							if (order_objective.GetMaxCount() > 1 && order_objective.ShouldShowProgress())
-							{
-								Color dark_bar_color = Color.DarkRed;
-								Color bar_color = Color.Red;
-								if (order_objective.GetCount() >= order_objective.GetMaxCount())
-								{
-									bar_color = Color.LimeGreen;
-									dark_bar_color = Color.Green;
-								}
-								int inset = 64;
-								int objective_count_draw_width = 160;
-								int notches = 4;
-								Rectangle bar_background_source = new Rectangle(0, 224, 47, 12);
-								Rectangle bar_notch_source = new Rectangle(47, 224, 1, 12);
-								int bar_horizontal_padding = 3;
-								int bar_vertical_padding = 3;
-								int slice_width = 5;
-								string objective_count_text = order_objective.GetCount() + "/" + order_objective.GetMaxCount();
-								int max_text_width = (int)Game1.dialogueFont.MeasureString(order_objective.GetMaxCount() + "/" + order_objective.GetMaxCount()).X;
-								int count_text_width = (int)Game1.dialogueFont.MeasureString(objective_count_text).X;
-								int text_draw_position = xPositionOnScreen + base.width - inset - count_text_width;
-								int max_text_draw_position = xPositionOnScreen + base.width - inset - max_text_width;
-								Utility.drawTextWithShadow(b, objective_count_text, Game1.dialogueFont, new Vector2(text_draw_position, yPos), Color.DarkBlue);
-								Rectangle bar_draw_position = new Rectangle(xPositionOnScreen + inset, (int)yPos, base.width - inset * 2 - objective_count_draw_width, bar_background_source.Height * 4);
-								if (bar_draw_position.Right > max_text_draw_position - 16)
-								{
-									int adjustment = bar_draw_position.Right - (max_text_draw_position - 16);
-									bar_draw_position.Width -= adjustment;
-								}
-								b.Draw(Game1.mouseCursors2, new Rectangle(bar_draw_position.X, bar_draw_position.Y, slice_width * 4, bar_draw_position.Height), new Rectangle(bar_background_source.X, bar_background_source.Y, slice_width, bar_background_source.Height), Color.White, 0f, Vector2.Zero, SpriteEffects.None, 0.5f);
-								b.Draw(Game1.mouseCursors2, new Rectangle(bar_draw_position.X + slice_width * 4, bar_draw_position.Y, bar_draw_position.Width - 2 * slice_width * 4, bar_draw_position.Height), new Rectangle(bar_background_source.X + slice_width, bar_background_source.Y, bar_background_source.Width - 2 * slice_width, bar_background_source.Height), Color.White, 0f, Vector2.Zero, SpriteEffects.None, 0.5f);
-								b.Draw(Game1.mouseCursors2, new Rectangle(bar_draw_position.Right - slice_width * 4, bar_draw_position.Y, slice_width * 4, bar_draw_position.Height), new Rectangle(bar_background_source.Right - slice_width, bar_background_source.Y, slice_width, bar_background_source.Height), Color.White, 0f, Vector2.Zero, SpriteEffects.None, 0.5f);
-								float quest_progress = (float)order_objective.GetCount() / (float)order_objective.GetMaxCount();
-								if (order_objective.GetMaxCount() < notches)
-								{
-									notches = order_objective.GetMaxCount();
-								}
-								bar_draw_position.X += 4 * bar_horizontal_padding;
-								bar_draw_position.Width -= 4 * bar_horizontal_padding * 2;
-								for (int i = 1; i < notches; i++)
-								{
-									b.Draw(Game1.mouseCursors2, new Vector2((float)bar_draw_position.X + (float)bar_draw_position.Width * ((float)i / (float)notches), bar_draw_position.Y), bar_notch_source, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.5f);
-								}
-								bar_draw_position.Y += 4 * bar_vertical_padding;
-								bar_draw_position.Height -= 4 * bar_vertical_padding * 2;
-								Rectangle rect = new Rectangle(bar_draw_position.X, bar_draw_position.Y, (int)((float)bar_draw_position.Width * quest_progress) - 4, bar_draw_position.Height);
-								b.Draw(Game1.staminaRect, rect, null, bar_color, 0f, Vector2.Zero, SpriteEffects.None, (float)rect.Y / 10000f);
-								rect.X = rect.Right;
-								rect.Width = 4;
-								b.Draw(Game1.staminaRect, rect, null, dark_bar_color, 0f, Vector2.Zero, SpriteEffects.None, (float)rect.Y / 10000f);
-								yPos += (float)((bar_background_source.Height + 4) * 4);
-							}
-						}
-						_contentHeight = yPos + scrollAmount - (float)scissor_rect.Y;
-					}
-					b.End();
-					b.GraphicsDevice.ScissorRectangle = cached_scissor_rect;
-					b.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-					if (_shownQuest.CanBeCancelled())
-					{
-						cancelQuestButton.draw(b);
-					}
-					if (NeedsScroll())
-					{
-						if (scrollAmount > 0f)
-						{
-							b.Draw(Game1.staminaRect, new Rectangle(scissor_rect.X, scissor_rect.Top, scissor_rect.Width, 4), Color.Black * 0.15f);
-						}
-						if (scrollAmount < _contentHeight - _scissorRectHeight)
-						{
-							b.Draw(Game1.staminaRect, new Rectangle(scissor_rect.X, scissor_rect.Bottom - 4, scissor_rect.Width, 4), Color.Black * 0.15f);
-						}
-					}
-				}
-			}
-			if (NeedsScroll())
-			{
-				upArrow.draw(b);
-				downArrow.draw(b);
-				scrollBar.draw(b);
-			}
-			if (currentPage < pages.Count - 1 && questPage == -1)
-			{
-				forwardButton.draw(b);
-			}
-			if (currentPage > 0 || questPage != -1)
-			{
-				backButton.draw(b);
-			}
-			base.draw(b);
-			Game1.mouseCursorTransparency = 1f;
-			drawMouse(b);
-			if (hoverText.Length > 0)
-			{
-				IClickableMenu.drawHoverText(b, hoverText, Game1.dialogueFont);
-			}
-		}
-	}
+    public override void draw(SpriteBatch b)
+    {
+      b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.75f);
+      SpriteText.drawStringWithScrollCenteredAt(b, Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11373"), this.xPositionOnScreen + this.width / 2, this.yPositionOnScreen - 64);
+      IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(384, 373, 18, 18), this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height, Color.White, 4f);
+      if (this.questPage == -1)
+      {
+        for (int index = 0; index < this.questLogButtons.Count; ++index)
+        {
+          if (this.pages.Count<List<IQuest>>() > 0 && this.pages[this.currentPage].Count<IQuest>() > index)
+          {
+            IClickableMenu.drawTextureBox(b, Game1.mouseCursors, new Rectangle(384, 396, 15, 15), this.questLogButtons[index].bounds.X, this.questLogButtons[index].bounds.Y, this.questLogButtons[index].bounds.Width, this.questLogButtons[index].bounds.Height, this.questLogButtons[index].containsPoint(Game1.getOldMouseX(), Game1.getOldMouseY()) ? Color.Wheat : Color.White, 4f, false);
+            if (this.pages[this.currentPage][index].ShouldDisplayAsNew() || this.pages[this.currentPage][index].ShouldDisplayAsComplete())
+              Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2((float) (this.questLogButtons[index].bounds.X + 64 + 4), (float) (this.questLogButtons[index].bounds.Y + 44)), new Rectangle(this.pages[this.currentPage][index].ShouldDisplayAsComplete() ? 341 : 317, 410, 23, 9), Color.White, 0.0f, new Vector2(11f, 4f), (float) (4.0 + (double) Game1.dialogueButtonScale * 10.0 / 250.0), layerDepth: 0.99f);
+            else
+              Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2((float) (this.questLogButtons[index].bounds.X + 32), (float) (this.questLogButtons[index].bounds.Y + 28)), this.pages[this.currentPage][index].IsTimedQuest() ? new Rectangle(410, 501, 9, 9) : new Rectangle(395 + (this.pages[this.currentPage][index].IsTimedQuest() ? 3 : 0), 497, 3, 8), Color.White, 0.0f, Vector2.Zero, 4f, layerDepth: 0.99f);
+            this.pages[this.currentPage][index].IsTimedQuest();
+            SpriteText.drawString(b, this.pages[this.currentPage][index].GetName(), this.questLogButtons[index].bounds.X + 128 + 4, this.questLogButtons[index].bounds.Y + 20);
+          }
+        }
+      }
+      else
+      {
+        SpriteText.drawStringHorizontallyCenteredAt(b, this._shownQuest.GetName(), this.xPositionOnScreen + this.width / 2 + (!this._shownQuest.IsTimedQuest() || this._shownQuest.GetDaysLeft() <= 0 ? 0 : Math.Max(32, SpriteText.getWidthOfString(this._shownQuest.GetName()) / 3) - 32), this.yPositionOnScreen + 32);
+        if (this._shownQuest.IsTimedQuest() && this._shownQuest.GetDaysLeft() > 0)
+        {
+          Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2((float) (this.xPositionOnScreen + 32), (float) (this.yPositionOnScreen + 48 - 8)), new Rectangle(410, 501, 9, 9), Color.White, 0.0f, Vector2.Zero, 4f, layerDepth: 0.99f);
+          Utility.drawTextWithShadow(b, Game1.parseText(this.pages[this.currentPage][this.questPage].GetDaysLeft() > 1 ? Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11374", (object) this.pages[this.currentPage][this.questPage].GetDaysLeft()) : Game1.content.LoadString("Strings\\StringsFromCSFiles:Quest_FinalDay"), Game1.dialogueFont, this.width - 128), Game1.dialogueFont, new Vector2((float) (this.xPositionOnScreen + 80), (float) (this.yPositionOnScreen + 48 - 8)), Game1.textColor);
+        }
+        string text1 = Game1.parseText(this._shownQuest.GetDescription(), Game1.dialogueFont, this.width - 128);
+        Rectangle scissorRectangle = b.GraphicsDevice.ScissorRectangle;
+        Vector2 vector2 = Game1.dialogueFont.MeasureString(text1);
+        Rectangle scissor_rect = new Rectangle()
+        {
+          X = this.xPositionOnScreen + 32,
+          Y = this.yPositionOnScreen + 96
+        };
+        scissor_rect.Height = this.yPositionOnScreen + this.height - 32 - scissor_rect.Y;
+        scissor_rect.Width = this.width - 64;
+        this._scissorRectHeight = (float) scissor_rect.Height;
+        Rectangle screen = Utility.ConstrainScissorRectToScreen(scissor_rect);
+        b.End();
+        SpriteBatch spriteBatch = b;
+        BlendState alphaBlend = BlendState.AlphaBlend;
+        SamplerState pointClamp = SamplerState.PointClamp;
+        RasterizerState rasterizerState = new RasterizerState();
+        rasterizerState.ScissorTestEnable = true;
+        Matrix? transformMatrix = new Matrix?();
+        spriteBatch.Begin(blendState: alphaBlend, samplerState: pointClamp, rasterizerState: rasterizerState, transformMatrix: transformMatrix);
+        Game1.graphics.GraphicsDevice.ScissorRectangle = screen;
+        Utility.drawTextWithShadow(b, text1, Game1.dialogueFont, new Vector2((float) (this.xPositionOnScreen + 64), (float) ((double) this.yPositionOnScreen - (double) this.scrollAmount + 96.0)), Game1.textColor);
+        float y = (float) ((double) (this.yPositionOnScreen + 96) + (double) vector2.Y + 32.0) - this.scrollAmount;
+        if (this._shownQuest.ShouldDisplayAsComplete())
+        {
+          b.End();
+          b.GraphicsDevice.ScissorRectangle = scissorRectangle;
+          b.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+          SpriteText.drawString(b, Game1.content.LoadString("Strings\\StringsFromCSFiles:QuestLog.cs.11376"), this.xPositionOnScreen + 32 + 4, this.rewardBox.bounds.Y + 21 + 4);
+          this.rewardBox.draw(b);
+          if (this.HasMoneyReward())
+          {
+            b.Draw(Game1.mouseCursors, new Vector2((float) (this.rewardBox.bounds.X + 16), (float) (this.rewardBox.bounds.Y + 16) - Game1.dialogueButtonScale / 2f), new Rectangle?(new Rectangle(280, 410, 16, 16)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 1f);
+            SpriteText.drawString(b, Game1.content.LoadString("Strings\\StringsFromCSFiles:LoadGameMenu.cs.11020", (object) this._shownQuest.GetMoneyReward()), this.xPositionOnScreen + 448, this.rewardBox.bounds.Y + 21 + 4);
+          }
+        }
+        else
+        {
+          for (int index1 = 0; index1 < this._objectiveText.Count; ++index1)
+          {
+            if (this._shownQuest != null)
+            {
+              SpecialOrder shownQuest = this._shownQuest as SpecialOrder;
+            }
+            string text2 = this._objectiveText[index1];
+            int num1 = this.width - 192;
+            SpriteFont dialogueFont1 = Game1.dialogueFont;
+            int width1 = num1;
+            string text3 = Game1.parseText(text2, dialogueFont1, width1);
+            bool flag = false;
+            if (this._shownQuest != null && this._shownQuest is SpecialOrder)
+              flag = (this._shownQuest as SpecialOrder).objectives[index1].IsComplete();
+            if (!flag)
+              Utility.drawWithShadow(b, Game1.mouseCursors, new Vector2((float) (this.xPositionOnScreen + 96) + (float) (8.0 * (double) Game1.dialogueButtonScale / 10.0), y), new Rectangle(412, 495, 5, 4), Color.White, 1.570796f, Vector2.Zero);
+            Color color1 = Color.DarkBlue;
+            if (flag)
+              color1 = Game1.unselectedOptionColor;
+            Utility.drawTextWithShadow(b, text3, Game1.dialogueFont, new Vector2((float) (this.xPositionOnScreen + 128), y - 8f), color1);
+            y += Game1.dialogueFont.MeasureString(text3).Y;
+            if (this._shownQuest != null && this._shownQuest is SpecialOrder)
+            {
+              OrderObjective objective = (this._shownQuest as SpecialOrder).objectives[index1];
+              if (objective.GetMaxCount() > 1 && objective.ShouldShowProgress())
+              {
+                Color color2 = Color.DarkRed;
+                Color color3 = Color.Red;
+                if (objective.GetCount() >= objective.GetMaxCount())
+                {
+                  color3 = Color.LimeGreen;
+                  color2 = Color.Green;
+                }
+                int num2 = 64;
+                int num3 = 160;
+                int num4 = 4;
+                Rectangle rectangle1 = new Rectangle(0, 224, 47, 12);
+                Rectangle rectangle2 = new Rectangle(47, 224, 1, 12);
+                int num5 = 3;
+                int num6 = 3;
+                int width2 = 5;
+                int num7 = objective.GetCount();
+                string str1 = num7.ToString();
+                num7 = objective.GetMaxCount();
+                string str2 = num7.ToString();
+                string text4 = str1 + "/" + str2;
+                SpriteFont dialogueFont2 = Game1.dialogueFont;
+                num7 = objective.GetMaxCount();
+                string str3 = num7.ToString();
+                num7 = objective.GetMaxCount();
+                string str4 = num7.ToString();
+                string text5 = str3 + "/" + str4;
+                int x1 = (int) dialogueFont2.MeasureString(text5).X;
+                int x2 = (int) Game1.dialogueFont.MeasureString(text4).X;
+                int x3 = this.xPositionOnScreen + this.width - num2 - x2;
+                int num8 = this.xPositionOnScreen + this.width - num2 - x1;
+                Utility.drawTextWithShadow(b, text4, Game1.dialogueFont, new Vector2((float) x3, y), Color.DarkBlue);
+                Rectangle rectangle3 = new Rectangle(this.xPositionOnScreen + num2, (int) y, this.width - num2 * 2 - num3, rectangle1.Height * 4);
+                if (rectangle3.Right > num8 - 16)
+                {
+                  int num9 = rectangle3.Right - (num8 - 16);
+                  rectangle3.Width -= num9;
+                }
+                b.Draw(Game1.mouseCursors2, new Rectangle(rectangle3.X, rectangle3.Y, width2 * 4, rectangle3.Height), new Rectangle?(new Rectangle(rectangle1.X, rectangle1.Y, width2, rectangle1.Height)), Color.White, 0.0f, Vector2.Zero, SpriteEffects.None, 0.5f);
+                b.Draw(Game1.mouseCursors2, new Rectangle(rectangle3.X + width2 * 4, rectangle3.Y, rectangle3.Width - 2 * width2 * 4, rectangle3.Height), new Rectangle?(new Rectangle(rectangle1.X + width2, rectangle1.Y, rectangle1.Width - 2 * width2, rectangle1.Height)), Color.White, 0.0f, Vector2.Zero, SpriteEffects.None, 0.5f);
+                b.Draw(Game1.mouseCursors2, new Rectangle(rectangle3.Right - width2 * 4, rectangle3.Y, width2 * 4, rectangle3.Height), new Rectangle?(new Rectangle(rectangle1.Right - width2, rectangle1.Y, width2, rectangle1.Height)), Color.White, 0.0f, Vector2.Zero, SpriteEffects.None, 0.5f);
+                float num10 = (float) objective.GetCount() / (float) objective.GetMaxCount();
+                if (objective.GetMaxCount() < num4)
+                  num4 = objective.GetMaxCount();
+                rectangle3.X += 4 * num5;
+                rectangle3.Width -= 4 * num5 * 2;
+                for (int index2 = 1; index2 < num4; ++index2)
+                  b.Draw(Game1.mouseCursors2, new Vector2((float) rectangle3.X + (float) rectangle3.Width * ((float) index2 / (float) num4), (float) rectangle3.Y), new Rectangle?(rectangle2), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.5f);
+                rectangle3.Y += 4 * num6;
+                rectangle3.Height -= 4 * num6 * 2;
+                Rectangle destinationRectangle = new Rectangle(rectangle3.X, rectangle3.Y, (int) ((double) rectangle3.Width * (double) num10) - 4, rectangle3.Height);
+                b.Draw(Game1.staminaRect, destinationRectangle, new Rectangle?(), color3, 0.0f, Vector2.Zero, SpriteEffects.None, (float) destinationRectangle.Y / 10000f);
+                destinationRectangle.X = destinationRectangle.Right;
+                destinationRectangle.Width = 4;
+                b.Draw(Game1.staminaRect, destinationRectangle, new Rectangle?(), color2, 0.0f, Vector2.Zero, SpriteEffects.None, (float) destinationRectangle.Y / 10000f);
+                y += (float) ((rectangle1.Height + 4) * 4);
+              }
+            }
+            this._contentHeight = y + this.scrollAmount - (float) screen.Y;
+          }
+          b.End();
+          b.GraphicsDevice.ScissorRectangle = scissorRectangle;
+          b.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+          if (this._shownQuest.CanBeCancelled())
+            this.cancelQuestButton.draw(b);
+          if (this.NeedsScroll())
+          {
+            if ((double) this.scrollAmount > 0.0)
+              b.Draw(Game1.staminaRect, new Rectangle(screen.X, screen.Top, screen.Width, 4), Color.Black * 0.15f);
+            if ((double) this.scrollAmount < (double) this._contentHeight - (double) this._scissorRectHeight)
+              b.Draw(Game1.staminaRect, new Rectangle(screen.X, screen.Bottom - 4, screen.Width, 4), Color.Black * 0.15f);
+          }
+        }
+      }
+      if (this.NeedsScroll())
+      {
+        this.upArrow.draw(b);
+        this.downArrow.draw(b);
+        this.scrollBar.draw(b);
+      }
+      if (this.currentPage < this.pages.Count - 1 && this.questPage == -1)
+        this.forwardButton.draw(b);
+      if (this.currentPage > 0 || this.questPage != -1)
+        this.backButton.draw(b);
+      base.draw(b);
+      Game1.mouseCursorTransparency = 1f;
+      this.drawMouse(b);
+      if (this.hoverText.Length <= 0)
+        return;
+      IClickableMenu.drawHoverText(b, this.hoverText, Game1.dialogueFont);
+    }
+  }
 }

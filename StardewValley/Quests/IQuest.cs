@@ -1,37 +1,43 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Quests.IQuest
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using System.Collections.Generic;
 
 namespace StardewValley.Quests
 {
-	public interface IQuest
-	{
-		string GetName();
+  public interface IQuest
+  {
+    string GetName();
 
-		string GetDescription();
+    string GetDescription();
 
-		List<string> GetObjectiveDescriptions();
+    List<string> GetObjectiveDescriptions();
 
-		bool CanBeCancelled();
+    bool CanBeCancelled();
 
-		void MarkAsViewed();
+    void MarkAsViewed();
 
-		bool ShouldDisplayAsNew();
+    bool ShouldDisplayAsNew();
 
-		bool ShouldDisplayAsComplete();
+    bool ShouldDisplayAsComplete();
 
-		bool IsTimedQuest();
+    bool IsTimedQuest();
 
-		int GetDaysLeft();
+    int GetDaysLeft();
 
-		bool IsHidden();
+    bool IsHidden();
 
-		bool HasReward();
+    bool HasReward();
 
-		bool HasMoneyReward();
+    bool HasMoneyReward();
 
-		int GetMoneyReward();
+    int GetMoneyReward();
 
-		void OnMoneyRewardClaimed();
+    void OnMoneyRewardClaimed();
 
-		bool OnLeaveQuestPage();
-	}
+    bool OnLeaveQuestPage();
+  }
 }

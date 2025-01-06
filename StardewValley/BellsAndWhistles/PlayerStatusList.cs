@@ -1,244 +1,216 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.BellsAndWhistles.PlayerStatusList
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
 using StardewValley.Network;
+using System;
 using System.Collections.Generic;
 
 namespace StardewValley.BellsAndWhistles
 {
-	public class PlayerStatusList : INetObject<NetFields>
-	{
-		public enum SortMode
-		{
-			None,
-			NumberSort,
-			NumberSortDescending,
-			AlphaSort,
-			AlphaSortDescending
-		}
+  public class PlayerStatusList : INetObject<NetFields>
+  {
+    protected readonly NetLongDictionary<string, NetString> _statusList = new NetLongDictionary<string, NetString>();
+    protected Dictionary<long, string> _formattedStatusList = new Dictionary<long, string>();
+    protected Dictionary<string, Texture2D> _iconSprites = new Dictionary<string, Texture2D>();
+    protected List<Farmer> _sortedFarmers = new List<Farmer>();
+    public int iconAnimationFrames = 1;
+    public int largestSpriteWidth;
+    public int largestSpriteHeight;
+    public PlayerStatusList.SortMode sortMode;
+    public PlayerStatusList.DisplayMode displayMode;
+    protected Dictionary<string, KeyValuePair<string, Rectangle>> _iconDefinitions = new Dictionary<string, KeyValuePair<string, Rectangle>>();
 
-		public enum DisplayMode
-		{
-			Text,
-			LocalizedText,
-			Icons
-		}
+    public NetFields NetFields { get; } = new NetFields();
 
-		public enum VerticalAlignment
-		{
-			Top,
-			Bottom
-		}
+    public PlayerStatusList()
+    {
+      this.InitNetFields();
+      this._iconDefinitions = new Dictionary<string, KeyValuePair<string, Rectangle>>();
+      this._formattedStatusList = new Dictionary<long, string>();
+    }
 
-		public enum HorizontalAlignment
-		{
-			Left,
-			Right
-		}
+    public void InitNetFields()
+    {
+      this._statusList.InterpolationWait = false;
+      this.NetFields.AddFields((INetSerializable) this._statusList);
+      this._statusList.OnConflictResolve += (NetDictionary<long, string, NetString, SerializableDictionary<long, string>, NetLongDictionary<string, NetString>>.ConflictResolveEvent) ((a, b, c) => this._OnValueChanged());
+      this._statusList.OnValueAdded += (NetDictionary<long, string, NetString, SerializableDictionary<long, string>, NetLongDictionary<string, NetString>>.ContentsChangeEvent) ((a, b) => this._OnValueChanged());
+      this._statusList.OnValueRemoved += (NetDictionary<long, string, NetString, SerializableDictionary<long, string>, NetLongDictionary<string, NetString>>.ContentsChangeEvent) ((a, b) => this._OnValueChanged());
+    }
 
-		protected readonly NetLongDictionary<string, NetString> _statusList = new NetLongDictionary<string, NetString>();
+    public void AddSpriteDefinition(
+      string key,
+      string file,
+      int x,
+      int y,
+      int width,
+      int height)
+    {
+      if (!this._iconSprites.ContainsKey(file) || this._iconSprites[file].IsDisposed)
+        this._iconSprites[file] = Game1.content.Load<Texture2D>(file);
+      this._iconDefinitions[key] = new KeyValuePair<string, Rectangle>(file, new Rectangle(x, y, width, height));
+      if (width > this.largestSpriteWidth)
+        this.largestSpriteWidth = width;
+      if (height <= this.largestSpriteHeight)
+        return;
+      this.largestSpriteHeight = height;
+    }
 
-		protected Dictionary<long, string> _formattedStatusList = new Dictionary<long, string>();
+    public void UpdateState(string new_state)
+    {
+      if (this._statusList.ContainsKey(Game1.player.UniqueMultiplayerID) && !(this._statusList[Game1.player.UniqueMultiplayerID] != new_state))
+        return;
+      this._statusList.Remove(Game1.player.UniqueMultiplayerID);
+      this._statusList.Add(Game1.player.UniqueMultiplayerID, new_state);
+    }
 
-		protected Dictionary<string, Texture2D> _iconSprites = new Dictionary<string, Texture2D>();
+    public void WithdrawState()
+    {
+      if (!this._statusList.ContainsKey(Game1.player.UniqueMultiplayerID))
+        return;
+      this._statusList.Remove(Game1.player.UniqueMultiplayerID);
+    }
 
-		protected List<Farmer> _sortedFarmers = new List<Farmer>();
+    protected void _OnValueChanged()
+    {
+      foreach (long key in this._statusList.Keys)
+        this._formattedStatusList[key] = this.GetStatusText(key);
+      this._ResortList();
+    }
 
-		public int iconAnimationFrames = 1;
+    protected void _ResortList()
+    {
+      this._sortedFarmers.Clear();
+      foreach (Farmer onlineFarmer in Game1.getOnlineFarmers())
+        this._sortedFarmers.Add(onlineFarmer);
+      foreach (Farmer allFarmer in Game1.getAllFarmers())
+      {
+        if (Game1.IsMasterGame && !this._sortedFarmers.Contains(allFarmer) && this._statusList.ContainsKey(allFarmer.UniqueMultiplayerID))
+          this._statusList.Remove(allFarmer.UniqueMultiplayerID);
+        if (!this._statusList.ContainsKey(allFarmer.UniqueMultiplayerID))
+          this._sortedFarmers.Remove(allFarmer);
+      }
+      if (this.sortMode == PlayerStatusList.SortMode.AlphaSort || this.sortMode == PlayerStatusList.SortMode.AlphaSortDescending)
+      {
+        this._sortedFarmers.Sort((Comparison<Farmer>) ((a, b) => this.GetStatusText(a.UniqueMultiplayerID).CompareTo(this.GetStatusText(b.UniqueMultiplayerID))));
+        if (this.sortMode != PlayerStatusList.SortMode.AlphaSortDescending)
+          return;
+        this._sortedFarmers.Reverse();
+      }
+      else
+      {
+        if (this.sortMode != PlayerStatusList.SortMode.NumberSort && this.sortMode != PlayerStatusList.SortMode.NumberSortDescending)
+          return;
+        this._sortedFarmers.Sort((Comparison<Farmer>) ((a, b) => int.Parse(this.GetStatusText(a.UniqueMultiplayerID)).CompareTo(int.Parse(this.GetStatusText(b.UniqueMultiplayerID)))));
+        if (this.sortMode != PlayerStatusList.SortMode.NumberSortDescending)
+          return;
+        this._sortedFarmers.Reverse();
+      }
+    }
 
-		public int largestSpriteWidth;
+    public string GetStatusText(long id)
+    {
+      if (!this._statusList.ContainsKey(id))
+        return "";
+      return this.displayMode == PlayerStatusList.DisplayMode.LocalizedText ? Game1.content.LoadString(this._statusList[id]) : this._statusList[id];
+    }
 
-		public int largestSpriteHeight;
+    public void Draw(
+      SpriteBatch b,
+      Vector2 draw_position,
+      float draw_scale = 4f,
+      float draw_layer = 0.45f,
+      PlayerStatusList.HorizontalAlignment horizontal_origin = PlayerStatusList.HorizontalAlignment.Left,
+      PlayerStatusList.VerticalAlignment vertical_origin = PlayerStatusList.VerticalAlignment.Top)
+    {
+      float num1 = 12f;
+      if (this.displayMode == PlayerStatusList.DisplayMode.Icons && (double) this.largestSpriteHeight > (double) num1)
+        num1 = (float) this.largestSpriteHeight;
+      if (horizontal_origin == PlayerStatusList.HorizontalAlignment.Right)
+      {
+        float num2 = 0.0f;
+        if (this.displayMode == PlayerStatusList.DisplayMode.Icons)
+        {
+          draw_position.X -= (float) this.largestSpriteWidth * draw_scale;
+        }
+        else
+        {
+          foreach (Farmer sortedFarmer in this._sortedFarmers)
+          {
+            if (this._formattedStatusList.ContainsKey(sortedFarmer.UniqueMultiplayerID))
+            {
+              float x = Game1.dialogueFont.MeasureString(this._formattedStatusList[sortedFarmer.UniqueMultiplayerID]).X;
+              if ((double) num2 < (double) x)
+                num2 = x;
+            }
+          }
+          draw_position.X -= (num2 + 16f) * draw_scale;
+        }
+      }
+      if (vertical_origin == PlayerStatusList.VerticalAlignment.Bottom)
+        draw_position.Y -= num1 * (float) this._statusList.Count() * draw_scale;
+      foreach (Farmer sortedFarmer in this._sortedFarmers)
+      {
+        float num3 = Game1.isUsingBackToFrontSorting ? -1f : 1f;
+        if (this._formattedStatusList.ContainsKey(sortedFarmer.UniqueMultiplayerID))
+        {
+          Vector2 zero = Vector2.Zero;
+          sortedFarmer.FarmerRenderer.drawMiniPortrat(b, draw_position, draw_layer, draw_scale * 0.75f, 2, sortedFarmer);
+          if (this.displayMode == PlayerStatusList.DisplayMode.Icons && this._iconDefinitions.ContainsKey(this._formattedStatusList[sortedFarmer.UniqueMultiplayerID]))
+          {
+            zero.X += 12f * draw_scale;
+            KeyValuePair<string, Rectangle> iconDefinition = this._iconDefinitions[this._formattedStatusList[sortedFarmer.UniqueMultiplayerID]];
+            Rectangle rectangle = iconDefinition.Value with
+            {
+              Y = (int) (Game1.currentGameTime.TotalGameTime.TotalMilliseconds % (double) (this.iconAnimationFrames * 100) / 100.0) * 16
+            };
+            b.Draw(this._iconSprites[iconDefinition.Key], draw_position + zero, new Rectangle?(rectangle), Color.White, 0.0f, Vector2.Zero, draw_scale, SpriteEffects.None, draw_layer - 0.0001f * num3);
+          }
+          else
+          {
+            zero.X += 16f * draw_scale;
+            zero.Y += 2f * draw_scale;
+            string formattedStatus = this._formattedStatusList[sortedFarmer.UniqueMultiplayerID];
+            b.DrawString(Game1.dialogueFont, formattedStatus, draw_position + zero + Vector2.One * draw_scale, Color.Black, 0.0f, Vector2.Zero, draw_scale / 4f, SpriteEffects.None, draw_layer - 0.0001f * num3);
+            b.DrawString(Game1.dialogueFont, formattedStatus, draw_position + zero, Color.White, 0.0f, Vector2.Zero, draw_scale / 4f, SpriteEffects.None, draw_layer);
+          }
+          draw_position.Y += num1 * draw_scale;
+        }
+      }
+    }
 
-		public SortMode sortMode;
+    public enum SortMode
+    {
+      None,
+      NumberSort,
+      NumberSortDescending,
+      AlphaSort,
+      AlphaSortDescending,
+    }
 
-		public DisplayMode displayMode;
+    public enum DisplayMode
+    {
+      Text,
+      LocalizedText,
+      Icons,
+    }
 
-		protected Dictionary<string, KeyValuePair<string, Rectangle>> _iconDefinitions = new Dictionary<string, KeyValuePair<string, Rectangle>>();
+    public enum VerticalAlignment
+    {
+      Top,
+      Bottom,
+    }
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
-
-
-		public PlayerStatusList()
-		{
-			InitNetFields();
-			_iconDefinitions = new Dictionary<string, KeyValuePair<string, Rectangle>>();
-			_formattedStatusList = new Dictionary<long, string>();
-		}
-
-		public void InitNetFields()
-		{
-			_statusList.InterpolationWait = false;
-			NetFields.AddFields(_statusList);
-			_statusList.OnConflictResolve += delegate
-			{
-				_OnValueChanged();
-			};
-			_statusList.OnValueAdded += delegate
-			{
-				_OnValueChanged();
-			};
-			_statusList.OnValueRemoved += delegate
-			{
-				_OnValueChanged();
-			};
-		}
-
-		public void AddSpriteDefinition(string key, string file, int x, int y, int width, int height)
-		{
-			if (!_iconSprites.ContainsKey(file) || _iconSprites[file].IsDisposed)
-			{
-				_iconSprites[file] = Game1.content.Load<Texture2D>(file);
-			}
-			_iconDefinitions[key] = new KeyValuePair<string, Rectangle>(file, new Rectangle(x, y, width, height));
-			if (width > largestSpriteWidth)
-			{
-				largestSpriteWidth = width;
-			}
-			if (height > largestSpriteHeight)
-			{
-				largestSpriteHeight = height;
-			}
-		}
-
-		public void UpdateState(string new_state)
-		{
-			if (!_statusList.ContainsKey(Game1.player.UniqueMultiplayerID) || _statusList[Game1.player.UniqueMultiplayerID] != new_state)
-			{
-				_statusList.Remove(Game1.player.UniqueMultiplayerID);
-				_statusList.Add(Game1.player.UniqueMultiplayerID, new_state);
-			}
-		}
-
-		public void WithdrawState()
-		{
-			if (_statusList.ContainsKey(Game1.player.UniqueMultiplayerID))
-			{
-				_statusList.Remove(Game1.player.UniqueMultiplayerID);
-			}
-		}
-
-		protected void _OnValueChanged()
-		{
-			foreach (long id in _statusList.Keys)
-			{
-				_formattedStatusList[id] = GetStatusText(id);
-			}
-			_ResortList();
-		}
-
-		protected void _ResortList()
-		{
-			_sortedFarmers.Clear();
-			foreach (Farmer farmer2 in Game1.getOnlineFarmers())
-			{
-				_sortedFarmers.Add(farmer2);
-			}
-			foreach (Farmer farmer in Game1.getAllFarmers())
-			{
-				if (Game1.IsMasterGame && !_sortedFarmers.Contains(farmer) && _statusList.ContainsKey(farmer.UniqueMultiplayerID))
-				{
-					_statusList.Remove(farmer.UniqueMultiplayerID);
-				}
-				if (!_statusList.ContainsKey(farmer.UniqueMultiplayerID))
-				{
-					_sortedFarmers.Remove(farmer);
-				}
-			}
-			if (sortMode == SortMode.AlphaSort || sortMode == SortMode.AlphaSortDescending)
-			{
-				_sortedFarmers.Sort((Farmer a, Farmer b) => GetStatusText(a.UniqueMultiplayerID).CompareTo(GetStatusText(b.UniqueMultiplayerID)));
-				if (sortMode == SortMode.AlphaSortDescending)
-				{
-					_sortedFarmers.Reverse();
-				}
-			}
-			else if (sortMode == SortMode.NumberSort || sortMode == SortMode.NumberSortDescending)
-			{
-				_sortedFarmers.Sort((Farmer a, Farmer b) => int.Parse(GetStatusText(a.UniqueMultiplayerID)).CompareTo(int.Parse(GetStatusText(b.UniqueMultiplayerID))));
-				if (sortMode == SortMode.NumberSortDescending)
-				{
-					_sortedFarmers.Reverse();
-				}
-			}
-		}
-
-		public string GetStatusText(long id)
-		{
-			if (_statusList.ContainsKey(id))
-			{
-				if (displayMode == DisplayMode.LocalizedText)
-				{
-					return Game1.content.LoadString(_statusList[id]);
-				}
-				return _statusList[id];
-			}
-			return "";
-		}
-
-		public void Draw(SpriteBatch b, Vector2 draw_position, float draw_scale = 4f, float draw_layer = 0.45f, HorizontalAlignment horizontal_origin = HorizontalAlignment.Left, VerticalAlignment vertical_origin = VerticalAlignment.Top)
-		{
-			float y_offset_per_entry = 12f;
-			if (displayMode == DisplayMode.Icons && (float)largestSpriteHeight > y_offset_per_entry)
-			{
-				y_offset_per_entry = largestSpriteHeight;
-			}
-			if (horizontal_origin == HorizontalAlignment.Right)
-			{
-				float longest_string = 0f;
-				if (displayMode == DisplayMode.Icons)
-				{
-					draw_position.X -= (float)largestSpriteWidth * draw_scale;
-				}
-				else
-				{
-					foreach (Farmer farmer2 in _sortedFarmers)
-					{
-						if (_formattedStatusList.ContainsKey(farmer2.UniqueMultiplayerID))
-						{
-							float string_length = Game1.dialogueFont.MeasureString(_formattedStatusList[farmer2.UniqueMultiplayerID]).X;
-							if (longest_string < string_length)
-							{
-								longest_string = string_length;
-							}
-						}
-					}
-					draw_position.X -= (longest_string + 16f) * draw_scale;
-				}
-			}
-			if (vertical_origin == VerticalAlignment.Bottom)
-			{
-				draw_position.Y -= y_offset_per_entry * (float)_statusList.Count() * draw_scale;
-			}
-			foreach (Farmer farmer in _sortedFarmers)
-			{
-				float sort_direction = (!Game1.isUsingBackToFrontSorting) ? 1 : (-1);
-				if (_formattedStatusList.ContainsKey(farmer.UniqueMultiplayerID))
-				{
-					Vector2 draw_offset = Vector2.Zero;
-					farmer.FarmerRenderer.drawMiniPortrat(b, draw_position, draw_layer, draw_scale * 0.75f, 2, farmer);
-					if (displayMode == DisplayMode.Icons && _iconDefinitions.ContainsKey(_formattedStatusList[farmer.UniqueMultiplayerID]))
-					{
-						draw_offset.X += 12f * draw_scale;
-						KeyValuePair<string, Rectangle> sprite_definition = _iconDefinitions[_formattedStatusList[farmer.UniqueMultiplayerID]];
-						Rectangle currentSrcRect = sprite_definition.Value;
-						currentSrcRect.Y = (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds % (double)(iconAnimationFrames * 100) / 100.0) * 16;
-						b.Draw(_iconSprites[sprite_definition.Key], draw_position + draw_offset, currentSrcRect, Color.White, 0f, Vector2.Zero, draw_scale, SpriteEffects.None, draw_layer - 0.0001f * sort_direction);
-					}
-					else
-					{
-						draw_offset.X += 16f * draw_scale;
-						draw_offset.Y += 2f * draw_scale;
-						string drawn_string = _formattedStatusList[farmer.UniqueMultiplayerID];
-						b.DrawString(Game1.dialogueFont, drawn_string, draw_position + draw_offset + Vector2.One * draw_scale, Color.Black, 0f, Vector2.Zero, draw_scale / 4f, SpriteEffects.None, draw_layer - 0.0001f * sort_direction);
-						b.DrawString(Game1.dialogueFont, drawn_string, draw_position + draw_offset, Color.White, 0f, Vector2.Zero, draw_scale / 4f, SpriteEffects.None, draw_layer);
-					}
-					draw_position.Y += y_offset_per_entry * draw_scale;
-				}
-			}
-		}
-	}
+    public enum HorizontalAlignment
+    {
+      Left,
+      Right,
+    }
+  }
 }

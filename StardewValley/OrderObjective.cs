@@ -1,184 +1,144 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.OrderObjective
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System.Collections.Generic;
 using System.Xml.Serialization;
 
 namespace StardewValley
 {
-	public class OrderObjective : INetObject<NetFields>
-	{
-		[XmlIgnore]
-		protected SpecialOrder _order;
+  public class OrderObjective : INetObject<NetFields>
+  {
+    [XmlIgnore]
+    protected SpecialOrder _order;
+    [XmlElement("currentCount")]
+    public NetIntDelta currentCount = new NetIntDelta();
+    [XmlElement("maxCount")]
+    public NetInt maxCount = new NetInt(0);
+    [XmlElement("description")]
+    public NetString description = new NetString();
+    [XmlIgnore]
+    protected bool _complete;
+    [XmlIgnore]
+    protected bool _registered;
+    [XmlElement("failOnCompletion")]
+    public NetBool failOnCompletion = new NetBool(false);
 
-		[XmlElement("currentCount")]
-		public NetIntDelta currentCount = new NetIntDelta();
+    [XmlIgnore]
+    public NetFields NetFields { get; } = new NetFields();
 
-		[XmlElement("maxCount")]
-		public NetInt maxCount = new NetInt(0);
+    public OrderObjective() => this.InitializeNetFields();
 
-		[XmlElement("description")]
-		public NetString description = new NetString();
+    public virtual void OnFail()
+    {
+    }
 
-		[XmlIgnore]
-		protected bool _complete;
+    public virtual void InitializeNetFields()
+    {
+      this.NetFields.AddFields((INetSerializable) this.currentCount, (INetSerializable) this.maxCount, (INetSerializable) this.failOnCompletion, (INetSerializable) this.description);
+      this.currentCount.fieldChangeVisibleEvent += new NetFieldBase<int, NetIntDelta>.FieldChange(this.OnCurrentCountChanged);
+    }
 
-		[XmlIgnore]
-		protected bool _registered;
+    protected void OnCurrentCountChanged(NetIntDelta field, int oldValue, int newValue)
+    {
+      if (Utility.ShouldIgnoreValueChangeCallback())
+        return;
+      this.CheckCompletion();
+    }
 
-		[XmlElement("failOnCompletion")]
-		public NetBool failOnCompletion = new NetBool(value: false);
+    public void Register(SpecialOrder new_order)
+    {
+      this._registered = true;
+      this._order = new_order;
+      this._Register();
+      this.CheckCompletion(false);
+    }
 
-		[XmlIgnore]
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    protected virtual void _Register()
+    {
+    }
 
+    public virtual void Unregister()
+    {
+      this._registered = false;
+      this._Unregister();
+      this._order = (SpecialOrder) null;
+    }
 
-		public OrderObjective()
-		{
-			InitializeNetFields();
-		}
+    protected virtual void _Unregister()
+    {
+    }
 
-		public virtual void OnFail()
-		{
-		}
+    public virtual bool ShouldShowProgress() => true;
 
-		public virtual void InitializeNetFields()
-		{
-			NetFields.AddFields(currentCount, maxCount, failOnCompletion, description);
-			currentCount.fieldChangeVisibleEvent += OnCurrentCountChanged;
-		}
+    public int GetCount() => (int) (NetFieldBase<int, NetIntDelta>) this.currentCount;
 
-		protected void OnCurrentCountChanged(NetIntDelta field, int oldValue, int newValue)
-		{
-			if (!Utility.ShouldIgnoreValueChangeCallback())
-			{
-				CheckCompletion();
-			}
-		}
+    public virtual void IncrementCount(int amount)
+    {
+      int new_count = this.GetCount() + amount;
+      if (new_count < 0)
+        new_count = 0;
+      if (new_count > this.GetMaxCount())
+        new_count = this.GetMaxCount();
+      this.SetCount(new_count);
+    }
 
-		public void Register(SpecialOrder new_order)
-		{
-			_registered = true;
-			_order = new_order;
-			_Register();
-			CheckCompletion(play_sound: false);
-		}
+    public virtual void SetCount(int new_count)
+    {
+      if (new_count > this.GetMaxCount())
+        new_count = this.GetMaxCount();
+      if (new_count == this.GetCount())
+        return;
+      this.currentCount.Value = new_count;
+    }
 
-		protected virtual void _Register()
-		{
-		}
+    public int GetMaxCount() => (int) (NetFieldBase<int, NetInt>) this.maxCount;
 
-		public virtual void Unregister()
-		{
-			_registered = false;
-			_Unregister();
-			_order = null;
-		}
+    public virtual void OnCompletion()
+    {
+    }
 
-		protected virtual void _Unregister()
-		{
-		}
+    public virtual void CheckCompletion(bool play_sound = true)
+    {
+      if (!this._registered)
+        return;
+      bool flag = false;
+      if (this.GetCount() >= this.GetMaxCount() && this.CanComplete())
+      {
+        if (!this._complete)
+        {
+          flag = true;
+          this.OnCompletion();
+        }
+        this._complete = true;
+      }
+      else if (this.CanUncomplete() && this._complete)
+        this._complete = false;
+      if (this._order == null)
+        return;
+      this._order.CheckCompletion();
+      if (!flag || this._order.questState.Value == SpecialOrder.QuestState.Complete || !play_sound)
+        return;
+      Game1.playSound("jingle1");
+    }
 
-		public virtual bool ShouldShowProgress()
-		{
-			return true;
-		}
+    public virtual bool IsComplete() => this._complete;
 
-		public int GetCount()
-		{
-			return currentCount;
-		}
+    public virtual bool CanUncomplete() => false;
 
-		public virtual void IncrementCount(int amount)
-		{
-			int new_value = GetCount() + amount;
-			if (new_value < 0)
-			{
-				new_value = 0;
-			}
-			if (new_value > GetMaxCount())
-			{
-				new_value = GetMaxCount();
-			}
-			SetCount(new_value);
-		}
+    public virtual bool CanComplete() => true;
 
-		public virtual void SetCount(int new_count)
-		{
-			if (new_count > GetMaxCount())
-			{
-				new_count = GetMaxCount();
-			}
-			if (new_count != GetCount())
-			{
-				currentCount.Value = new_count;
-			}
-		}
+    public virtual string GetDescription()
+    {
+      this.GetMaxCount();
+      return (string) (NetFieldBase<string, NetString>) this.description;
+    }
 
-		public int GetMaxCount()
-		{
-			return maxCount;
-		}
-
-		public virtual void OnCompletion()
-		{
-		}
-
-		public virtual void CheckCompletion(bool play_sound = true)
-		{
-			if (!_registered)
-			{
-				return;
-			}
-			bool was_just_completed = false;
-			if (GetCount() >= GetMaxCount() && CanComplete())
-			{
-				if (!_complete)
-				{
-					was_just_completed = true;
-					OnCompletion();
-				}
-				_complete = true;
-			}
-			else if (CanUncomplete() && _complete)
-			{
-				_complete = false;
-			}
-			if (_order != null)
-			{
-				_order.CheckCompletion();
-				if (was_just_completed && _order.questState.Value != SpecialOrder.QuestState.Complete && play_sound)
-				{
-					Game1.playSound("jingle1");
-				}
-			}
-		}
-
-		public virtual bool IsComplete()
-		{
-			return _complete;
-		}
-
-		public virtual bool CanUncomplete()
-		{
-			return false;
-		}
-
-		public virtual bool CanComplete()
-		{
-			return true;
-		}
-
-		public virtual string GetDescription()
-		{
-			GetMaxCount();
-			_ = 1;
-			return description;
-		}
-
-		public virtual void Load(SpecialOrder order, Dictionary<string, string> data)
-		{
-		}
-	}
+    public virtual void Load(SpecialOrder order, Dictionary<string, string> data)
+    {
+    }
+  }
 }

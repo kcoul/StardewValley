@@ -1,230 +1,201 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.LidgrenClient
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Lidgren.Network;
 using System;
 using System.IO;
 
 namespace StardewValley.Network
 {
-	public class LidgrenClient : Client
-	{
-		private string address;
+  public class LidgrenClient : Client
+  {
+    private string address;
+    public NetClient client;
+    private bool serverDiscovered;
+    private int maxRetryAttempts;
+    private int retryMs = 10000;
+    private double lastAttemptMs;
+    private int retryAttempts;
+    private float lastLatencyMs;
 
-		public NetClient client;
+    public LidgrenClient(string address) => this.address = address;
 
-		private bool serverDiscovered;
+    public override string getUserID() => "";
 
-		private int maxRetryAttempts;
+    public override float GetPingToHost() => this.lastLatencyMs / 2f;
 
-		private int retryMs = 10000;
+    protected override string getHostUserName() => this.client.ServerConnection.RemoteEndPoint.Address.ToString();
 
-		private double lastAttemptMs;
+    protected override void connectImpl()
+    {
+      NetPeerConfiguration config = new NetPeerConfiguration("StardewValley");
+      config.EnableMessageType(NetIncomingMessageType.DiscoveryResponse);
+      config.EnableMessageType(NetIncomingMessageType.ConnectionLatencyUpdated);
+      config.ConnectionTimeout = 30f;
+      config.PingInterval = 5f;
+      config.MaximumTransmissionUnit = 1200;
+      this.client = new NetClient(config);
+      this.client.Start();
+      this.attemptConnection();
+    }
 
-		private int retryAttempts;
+    private void attemptConnection()
+    {
+      int serverPort = 24642;
+      if (this.address.Contains(":"))
+      {
+        string[] strArray = this.address.Split(':');
+        this.address = strArray[0];
+        serverPort = Convert.ToInt32(strArray[1]);
+      }
+      this.client.DiscoverKnownPeer(this.address, serverPort);
+      this.lastAttemptMs = DateTime.Now.TimeOfDay.TotalMilliseconds;
+    }
 
-		private float lastLatencyMs;
+    public override void disconnect(bool neatly = true)
+    {
+      if (this.client == null)
+        return;
+      if (this.client.ConnectionStatus != NetConnectionStatus.Disconnected && this.client.ConnectionStatus != NetConnectionStatus.Disconnecting)
+      {
+        if (neatly)
+          this.sendMessage(new OutgoingMessage((byte) 19, Game1.player, Array.Empty<object>()));
+        this.client.FlushSendQueue();
+        this.client.Disconnect("");
+        this.client.FlushSendQueue();
+      }
+      this.connectionMessage = (string) null;
+    }
 
-		public LidgrenClient(string address)
-		{
-			this.address = address;
-		}
+    protected virtual bool validateProtocol(string version) => version == "1.5.5";
 
-		public override string getUserID()
-		{
-			return "";
-		}
+    protected override void receiveMessagesImpl()
+    {
+      DateTime now;
+      if (this.client != null && !this.serverDiscovered)
+      {
+        now = DateTime.Now;
+        if (now.TimeOfDay.TotalMilliseconds >= this.lastAttemptMs + (double) this.retryMs && this.retryAttempts < this.maxRetryAttempts)
+        {
+          this.attemptConnection();
+          ++this.retryAttempts;
+        }
+      }
+      NetIncomingMessage netIncomingMessage;
+      while ((netIncomingMessage = this.client.ReadMessage()) != null)
+      {
+        switch (netIncomingMessage.MessageType)
+        {
+          case NetIncomingMessageType.StatusChanged:
+            this.statusChanged(netIncomingMessage);
+            continue;
+          case NetIncomingMessageType.Data:
+            this.parseDataMessageFromServer(netIncomingMessage);
+            continue;
+          case NetIncomingMessageType.DiscoveryResponse:
+            if (!this.serverDiscovered)
+            {
+              Console.WriteLine("Found server at " + netIncomingMessage.SenderEndPoint?.ToString());
+              if (this.validateProtocol(netIncomingMessage.ReadString()))
+              {
+                this.serverName = netIncomingMessage.ReadString();
+                this.receiveHandshake(netIncomingMessage);
+                this.serverDiscovered = true;
+                continue;
+              }
+              this.connectionMessage = Game1.content.LoadString("Strings\\UI:CoopMenu_FailedProtocolVersion");
+              this.client.Disconnect("");
+              continue;
+            }
+            continue;
+          case NetIncomingMessageType.DebugMessage:
+          case NetIncomingMessageType.WarningMessage:
+          case NetIncomingMessageType.ErrorMessage:
+            string str = netIncomingMessage.ReadString();
+            Console.WriteLine("{0}: {1}", (object) netIncomingMessage.MessageType, (object) str);
+            Game1.debugOutput = str;
+            continue;
+          case NetIncomingMessageType.ConnectionLatencyUpdated:
+            this.readLatency(netIncomingMessage);
+            continue;
+          default:
+            continue;
+        }
+      }
+      if (this.client.ServerConnection == null)
+        return;
+      now = DateTime.Now;
+      if (now.Second % 2 != 0)
+        return;
+      Game1.debugOutput = "Ping: " + (this.client.ServerConnection.AverageRoundtripTime * 1000f).ToString() + "ms";
+    }
 
-		public override float GetPingToHost()
-		{
-			return lastLatencyMs / 2f;
-		}
+    private void readLatency(NetIncomingMessage msg) => this.lastLatencyMs = msg.ReadFloat() * 1000f;
 
-		protected override string getHostUserName()
-		{
-			return client.ServerConnection.RemoteEndPoint.Address.ToString();
-		}
+    private void receiveHandshake(NetIncomingMessage msg) => this.client.Connect(msg.SenderEndPoint.Address.ToString(), msg.SenderEndPoint.Port);
 
-		protected override void connectImpl()
-		{
-			NetPeerConfiguration config = new NetPeerConfiguration("StardewValley");
-			config.EnableMessageType(NetIncomingMessageType.DiscoveryResponse);
-			config.EnableMessageType(NetIncomingMessageType.ConnectionLatencyUpdated);
-			config.ConnectionTimeout = 30f;
-			config.PingInterval = 5f;
-			config.MaximumTransmissionUnit = 1200;
-			client = new NetClient(config);
-			client.Start();
-			attemptConnection();
-		}
+    private void statusChanged(NetIncomingMessage message)
+    {
+      NetConnectionStatus status = (NetConnectionStatus) message.ReadByte();
+      switch (status)
+      {
+        case NetConnectionStatus.Disconnecting:
+        case NetConnectionStatus.Disconnected:
+          string message1 = message.ReadString();
+          this.clientRemotelyDisconnected(status, message1);
+          break;
+      }
+    }
 
-		private void attemptConnection()
-		{
-			int port = 24642;
-			if (address.Contains(":"))
-			{
-				string[] split = address.Split(':');
-				address = split[0];
-				port = Convert.ToInt32(split[1]);
-			}
-			client.DiscoverKnownPeer(address, port);
-			lastAttemptMs = DateTime.Now.TimeOfDay.TotalMilliseconds;
-		}
+    private void clientRemotelyDisconnected(NetConnectionStatus status, string message)
+    {
+      this.timedOut = true;
+      if (status == NetConnectionStatus.Disconnected)
+      {
+        if (message == Multiplayer.kicked)
+          this.pendingDisconnect = Multiplayer.DisconnectType.Kicked;
+        else
+          this.pendingDisconnect = Multiplayer.DisconnectType.LidgrenTimeout;
+      }
+      else
+        this.pendingDisconnect = Multiplayer.DisconnectType.LidgrenDisconnect_Unknown;
+    }
 
-		public override void disconnect(bool neatly = true)
-		{
-			if (client == null)
-			{
-				return;
-			}
-			if (client.ConnectionStatus != NetConnectionStatus.Disconnected && client.ConnectionStatus != NetConnectionStatus.Disconnecting)
-			{
-				if (neatly)
-				{
-					sendMessage(new OutgoingMessage(19, Game1.player));
-				}
-				client.FlushSendQueue();
-				client.Disconnect("");
-				client.FlushSendQueue();
-			}
-			connectionMessage = null;
-		}
+    public override void sendMessage(OutgoingMessage message)
+    {
+      NetOutgoingMessage message1 = this.client.CreateMessage();
+      using (NetBufferWriteStream output = new NetBufferWriteStream((NetBuffer) message1))
+      {
+        using (BinaryWriter writer = new BinaryWriter((Stream) output))
+          message.Write(writer);
+      }
+      int num = (int) this.client.SendMessage(message1, NetDeliveryMethod.ReliableOrdered);
+      if (this.bandwidthLogger == null)
+        return;
+      this.bandwidthLogger.RecordBytesUp((long) message1.LengthBytes);
+    }
 
-		protected virtual bool validateProtocol(string version)
-		{
-			return version == "1.5.4";
-		}
-
-		protected override void receiveMessagesImpl()
-		{
-			if (client != null && !serverDiscovered && DateTime.Now.TimeOfDay.TotalMilliseconds >= lastAttemptMs + (double)retryMs && retryAttempts < maxRetryAttempts)
-			{
-				attemptConnection();
-				retryAttempts++;
-			}
-			NetIncomingMessage inc;
-			while ((inc = client.ReadMessage()) != null)
-			{
-				switch (inc.MessageType)
-				{
-				case NetIncomingMessageType.ConnectionLatencyUpdated:
-					readLatency(inc);
-					break;
-				case NetIncomingMessageType.DiscoveryResponse:
-					if (!serverDiscovered)
-					{
-						Console.WriteLine("Found server at " + inc.SenderEndPoint);
-						string protocolVersion = inc.ReadString();
-						if (validateProtocol(protocolVersion))
-						{
-							serverName = inc.ReadString();
-							receiveHandshake(inc);
-							serverDiscovered = true;
-						}
-						else
-						{
-							connectionMessage = Game1.content.LoadString("Strings\\UI:CoopMenu_FailedProtocolVersion");
-							client.Disconnect("");
-						}
-					}
-					break;
-				case NetIncomingMessageType.Data:
-					parseDataMessageFromServer(inc);
-					break;
-				case NetIncomingMessageType.DebugMessage:
-				case NetIncomingMessageType.WarningMessage:
-				case NetIncomingMessageType.ErrorMessage:
-				{
-					string message = inc.ReadString();
-					Console.WriteLine("{0}: {1}", inc.MessageType, message);
-					Game1.debugOutput = message;
-					break;
-				}
-				case NetIncomingMessageType.StatusChanged:
-					statusChanged(inc);
-					break;
-				}
-			}
-			if (client.ServerConnection != null && DateTime.Now.Second % 2 == 0)
-			{
-				Game1.debugOutput = "Ping: " + client.ServerConnection.AverageRoundtripTime * 1000f + "ms";
-			}
-		}
-
-		private void readLatency(NetIncomingMessage msg)
-		{
-			lastLatencyMs = msg.ReadFloat() * 1000f;
-		}
-
-		private void receiveHandshake(NetIncomingMessage msg)
-		{
-			client.Connect(msg.SenderEndPoint.Address.ToString(), msg.SenderEndPoint.Port);
-		}
-
-		private void statusChanged(NetIncomingMessage message)
-		{
-			NetConnectionStatus status = (NetConnectionStatus)message.ReadByte();
-			if (status == NetConnectionStatus.Disconnected || status == NetConnectionStatus.Disconnecting)
-			{
-				string byeMessage = message.ReadString();
-				clientRemotelyDisconnected(status, byeMessage);
-			}
-		}
-
-		private void clientRemotelyDisconnected(NetConnectionStatus status, string message)
-		{
-			timedOut = true;
-			if (status == NetConnectionStatus.Disconnected)
-			{
-				if (message == Multiplayer.kicked)
-				{
-					pendingDisconnect = Multiplayer.DisconnectType.Kicked;
-				}
-				else
-				{
-					pendingDisconnect = Multiplayer.DisconnectType.LidgrenTimeout;
-				}
-			}
-			else
-			{
-				pendingDisconnect = Multiplayer.DisconnectType.LidgrenDisconnect_Unknown;
-			}
-		}
-
-		public override void sendMessage(OutgoingMessage message)
-		{
-			NetOutgoingMessage sendMsg = client.CreateMessage();
-			using (NetBufferWriteStream stream = new NetBufferWriteStream(sendMsg))
-			{
-				using (BinaryWriter writer = new BinaryWriter(stream))
-				{
-					message.Write(writer);
-				}
-			}
-			client.SendMessage(sendMsg, NetDeliveryMethod.ReliableOrdered);
-			if (bandwidthLogger != null)
-			{
-				bandwidthLogger.RecordBytesUp(sendMsg.LengthBytes);
-			}
-		}
-
-		private void parseDataMessageFromServer(NetIncomingMessage dataMsg)
-		{
-			if (bandwidthLogger != null)
-			{
-				bandwidthLogger.RecordBytesDown(dataMsg.LengthBytes);
-			}
-			using (IncomingMessage message = new IncomingMessage())
-			{
-				using (NetBufferReadStream stream = new NetBufferReadStream(dataMsg))
-				{
-					using (BinaryReader reader = new BinaryReader(stream))
-					{
-						while (dataMsg.LengthBits - dataMsg.Position >= 8)
-						{
-							message.Read(reader);
-							processIncomingMessage(message);
-						}
-					}
-				}
-			}
-		}
-	}
+    private void parseDataMessageFromServer(NetIncomingMessage dataMsg)
+    {
+      if (this.bandwidthLogger != null)
+        this.bandwidthLogger.RecordBytesDown((long) dataMsg.LengthBytes);
+      using (IncomingMessage message = new IncomingMessage())
+      {
+        using (NetBufferReadStream input = new NetBufferReadStream((NetBuffer) dataMsg))
+        {
+          using (BinaryReader reader = new BinaryReader((Stream) input))
+          {
+            while ((long) dataMsg.LengthBits - dataMsg.Position >= 8L)
+            {
+              message.Read(reader);
+              this.processIncomingMessage(message);
+            }
+          }
+        }
+      }
+    }
+  }
 }

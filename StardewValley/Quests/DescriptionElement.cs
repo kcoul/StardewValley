@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Quests.DescriptionElement
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using StardewValley.Monsters;
 using System;
@@ -7,142 +13,131 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Quests
 {
-	public class DescriptionElement : INetObject<NetFields>
-	{
-		public static XmlSerializer serializer = new XmlSerializer(typeof(DescriptionElement), new Type[3]
-		{
-			typeof(Monster),
-			typeof(NPC),
-			typeof(Object)
-		});
+  public class DescriptionElement : INetObject<NetFields>
+  {
+    public static XmlSerializer serializer = new XmlSerializer(typeof (DescriptionElement), new Type[3]
+    {
+      typeof (Monster),
+      typeof (NPC),
+      typeof (StardewValley.Object)
+    });
+    public string xmlKey;
+    public List<object> param;
 
-		public string xmlKey;
+    [XmlIgnore]
+    public NetFields NetFields { get; } = new NetFields();
 
-		public List<object> param;
+    public static implicit operator DescriptionElement(string key) => new DescriptionElement(key);
 
-		[XmlIgnore]
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    public DescriptionElement()
+    {
+      this.xmlKey = string.Empty;
+      this.param = new List<object>();
+    }
 
+    public DescriptionElement(string key)
+    {
+      this.xmlKey = key;
+      this.param = new List<object>();
+    }
 
-		public static implicit operator DescriptionElement(string key)
-		{
-			return new DescriptionElement(key);
-		}
+    public DescriptionElement(string key, object param1)
+    {
+      this.xmlKey = key;
+      this.param = new List<object>();
+      this.param.Add(param1);
+    }
 
-		public DescriptionElement()
-		{
-			xmlKey = string.Empty;
-			param = new List<object>();
-		}
+    public DescriptionElement(string key, List<object> paramlist)
+    {
+      this.xmlKey = key;
+      this.param = new List<object>();
+      foreach (object obj in paramlist)
+        this.param.Add(obj);
+    }
 
-		public DescriptionElement(string key)
-		{
-			xmlKey = key;
-			param = new List<object>();
-		}
+    public DescriptionElement(string key, object param1, object param2)
+    {
+      this.xmlKey = key;
+      this.param = new List<object>();
+      this.param.Add(param1);
+      this.param.Add(param2);
+    }
 
-		public DescriptionElement(string key, object param1)
-		{
-			xmlKey = key;
-			param = new List<object>();
-			param.Add(param1);
-		}
+    public DescriptionElement(string key, object param1, object param2, object param3)
+    {
+      this.xmlKey = key;
+      this.param = new List<object>();
+      this.param.Add(param1);
+      this.param.Add(param2);
+      this.param.Add(param3);
+    }
 
-		public DescriptionElement(string key, List<object> paramlist)
-		{
-			xmlKey = key;
-			param = new List<object>();
-			foreach (object o in paramlist)
-			{
-				param.Add(o);
-			}
-		}
-
-		public DescriptionElement(string key, object param1, object param2)
-		{
-			xmlKey = key;
-			param = new List<object>();
-			param.Add(param1);
-			param.Add(param2);
-		}
-
-		public DescriptionElement(string key, object param1, object param2, object param3)
-		{
-			xmlKey = key;
-			param = new List<object>();
-			param.Add(param1);
-			param.Add(param2);
-			param.Add(param3);
-		}
-
-		public string loadDescriptionElement()
-		{
-			DescriptionElement temp = new DescriptionElement(xmlKey, param);
-			string returnString3 = "";
-			for (int i = 0; i < temp.param.Count; i++)
-			{
-				if (temp.param[i] is DescriptionElement)
-				{
-					DescriptionElement d3 = temp.param[i] as DescriptionElement;
-					temp.param[i] = d3.loadDescriptionElement();
-				}
-				if (temp.param[i] is Object)
-				{
-					Game1.objectInformation.TryGetValue((temp.param[i] as Object).parentSheetIndex, out string objectInformation);
-					temp.param[i] = objectInformation.Split('/')[4];
-				}
-				if (temp.param[i] is Monster)
-				{
-					DescriptionElement d2;
-					if ((temp.param[i] as Monster).name.Equals("Frost Jelly"))
-					{
-						d2 = new DescriptionElement("Strings\\StringsFromCSFiles:SlayMonsterQuest.cs.13772");
-						temp.param[i] = d2.loadDescriptionElement();
-					}
-					else
-					{
-						d2 = new DescriptionElement("Data\\Monsters:" + (temp.param[i] as Monster).name);
-						temp.param[i] = ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.en) ? (d2.loadDescriptionElement().Split('/').Last() + "s") : d2.loadDescriptionElement().Split('/').Last());
-					}
-					temp.param[i] = d2.loadDescriptionElement().Split('/').Last();
-				}
-				if (temp.param[i] is NPC)
-				{
-					DescriptionElement d = new DescriptionElement("Data\\NPCDispositions:" + (temp.param[i] as NPC).name);
-					temp.param[i] = d.loadDescriptionElement().Split('/').Last();
-				}
-			}
-			if (temp.xmlKey == "")
-			{
-				return string.Empty;
-			}
-			switch (temp.param.Count)
-			{
-			default:
-				returnString3 = Game1.content.LoadString(temp.xmlKey);
-				if (xmlKey.Contains("Dialogue.cs.7") || xmlKey.Contains("Dialogue.cs.8"))
-				{
-					returnString3 = Game1.content.LoadString(temp.xmlKey).Replace("/", " ");
-					returnString3 = ((returnString3[0] == ' ') ? returnString3.Substring(1) : returnString3);
-				}
-				break;
-			case 1:
-				returnString3 = Game1.content.LoadString(temp.xmlKey, temp.param[0]);
-				break;
-			case 2:
-				returnString3 = Game1.content.LoadString(temp.xmlKey, temp.param[0], temp.param[1]);
-				break;
-			case 3:
-				returnString3 = Game1.content.LoadString(temp.xmlKey, temp.param[0], temp.param[1], temp.param[2]);
-				break;
-			case 4:
-				returnString3 = Game1.content.LoadString(temp.xmlKey, temp.param[0], temp.param[1], temp.param[2], temp.param[3]);
-				break;
-			}
-			return returnString3;
-		}
-	}
+    public string loadDescriptionElement()
+    {
+      DescriptionElement descriptionElement1 = new DescriptionElement(this.xmlKey, this.param);
+      for (int index = 0; index < descriptionElement1.param.Count; ++index)
+      {
+        if (descriptionElement1.param[index] is DescriptionElement)
+        {
+          DescriptionElement descriptionElement2 = descriptionElement1.param[index] as DescriptionElement;
+          descriptionElement1.param[index] = (object) descriptionElement2.loadDescriptionElement();
+        }
+        if (descriptionElement1.param[index] is StardewValley.Object)
+        {
+          string str;
+          Game1.objectInformation.TryGetValue((int) (NetFieldBase<int, NetInt>) (descriptionElement1.param[index] as StardewValley.Object).parentSheetIndex, out str);
+          descriptionElement1.param[index] = (object) str.Split('/')[4];
+        }
+        if (descriptionElement1.param[index] is Monster)
+        {
+          DescriptionElement descriptionElement3;
+          if ((descriptionElement1.param[index] as Monster).name.Equals((object) "Frost Jelly"))
+          {
+            descriptionElement3 = new DescriptionElement("Strings\\StringsFromCSFiles:SlayMonsterQuest.cs.13772");
+            descriptionElement1.param[index] = (object) descriptionElement3.loadDescriptionElement();
+          }
+          else
+          {
+            descriptionElement3 = new DescriptionElement("Data\\Monsters:" + (string) (NetFieldBase<string, NetString>) (descriptionElement1.param[index] as Monster).name);
+            descriptionElement1.param[index] = LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.en ? (object) (((IEnumerable<string>) descriptionElement3.loadDescriptionElement().Split('/')).Last<string>() + "s") : (object) ((IEnumerable<string>) descriptionElement3.loadDescriptionElement().Split('/')).Last<string>();
+          }
+          descriptionElement1.param[index] = (object) ((IEnumerable<string>) descriptionElement3.loadDescriptionElement().Split('/')).Last<string>();
+        }
+        if (descriptionElement1.param[index] is NPC)
+        {
+          DescriptionElement descriptionElement4 = new DescriptionElement("Data\\NPCDispositions:" + (string) (NetFieldBase<string, NetString>) (descriptionElement1.param[index] as NPC).name);
+          descriptionElement1.param[index] = (object) ((IEnumerable<string>) descriptionElement4.loadDescriptionElement().Split('/')).Last<string>();
+        }
+      }
+      if (descriptionElement1.xmlKey == "")
+        return string.Empty;
+      string str1;
+      switch (descriptionElement1.param.Count)
+      {
+        case 1:
+          str1 = Game1.content.LoadString(descriptionElement1.xmlKey, descriptionElement1.param[0]);
+          break;
+        case 2:
+          str1 = Game1.content.LoadString(descriptionElement1.xmlKey, descriptionElement1.param[0], descriptionElement1.param[1]);
+          break;
+        case 3:
+          str1 = Game1.content.LoadString(descriptionElement1.xmlKey, descriptionElement1.param[0], descriptionElement1.param[1], descriptionElement1.param[2]);
+          break;
+        case 4:
+          str1 = Game1.content.LoadString(descriptionElement1.xmlKey, descriptionElement1.param[0], descriptionElement1.param[1], descriptionElement1.param[2], descriptionElement1.param[3]);
+          break;
+        default:
+          str1 = Game1.content.LoadString(descriptionElement1.xmlKey);
+          if (this.xmlKey.Contains("Dialogue.cs.7") || this.xmlKey.Contains("Dialogue.cs.8"))
+          {
+            string str2 = Game1.content.LoadString(descriptionElement1.xmlKey).Replace("/", " ");
+            str1 = str2[0] == ' ' ? str2.Substring(1) : str2;
+            break;
+          }
+          break;
+      }
+      return str1;
+    }
+  }
 }

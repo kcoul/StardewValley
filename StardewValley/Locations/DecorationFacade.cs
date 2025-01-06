@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Locations.DecorationFacade
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using StardewValley.Network;
 using System;
@@ -6,109 +12,84 @@ using System.Linq;
 
 namespace StardewValley.Locations
 {
-	public class DecorationFacade : SerializationCollectionFacade<int>
-	{
-		public delegate void ChangeEvent(int whichRoom, int which);
+  public class DecorationFacade : SerializationCollectionFacade<int>
+  {
+    public readonly NetIntDictionary<int, NetInt> Field = new NetIntDictionary<int, NetInt>();
+    private List<Action> pendingChanges = new List<Action>();
+    [NonInstancedStatic]
+    public static bool warnedDeprecated;
 
-		public readonly NetIntDictionary<int, NetInt> Field = new NetIntDictionary<int, NetInt>();
+    public event DecorationFacade.ChangeEvent OnChange;
 
-		private List<Action> pendingChanges = new List<Action>();
+    public int this[int whichRoom]
+    {
+      get
+      {
+        this.WarnDeprecation();
+        return this.Field.ContainsKey(whichRoom) ? this.Field[whichRoom] : 0;
+      }
+      set
+      {
+        this.WarnDeprecation();
+        this.Field[whichRoom] = value;
+      }
+    }
 
-		public int this[int whichRoom]
-		{
-			get
-			{
-				if (Field.ContainsKey(whichRoom))
-				{
-					return Field[whichRoom];
-				}
-				return 0;
-			}
-			set
-			{
-				Field[whichRoom] = value;
-			}
-		}
+    public int Count => this.Field.Count() == 0 ? 0 : this.Field.Keys.Max() + 1;
 
-		public int Count
-		{
-			get
-			{
-				if (Field.Count() == 0)
-				{
-					return 0;
-				}
-				return Field.Keys.Max() + 1;
-			}
-		}
+    public DecorationFacade()
+    {
+      this.Field.InterpolationWait = false;
+      this.Field.OnValueAdded += (NetDictionary<int, int, NetInt, SerializableDictionary<int, int>, NetIntDictionary<int, NetInt>>.ContentsChangeEvent) ((whichRoom, which) =>
+      {
+        this.Field.InterpolationWait = false;
+        this.Field.FieldDict[whichRoom].fieldChangeEvent += (NetFieldBase<int, NetInt>.FieldChange) ((field, oldValue, newValue) => this.changed(whichRoom, newValue));
+        this.changed(whichRoom, which);
+      });
+    }
 
-		public event ChangeEvent OnChange;
+    private void changed(int whichRoom, int which) => this.pendingChanges.Add((Action) (() =>
+    {
+      if (this.OnChange == null)
+        return;
+      this.OnChange(whichRoom, which);
+    }));
 
-		public DecorationFacade()
-		{
-			Field.InterpolationWait = false;
-			Field.OnValueAdded += delegate(int whichRoom, int which)
-			{
-				DecorationFacade decorationFacade = this;
-				Field.InterpolationWait = false;
-				Field.FieldDict[whichRoom].fieldChangeEvent += delegate(NetInt field, int oldValue, int newValue)
-				{
-					decorationFacade.changed(whichRoom, newValue);
-				};
-				changed(whichRoom, which);
-			};
-		}
+    protected override List<int> Serialize()
+    {
+      List<int> intList = new List<int>();
+      while (intList.Count < this.Count)
+        intList.Add(0);
+      foreach (KeyValuePair<int, int> pair in this.Field.Pairs)
+        intList[pair.Key] = pair.Value;
+      return intList;
+    }
 
-		private void changed(int whichRoom, int which)
-		{
-			pendingChanges.Add(delegate
-			{
-				if (this.OnChange != null)
-				{
-					this.OnChange(whichRoom, which);
-				}
-			});
-		}
+    protected override void DeserializeAdd(int serialValue) => this.Field[this.Count] = serialValue;
 
-		protected override List<int> Serialize()
-		{
-			List<int> result = new List<int>();
-			while (result.Count < Count)
-			{
-				result.Add(0);
-			}
-			foreach (KeyValuePair<int, int> pair in Field.Pairs)
-			{
-				result[pair.Key] = pair.Value;
-			}
-			return result;
-		}
+    public void Set(DecorationFacade other) => this.Field.Set((IEnumerable<KeyValuePair<int, int>>) other.Field.Pairs);
 
-		protected override void DeserializeAdd(int serialValue)
-		{
-			Field[Count] = serialValue;
-		}
+    public void SetCountAtLeast(int targetCount)
+    {
+      while (this.Count < targetCount)
+        this[this.Count] = 0;
+    }
 
-		public void Set(DecorationFacade other)
-		{
-			Field.Set(other.Field.Pairs);
-		}
+    public void Update()
+    {
+      foreach (Action pendingChange in this.pendingChanges)
+        pendingChange();
+      this.pendingChanges.Clear();
+    }
 
-		public void SetCountAtLeast(int targetCount)
-		{
-			while (Count < targetCount)
-			{
-				this[Count] = 0;
-			}
-		}
+    public virtual void WarnDeprecation()
+    {
+      if (Game1.gameMode == (byte) 6 || DecorationFacade.warnedDeprecated)
+        return;
+      DecorationFacade.warnedDeprecated = true;
+      Console.WriteLine("WARNING: DecorationFacade/DecoratableLocation.wallPaper and floor are deprecated. Use wallpaperIDs, appliedWallpaper, wallPaperTiles/floorIDs, appliedFloor, and floorTiles instead.");
+    }
 
-		public void Update()
-		{
-			foreach (Action pendingChange in pendingChanges)
-			{
-				pendingChange();
-			}
-			pendingChanges.Clear();
-		}
-	}
+    public delegate void ChangeEvent(int whichRoom, int which);
+  }
 }

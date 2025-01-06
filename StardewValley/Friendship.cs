@@ -1,265 +1,135 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Friendship
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System;
 using System.Xml.Serialization;
 
 namespace StardewValley
 {
-	public class Friendship : INetObject<NetFields>
-	{
-		private readonly NetInt points = new NetInt();
+  public class Friendship : INetObject<NetFields>
+  {
+    private readonly NetInt points = new NetInt();
+    private readonly NetInt giftsThisWeek = new NetInt();
+    private readonly NetInt giftsToday = new NetInt();
+    private readonly NetRef<WorldDate> lastGiftDate = new NetRef<WorldDate>();
+    private readonly NetBool talkedToToday = new NetBool();
+    private readonly NetBool proposalRejected = new NetBool();
+    private readonly NetRef<WorldDate> weddingDate = new NetRef<WorldDate>();
+    private readonly NetRef<WorldDate> nextBirthingDate = new NetRef<WorldDate>();
+    private readonly NetEnum<FriendshipStatus> status = new NetEnum<FriendshipStatus>(FriendshipStatus.Friendly);
+    private readonly NetLong proposer = new NetLong();
+    private readonly NetBool roommateMarriage = new NetBool(false);
 
-		private readonly NetInt giftsThisWeek = new NetInt();
+    [XmlIgnore]
+    public NetFields NetFields { get; } = new NetFields();
 
-		private readonly NetInt giftsToday = new NetInt();
+    public int Points
+    {
+      get => this.points.Value;
+      set => this.points.Value = value;
+    }
 
-		private readonly NetRef<WorldDate> lastGiftDate = new NetRef<WorldDate>();
+    public int GiftsThisWeek
+    {
+      get => this.giftsThisWeek.Value;
+      set => this.giftsThisWeek.Value = value;
+    }
 
-		private readonly NetBool talkedToToday = new NetBool();
+    public int GiftsToday
+    {
+      get => this.giftsToday.Value;
+      set => this.giftsToday.Value = value;
+    }
 
-		private readonly NetBool proposalRejected = new NetBool();
+    public WorldDate LastGiftDate
+    {
+      get => this.lastGiftDate.Value;
+      set => this.lastGiftDate.Value = value;
+    }
 
-		private readonly NetRef<WorldDate> weddingDate = new NetRef<WorldDate>();
+    public bool TalkedToToday
+    {
+      get => this.talkedToToday.Value;
+      set => this.talkedToToday.Value = value;
+    }
 
-		private readonly NetRef<WorldDate> nextBirthingDate = new NetRef<WorldDate>();
+    public bool ProposalRejected
+    {
+      get => this.proposalRejected.Value;
+      set => this.proposalRejected.Value = value;
+    }
 
-		private readonly NetEnum<FriendshipStatus> status = new NetEnum<FriendshipStatus>(FriendshipStatus.Friendly);
+    public WorldDate WeddingDate
+    {
+      get => this.weddingDate.Value;
+      set => this.weddingDate.Value = value;
+    }
 
-		private readonly NetLong proposer = new NetLong();
+    public WorldDate NextBirthingDate
+    {
+      get => this.nextBirthingDate.Value;
+      set => this.nextBirthingDate.Value = value;
+    }
 
-		private readonly NetBool roommateMarriage = new NetBool(value: false);
+    public FriendshipStatus Status
+    {
+      get => this.status.Value;
+      set => this.status.Value = value;
+    }
 
-		[XmlIgnore]
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    public long Proposer
+    {
+      get => this.proposer.Value;
+      set => this.proposer.Value = value;
+    }
 
+    public bool RoommateMarriage
+    {
+      get => this.roommateMarriage.Value;
+      set => this.roommateMarriage.Value = value;
+    }
 
-		public int Points
-		{
-			get
-			{
-				return points.Value;
-			}
-			set
-			{
-				points.Value = value;
-			}
-		}
+    public int DaysMarried => this.WeddingDate == (WorldDate) null || this.WeddingDate.TotalDays > Game1.Date.TotalDays ? 0 : Game1.Date.TotalDays - this.WeddingDate.TotalDays;
 
-		public int GiftsThisWeek
-		{
-			get
-			{
-				return giftsThisWeek.Value;
-			}
-			set
-			{
-				giftsThisWeek.Value = value;
-			}
-		}
+    public int CountdownToWedding => this.WeddingDate == (WorldDate) null || this.WeddingDate.TotalDays < Game1.Date.TotalDays ? 0 : this.WeddingDate.TotalDays - Game1.Date.TotalDays;
 
-		public int GiftsToday
-		{
-			get
-			{
-				return giftsToday.Value;
-			}
-			set
-			{
-				giftsToday.Value = value;
-			}
-		}
+    public int DaysUntilBirthing => this.NextBirthingDate == (WorldDate) null ? -1 : Math.Max(0, this.NextBirthingDate.TotalDays - Game1.Date.TotalDays);
 
-		public WorldDate LastGiftDate
-		{
-			get
-			{
-				return lastGiftDate.Value;
-			}
-			set
-			{
-				lastGiftDate.Value = value;
-			}
-		}
+    public Friendship() => this.NetFields.AddFields((INetSerializable) this.points, (INetSerializable) this.giftsThisWeek, (INetSerializable) this.giftsToday, (INetSerializable) this.lastGiftDate, (INetSerializable) this.talkedToToday, (INetSerializable) this.proposalRejected, (INetSerializable) this.weddingDate, (INetSerializable) this.nextBirthingDate, (INetSerializable) this.status, (INetSerializable) this.proposer, (INetSerializable) this.roommateMarriage);
 
-		public bool TalkedToToday
-		{
-			get
-			{
-				return talkedToToday.Value;
-			}
-			set
-			{
-				talkedToToday.Value = value;
-			}
-		}
+    public Friendship(int startingPoints)
+      : this()
+    {
+      this.Points = startingPoints;
+    }
 
-		public bool ProposalRejected
-		{
-			get
-			{
-				return proposalRejected.Value;
-			}
-			set
-			{
-				proposalRejected.Value = value;
-			}
-		}
+    public void Clear()
+    {
+      this.points.Value = 0;
+      this.giftsThisWeek.Value = 0;
+      this.giftsToday.Value = 0;
+      this.lastGiftDate.Value = (WorldDate) null;
+      this.talkedToToday.Value = false;
+      this.proposalRejected.Value = false;
+      this.roommateMarriage.Value = false;
+      this.weddingDate.Value = (WorldDate) null;
+      this.nextBirthingDate.Value = (WorldDate) null;
+      this.status.Value = FriendshipStatus.Friendly;
+      this.proposer.Value = 0L;
+    }
 
-		public WorldDate WeddingDate
-		{
-			get
-			{
-				return weddingDate.Value;
-			}
-			set
-			{
-				weddingDate.Value = value;
-			}
-		}
+    public bool IsDating() => this.Status == FriendshipStatus.Dating || this.Status == FriendshipStatus.Engaged || this.Status == FriendshipStatus.Married;
 
-		public WorldDate NextBirthingDate
-		{
-			get
-			{
-				return nextBirthingDate.Value;
-			}
-			set
-			{
-				nextBirthingDate.Value = value;
-			}
-		}
+    public bool IsEngaged() => this.Status == FriendshipStatus.Engaged;
 
-		public FriendshipStatus Status
-		{
-			get
-			{
-				return status.Value;
-			}
-			set
-			{
-				status.Value = value;
-			}
-		}
+    public bool IsMarried() => this.Status == FriendshipStatus.Married;
 
-		public long Proposer
-		{
-			get
-			{
-				return proposer.Value;
-			}
-			set
-			{
-				proposer.Value = value;
-			}
-		}
+    public bool IsDivorced() => this.Status == FriendshipStatus.Divorced;
 
-		public bool RoommateMarriage
-		{
-			get
-			{
-				return roommateMarriage.Value;
-			}
-			set
-			{
-				roommateMarriage.Value = value;
-			}
-		}
-
-		public int DaysMarried
-		{
-			get
-			{
-				if (WeddingDate == null || WeddingDate.TotalDays > Game1.Date.TotalDays)
-				{
-					return 0;
-				}
-				return Game1.Date.TotalDays - WeddingDate.TotalDays;
-			}
-		}
-
-		public int CountdownToWedding
-		{
-			get
-			{
-				if (WeddingDate == null || WeddingDate.TotalDays < Game1.Date.TotalDays)
-				{
-					return 0;
-				}
-				return WeddingDate.TotalDays - Game1.Date.TotalDays;
-			}
-		}
-
-		public int DaysUntilBirthing
-		{
-			get
-			{
-				if (NextBirthingDate == null)
-				{
-					return -1;
-				}
-				return Math.Max(0, NextBirthingDate.TotalDays - Game1.Date.TotalDays);
-			}
-		}
-
-		public Friendship()
-		{
-			NetFields.AddFields(points, giftsThisWeek, giftsToday, lastGiftDate, talkedToToday, proposalRejected, weddingDate, nextBirthingDate, status, proposer, roommateMarriage);
-		}
-
-		public Friendship(int startingPoints)
-			: this()
-		{
-			Points = startingPoints;
-		}
-
-		public void Clear()
-		{
-			points.Value = 0;
-			giftsThisWeek.Value = 0;
-			giftsToday.Value = 0;
-			lastGiftDate.Value = null;
-			talkedToToday.Value = false;
-			proposalRejected.Value = false;
-			roommateMarriage.Value = false;
-			weddingDate.Value = null;
-			nextBirthingDate.Value = null;
-			status.Value = FriendshipStatus.Friendly;
-			proposer.Value = 0L;
-		}
-
-		public bool IsDating()
-		{
-			if (Status != FriendshipStatus.Dating && Status != FriendshipStatus.Engaged)
-			{
-				return Status == FriendshipStatus.Married;
-			}
-			return true;
-		}
-
-		public bool IsEngaged()
-		{
-			return Status == FriendshipStatus.Engaged;
-		}
-
-		public bool IsMarried()
-		{
-			return Status == FriendshipStatus.Married;
-		}
-
-		public bool IsDivorced()
-		{
-			return Status == FriendshipStatus.Divorced;
-		}
-
-		public bool IsRoommate()
-		{
-			if (IsMarried())
-			{
-				return roommateMarriage.Value;
-			}
-			return false;
-		}
-	}
+    public bool IsRoommate() => this.IsMarried() && this.roommateMarriage.Value;
+  }
 }

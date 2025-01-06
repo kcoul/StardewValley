@@ -1,249 +1,206 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Events.SoundInTheNightEvent
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
 using StardewValley.Buildings;
+using StardewValley.Network;
 using StardewValley.TerrainFeatures;
 using System;
-using System.Collections.Generic;
 
 namespace StardewValley.Events
 {
-	public class SoundInTheNightEvent : FarmEvent, INetObject<NetFields>
-	{
-		public const int cropCircle = 0;
+  public class SoundInTheNightEvent : FarmEvent, INetObject<NetFields>
+  {
+    public const int cropCircle = 0;
+    public const int meteorite = 1;
+    public const int dogs = 2;
+    public const int owl = 3;
+    public const int earthquake = 4;
+    private readonly NetInt behavior = new NetInt();
+    private int timer;
+    private string soundName;
+    private string message;
+    private bool playedSound;
+    private bool showedMessage;
+    private Vector2 targetLocation;
+    private Building targetBuilding;
 
-		public const int meteorite = 1;
+    public NetFields NetFields { get; } = new NetFields();
 
-		public const int dogs = 2;
+    public SoundInTheNightEvent() => this.NetFields.AddField((INetSerializable) this.behavior);
 
-		public const int owl = 3;
+    public SoundInTheNightEvent(int which)
+      : this()
+    {
+      this.behavior.Value = which;
+    }
 
-		public const int earthquake = 4;
+    public bool setUp()
+    {
+      Random random = new Random((int) Game1.uniqueIDForThisGame + (int) Game1.stats.DaysPlayed);
+      Farm locationFromName = Game1.getLocationFromName("Farm") as Farm;
+      locationFromName.updateMap();
+      switch ((int) (NetFieldBase<int, NetInt>) this.behavior)
+      {
+        case 0:
+          this.soundName = "UFO";
+          this.message = Game1.content.LoadString("Strings\\Events:SoundInTheNight_UFO");
+          int num1;
+          for (num1 = 50; num1 > 0; --num1)
+          {
+            this.targetLocation = new Vector2((float) random.Next(5, locationFromName.map.GetLayer("Back").TileWidth - 4), (float) random.Next(5, locationFromName.map.GetLayer("Back").TileHeight - 4));
+            if (locationFromName.isTileLocationTotallyClearAndPlaceable(this.targetLocation))
+              break;
+          }
+          if (num1 <= 0)
+            return true;
+          break;
+        case 1:
+          this.soundName = "Meteorite";
+          this.message = Game1.content.LoadString("Strings\\Events:SoundInTheNight_Meteorite");
+          this.targetLocation = new Vector2((float) random.Next(5, locationFromName.map.GetLayer("Back").TileWidth - 20), (float) random.Next(5, locationFromName.map.GetLayer("Back").TileHeight - 4));
+          for (int x = (int) this.targetLocation.X; (double) x <= (double) this.targetLocation.X + 1.0; ++x)
+          {
+            for (int y = (int) this.targetLocation.Y; (double) y <= (double) this.targetLocation.Y + 1.0; ++y)
+            {
+              Vector2 tile = new Vector2((float) x, (float) y);
+              if (!locationFromName.isTileOpenBesidesTerrainFeatures(tile) || !locationFromName.isTileOpenBesidesTerrainFeatures(new Vector2(tile.X + 1f, tile.Y)) || !locationFromName.isTileOpenBesidesTerrainFeatures(new Vector2(tile.X + 1f, tile.Y - 1f)) || !locationFromName.isTileOpenBesidesTerrainFeatures(new Vector2(tile.X, tile.Y - 1f)) || locationFromName.doesTileHaveProperty((int) tile.X, (int) tile.Y, "Water", "Back") != null || locationFromName.doesTileHaveProperty((int) tile.X + 1, (int) tile.Y, "Water", "Back") != null)
+                return true;
+            }
+          }
+          break;
+        case 2:
+          this.soundName = "dogs";
+          if (random.NextDouble() < 0.5)
+            return true;
+          foreach (Building building in locationFromName.buildings)
+          {
+            if (building.indoors.Value != null && building.indoors.Value is AnimalHouse && !(bool) (NetFieldBase<bool, NetBool>) building.animalDoorOpen && (building.indoors.Value as AnimalHouse).animalsThatLiveHere.Count > (building.indoors.Value as AnimalHouse).animals.Count() && random.NextDouble() < 1.0 / (double) locationFromName.buildings.Count)
+            {
+              this.targetBuilding = building;
+              break;
+            }
+          }
+          return this.targetBuilding == null;
+        case 3:
+          this.soundName = "owl";
+          int num2;
+          for (num2 = 50; num2 > 0; --num2)
+          {
+            this.targetLocation = new Vector2((float) random.Next(5, locationFromName.map.GetLayer("Back").TileWidth - 4), (float) random.Next(5, locationFromName.map.GetLayer("Back").TileHeight - 4));
+            if (locationFromName.isTileLocationTotallyClearAndPlaceable(this.targetLocation))
+              break;
+          }
+          if (num2 <= 0)
+            return true;
+          break;
+        case 4:
+          this.soundName = "thunder_small";
+          this.message = Game1.content.LoadString("Strings\\Events:SoundInTheNight_Earthquake");
+          break;
+      }
+      Game1.freezeControls = true;
+      return false;
+    }
 
-		private readonly NetInt behavior = new NetInt();
+    public bool tickUpdate(GameTime time)
+    {
+      this.timer += time.ElapsedGameTime.Milliseconds;
+      if (this.timer > 1500 && !this.playedSound)
+      {
+        if (this.soundName != null && !this.soundName.Equals(""))
+        {
+          Game1.playSound(this.soundName);
+          this.playedSound = true;
+        }
+        if (!this.playedSound && this.message != null)
+        {
+          Game1.drawObjectDialogue(this.message);
+          Game1.globalFadeToClear();
+          this.showedMessage = true;
+        }
+      }
+      if (this.timer > 7000 && !this.showedMessage)
+      {
+        Game1.pauseThenMessage(10, this.message, false);
+        this.showedMessage = true;
+      }
+      if (!this.showedMessage || !this.playedSound)
+        return false;
+      Game1.freezeControls = false;
+      return true;
+    }
 
-		private int timer;
+    public void draw(SpriteBatch b)
+    {
+      SpriteBatch spriteBatch = b;
+      Texture2D staminaRect = Game1.staminaRect;
+      Viewport viewport = Game1.graphics.GraphicsDevice.Viewport;
+      int width = viewport.Width;
+      viewport = Game1.graphics.GraphicsDevice.Viewport;
+      int height = viewport.Height;
+      Rectangle destinationRectangle = new Rectangle(0, 0, width, height);
+      Color black = Color.Black;
+      spriteBatch.Draw(staminaRect, destinationRectangle, black);
+    }
 
-		private string soundName;
+    public void makeChangesToLocation()
+    {
+      if (!Game1.IsMasterGame)
+        return;
+      Farm locationFromName = Game1.getLocationFromName("Farm") as Farm;
+      switch ((int) (NetFieldBase<int, NetInt>) this.behavior)
+      {
+        case 0:
+          StardewValley.Object @object = new StardewValley.Object(this.targetLocation, 96);
+          @object.minutesUntilReady.Value = 24000 - Game1.timeOfDay;
+          locationFromName.objects.Add(this.targetLocation, @object);
+          break;
+        case 1:
+          if (locationFromName.terrainFeatures.ContainsKey(this.targetLocation))
+            locationFromName.terrainFeatures.Remove(this.targetLocation);
+          if (locationFromName.terrainFeatures.ContainsKey(this.targetLocation + new Vector2(1f, 0.0f)))
+            locationFromName.terrainFeatures.Remove(this.targetLocation + new Vector2(1f, 0.0f));
+          if (locationFromName.terrainFeatures.ContainsKey(this.targetLocation + new Vector2(1f, 1f)))
+            locationFromName.terrainFeatures.Remove(this.targetLocation + new Vector2(1f, 1f));
+          if (locationFromName.terrainFeatures.ContainsKey(this.targetLocation + new Vector2(0.0f, 1f)))
+            locationFromName.terrainFeatures.Remove(this.targetLocation + new Vector2(0.0f, 1f));
+          locationFromName.resourceClumps.Add(new ResourceClump(622, 2, 2, this.targetLocation));
+          break;
+        case 2:
+          AnimalHouse animalHouse = this.targetBuilding.indoors.Value as AnimalHouse;
+          long key1 = 0;
+          foreach (long key2 in (NetList<long, NetLong>) animalHouse.animalsThatLiveHere)
+          {
+            if (!animalHouse.animals.ContainsKey(key2))
+            {
+              key1 = key2;
+              break;
+            }
+          }
+          if (!Game1.getFarm().animals.ContainsKey(key1))
+            break;
+          Game1.getFarm().animals.Remove(key1);
+          animalHouse.animalsThatLiveHere.Remove(key1);
+          using (NetDictionary<long, FarmAnimal, NetRef<FarmAnimal>, SerializableDictionary<long, FarmAnimal>, NetLongDictionary<FarmAnimal, NetRef<FarmAnimal>>>.PairsCollection.Enumerator enumerator = Game1.getFarm().animals.Pairs.GetEnumerator())
+          {
+            while (enumerator.MoveNext())
+              enumerator.Current.Value.moodMessage.Value = 5;
+            break;
+          }
+        case 3:
+          locationFromName.objects.Add(this.targetLocation, new StardewValley.Object(this.targetLocation, 95));
+          break;
+      }
+    }
 
-		private string message;
-
-		private bool playedSound;
-
-		private bool showedMessage;
-
-		private Vector2 targetLocation;
-
-		private Building targetBuilding;
-
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
-
-
-		public SoundInTheNightEvent()
-		{
-			NetFields.AddField(behavior);
-		}
-
-		public SoundInTheNightEvent(int which)
-			: this()
-		{
-			behavior.Value = which;
-		}
-
-		public bool setUp()
-		{
-			Random r = new Random((int)Game1.uniqueIDForThisGame + (int)Game1.stats.DaysPlayed);
-			Farm f = Game1.getLocationFromName("Farm") as Farm;
-			f.updateMap();
-			switch ((int)behavior)
-			{
-			case 0:
-			{
-				soundName = "UFO";
-				message = Game1.content.LoadString("Strings\\Events:SoundInTheNight_UFO");
-				int attempts2;
-				for (attempts2 = 50; attempts2 > 0; attempts2--)
-				{
-					targetLocation = new Vector2(r.Next(5, f.map.GetLayer("Back").TileWidth - 4), r.Next(5, f.map.GetLayer("Back").TileHeight - 4));
-					if (f.isTileLocationTotallyClearAndPlaceable(targetLocation))
-					{
-						break;
-					}
-				}
-				if (attempts2 <= 0)
-				{
-					return true;
-				}
-				break;
-			}
-			case 1:
-			{
-				soundName = "Meteorite";
-				message = Game1.content.LoadString("Strings\\Events:SoundInTheNight_Meteorite");
-				targetLocation = new Vector2(r.Next(5, f.map.GetLayer("Back").TileWidth - 20), r.Next(5, f.map.GetLayer("Back").TileHeight - 4));
-				for (int j = (int)targetLocation.X; (float)j <= targetLocation.X + 1f; j++)
-				{
-					for (int i = (int)targetLocation.Y; (float)i <= targetLocation.Y + 1f; i++)
-					{
-						Vector2 v = new Vector2(j, i);
-						if (!f.isTileOpenBesidesTerrainFeatures(v) || !f.isTileOpenBesidesTerrainFeatures(new Vector2(v.X + 1f, v.Y)) || !f.isTileOpenBesidesTerrainFeatures(new Vector2(v.X + 1f, v.Y - 1f)) || !f.isTileOpenBesidesTerrainFeatures(new Vector2(v.X, v.Y - 1f)) || f.doesTileHaveProperty((int)v.X, (int)v.Y, "Water", "Back") != null || f.doesTileHaveProperty((int)v.X + 1, (int)v.Y, "Water", "Back") != null)
-						{
-							return true;
-						}
-					}
-				}
-				break;
-			}
-			case 2:
-				soundName = "dogs";
-				if (r.NextDouble() < 0.5)
-				{
-					return true;
-				}
-				foreach (Building b in f.buildings)
-				{
-					if (b.indoors.Value != null && b.indoors.Value is AnimalHouse && !b.animalDoorOpen && (b.indoors.Value as AnimalHouse).animalsThatLiveHere.Count > (b.indoors.Value as AnimalHouse).animals.Count() && r.NextDouble() < (double)(1f / (float)f.buildings.Count))
-					{
-						targetBuilding = b;
-						break;
-					}
-				}
-				if (targetBuilding == null)
-				{
-					return true;
-				}
-				return false;
-			case 3:
-			{
-				soundName = "owl";
-				int attempts2;
-				for (attempts2 = 50; attempts2 > 0; attempts2--)
-				{
-					targetLocation = new Vector2(r.Next(5, f.map.GetLayer("Back").TileWidth - 4), r.Next(5, f.map.GetLayer("Back").TileHeight - 4));
-					if (f.isTileLocationTotallyClearAndPlaceable(targetLocation))
-					{
-						break;
-					}
-				}
-				if (attempts2 <= 0)
-				{
-					return true;
-				}
-				break;
-			}
-			case 4:
-				soundName = "thunder_small";
-				message = Game1.content.LoadString("Strings\\Events:SoundInTheNight_Earthquake");
-				break;
-			}
-			Game1.freezeControls = true;
-			return false;
-		}
-
-		public bool tickUpdate(GameTime time)
-		{
-			timer += time.ElapsedGameTime.Milliseconds;
-			if (timer > 1500 && !playedSound)
-			{
-				if (soundName != null && !soundName.Equals(""))
-				{
-					Game1.playSound(soundName);
-					playedSound = true;
-				}
-				if (!playedSound && message != null)
-				{
-					Game1.drawObjectDialogue(message);
-					Game1.globalFadeToClear();
-					showedMessage = true;
-				}
-			}
-			if (timer > 7000 && !showedMessage)
-			{
-				Game1.pauseThenMessage(10, message, showProgressBar: false);
-				showedMessage = true;
-			}
-			if (showedMessage && playedSound)
-			{
-				Game1.freezeControls = false;
-				return true;
-			}
-			return false;
-		}
-
-		public void draw(SpriteBatch b)
-		{
-			b.Draw(Game1.staminaRect, new Rectangle(0, 0, Game1.graphics.GraphicsDevice.Viewport.Width, Game1.graphics.GraphicsDevice.Viewport.Height), Color.Black);
-		}
-
-		public void makeChangesToLocation()
-		{
-			if (!Game1.IsMasterGame)
-			{
-				return;
-			}
-			Farm f = Game1.getLocationFromName("Farm") as Farm;
-			switch ((int)behavior)
-			{
-			case 0:
-			{
-				Object o = new Object(targetLocation, 96);
-				o.minutesUntilReady.Value = 24000 - Game1.timeOfDay;
-				f.objects.Add(targetLocation, o);
-				break;
-			}
-			case 1:
-				if (f.terrainFeatures.ContainsKey(targetLocation))
-				{
-					f.terrainFeatures.Remove(targetLocation);
-				}
-				if (f.terrainFeatures.ContainsKey(targetLocation + new Vector2(1f, 0f)))
-				{
-					f.terrainFeatures.Remove(targetLocation + new Vector2(1f, 0f));
-				}
-				if (f.terrainFeatures.ContainsKey(targetLocation + new Vector2(1f, 1f)))
-				{
-					f.terrainFeatures.Remove(targetLocation + new Vector2(1f, 1f));
-				}
-				if (f.terrainFeatures.ContainsKey(targetLocation + new Vector2(0f, 1f)))
-				{
-					f.terrainFeatures.Remove(targetLocation + new Vector2(0f, 1f));
-				}
-				f.resourceClumps.Add(new ResourceClump(622, 2, 2, targetLocation));
-				break;
-			case 2:
-			{
-				AnimalHouse indoors = targetBuilding.indoors.Value as AnimalHouse;
-				long idOfRemove = 0L;
-				foreach (long a in indoors.animalsThatLiveHere)
-				{
-					if (!indoors.animals.ContainsKey(a))
-					{
-						idOfRemove = a;
-						break;
-					}
-				}
-				if (Game1.getFarm().animals.ContainsKey(idOfRemove))
-				{
-					Game1.getFarm().animals.Remove(idOfRemove);
-					indoors.animalsThatLiveHere.Remove(idOfRemove);
-					foreach (KeyValuePair<long, FarmAnimal> pair in Game1.getFarm().animals.Pairs)
-					{
-						pair.Value.moodMessage.Value = 5;
-					}
-				}
-				break;
-			}
-			case 3:
-				f.objects.Add(targetLocation, new Object(targetLocation, 95));
-				break;
-			}
-		}
-
-		public void drawAboveEverything(SpriteBatch b)
-		{
-		}
-	}
+    public void drawAboveEverything(SpriteBatch b)
+    {
+    }
+  }
 }

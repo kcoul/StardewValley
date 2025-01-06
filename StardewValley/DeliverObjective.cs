@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.DeliverObjective
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System;
 using System.Collections.Generic;
@@ -5,126 +11,95 @@ using System.Xml.Serialization;
 
 namespace StardewValley
 {
-	public class DeliverObjective : OrderObjective
-	{
-		[XmlElement("acceptableContextTagSets")]
-		public NetStringList acceptableContextTagSets = new NetStringList();
+  public class DeliverObjective : OrderObjective
+  {
+    [XmlElement("acceptableContextTagSets")]
+    public NetStringList acceptableContextTagSets = new NetStringList();
+    [XmlElement("targetName")]
+    public NetString targetName = new NetString();
+    [XmlElement("message")]
+    public NetString message = new NetString();
 
-		[XmlElement("targetName")]
-		public NetString targetName = new NetString();
+    public override void Load(SpecialOrder order, Dictionary<string, string> data)
+    {
+      if (data.ContainsKey("AcceptedContextTags"))
+        this.acceptableContextTagSets.Add(order.Parse(data["AcceptedContextTags"]));
+      if (data.ContainsKey("TargetName"))
+        this.targetName.Value = order.Parse(data["TargetName"]);
+      else
+        this.targetName.Value = this._order.requester.Value;
+      if (data.ContainsKey("Message"))
+        this.message.Value = order.Parse(data["Message"]);
+      else
+        this.message.Value = "";
+    }
 
-		[XmlElement("message")]
-		public NetString message = new NetString();
+    public override void InitializeNetFields()
+    {
+      base.InitializeNetFields();
+      this.NetFields.AddFields((INetSerializable) this.acceptableContextTagSets, (INetSerializable) this.targetName, (INetSerializable) this.message);
+    }
 
-		public override void Load(SpecialOrder order, Dictionary<string, string> data)
-		{
-			if (data.ContainsKey("AcceptedContextTags"))
-			{
-				acceptableContextTagSets.Add(order.Parse(data["AcceptedContextTags"]));
-			}
-			if (data.ContainsKey("TargetName"))
-			{
-				targetName.Value = order.Parse(data["TargetName"]);
-			}
-			else
-			{
-				targetName.Value = _order.requester.Value;
-			}
-			if (data.ContainsKey("Message"))
-			{
-				message.Value = order.Parse(data["Message"]);
-			}
-			else
-			{
-				message.Value = "";
-			}
-		}
+    public override bool ShouldShowProgress() => false;
 
-		public override void InitializeNetFields()
-		{
-			base.InitializeNetFields();
-			base.NetFields.AddFields(acceptableContextTagSets, targetName, message);
-		}
+    protected override void _Register()
+    {
+      base._Register();
+      this._order.onItemDelivered += new Func<Farmer, NPC, Item, int>(this.OnItemDelivered);
+    }
 
-		public override bool ShouldShowProgress()
-		{
-			return false;
-		}
+    protected override void _Unregister()
+    {
+      base._Unregister();
+      this._order.onItemDelivered -= new Func<Farmer, NPC, Item, int>(this.OnItemDelivered);
+    }
 
-		protected override void _Register()
-		{
-			base._Register();
-			SpecialOrder order = _order;
-			order.onItemDelivered = (Func<Farmer, NPC, Item, int>)Delegate.Combine(order.onItemDelivered, new Func<Farmer, NPC, Item, int>(OnItemDelivered));
-		}
-
-		protected override void _Unregister()
-		{
-			base._Unregister();
-			SpecialOrder order = _order;
-			order.onItemDelivered = (Func<Farmer, NPC, Item, int>)Delegate.Remove(order.onItemDelivered, new Func<Farmer, NPC, Item, int>(OnItemDelivered));
-		}
-
-		public virtual int OnItemDelivered(Farmer farmer, NPC npc, Item item)
-		{
-			if (IsComplete())
-			{
-				return 0;
-			}
-			if (npc.Name != targetName.Value)
-			{
-				return 0;
-			}
-			bool is_valid_delivery = true;
-			foreach (string acceptableContextTagSet in acceptableContextTagSets)
-			{
-				is_valid_delivery = false;
-				bool fail = false;
-				string[] array = acceptableContextTagSet.Split(',');
-				foreach (string obj in array)
-				{
-					bool found_match = false;
-					string[] array2 = obj.Split('/');
-					foreach (string acceptable_tag in array2)
-					{
-						if (item.HasContextTag(acceptable_tag.Trim()))
-						{
-							found_match = true;
-							break;
-						}
-					}
-					if (!found_match)
-					{
-						fail = true;
-					}
-				}
-				if (!fail)
-				{
-					is_valid_delivery = true;
-					break;
-				}
-			}
-			if (!is_valid_delivery)
-			{
-				return 0;
-			}
-			int required_amount = GetMaxCount() - GetCount();
-			int donated_amount = Math.Min(item.Stack, required_amount);
-			if (donated_amount < required_amount)
-			{
-				return 0;
-			}
-			Item donated_item = item.getOne();
-			donated_item.Stack = donated_amount;
-			_order.donatedItems.Add(donated_item);
-			item.Stack -= donated_amount;
-			IncrementCount(donated_amount);
-			if (!string.IsNullOrEmpty(message.Value))
-			{
-				npc.CurrentDialogue.Push(new Dialogue(message.Value, npc));
-				Game1.drawDialogue(npc);
-			}
-			return donated_amount;
-		}
-	}
+    public virtual int OnItemDelivered(Farmer farmer, NPC npc, Item item)
+    {
+      if (this.IsComplete() || npc.Name != this.targetName.Value)
+        return 0;
+      bool flag1 = true;
+      foreach (string acceptableContextTagSet in (NetList<string, NetString>) this.acceptableContextTagSets)
+      {
+        flag1 = false;
+        bool flag2 = false;
+        foreach (string str1 in acceptableContextTagSet.Split(','))
+        {
+          bool flag3 = false;
+          foreach (string str2 in str1.Split('/'))
+          {
+            if (item.HasContextTag(str2.Trim()))
+            {
+              flag3 = true;
+              break;
+            }
+          }
+          if (!flag3)
+            flag2 = true;
+        }
+        if (!flag2)
+        {
+          flag1 = true;
+          break;
+        }
+      }
+      if (!flag1)
+        return 0;
+      int val2 = this.GetMaxCount() - this.GetCount();
+      int amount = Math.Min(item.Stack, val2);
+      if (amount < val2)
+        return 0;
+      Item one = item.getOne();
+      one.Stack = amount;
+      this._order.donatedItems.Add(one);
+      item.Stack -= amount;
+      this.IncrementCount(amount);
+      if (!string.IsNullOrEmpty(this.message.Value))
+      {
+        npc.CurrentDialogue.Push(new Dialogue(this.message.Value, npc));
+        Game1.drawDialogue(npc);
+      }
+      return amount;
+    }
+  }
 }

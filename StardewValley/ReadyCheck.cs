@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.ReadyCheck
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using StardewValley.Menus;
 using StardewValley.Network;
@@ -6,145 +12,116 @@ using System.Linq;
 
 namespace StardewValley
 {
-	internal class ReadyCheck : INetObject<NetFields>
-	{
-		private readonly NetString name = new NetString();
+  internal class ReadyCheck : INetObject<NetFields>
+  {
+    private readonly NetString name = new NetString();
+    private readonly NetFarmerCollection readyPlayers = new NetFarmerCollection();
+    private readonly NetFarmerCollection setPlayers = new NetFarmerCollection();
+    private readonly NetFarmerCollection requiredPlayers = new NetFarmerCollection();
 
-		private readonly NetFarmerCollection readyPlayers = new NetFarmerCollection();
+    public NetFields NetFields { get; } = new NetFields();
 
-		private readonly NetFarmerCollection setPlayers = new NetFarmerCollection();
+    public string Name => (string) (NetFieldBase<string, NetString>) this.name;
 
-		private readonly NetFarmerCollection requiredPlayers = new NetFarmerCollection();
+    public ReadyCheck() => this.NetFields.AddFields((INetSerializable) this.name, (INetSerializable) this.readyPlayers.NetFields, (INetSerializable) this.setPlayers.NetFields);
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    public ReadyCheck(string name)
+      : this()
+    {
+      this.name.Value = name;
+    }
 
+    public void SetRequiredFarmers(IEnumerable<Farmer> required_farmers)
+    {
+      this.requiredPlayers.Clear();
+      if (required_farmers == null)
+        return;
+      foreach (Farmer requiredFarmer in required_farmers)
+        this.requiredPlayers.Add(requiredFarmer);
+    }
 
-		public string Name => name;
+    private IEnumerable<Farmer> GetRequiredPlayers()
+    {
+      if (this.requiredPlayers.Count != 0)
+        return (IEnumerable<Farmer>) this.requiredPlayers;
+      return this.setPlayers.Contains(Game1.player) ? this.readyPlayers.Intersect<Farmer>((IEnumerable<Farmer>) Game1.getOnlineFarmers()) : (IEnumerable<Farmer>) Game1.getOnlineFarmers();
+    }
 
-		public ReadyCheck()
-		{
-			NetFields.AddFields(name, readyPlayers.NetFields, setPlayers.NetFields);
-		}
+    private bool containsAllPlayers(NetFarmerCollection farmerSet)
+    {
+      foreach (Farmer requiredPlayer in this.GetRequiredPlayers())
+      {
+        if (!farmerSet.Contains(requiredPlayer) && !Game1.multiplayer.isDisconnecting(requiredPlayer))
+          return false;
+      }
+      return true;
+    }
 
-		public ReadyCheck(string name)
-			: this()
-		{
-			this.name.Value = name;
-		}
+    public bool IsOtherFarmerReady(Farmer farmer) => this.setPlayers.Contains(farmer);
 
-		public void SetRequiredFarmers(IEnumerable<Farmer> required_farmers)
-		{
-			requiredPlayers.Clear();
-			if (required_farmers != null)
-			{
-				foreach (Farmer farmer in required_farmers)
-				{
-					requiredPlayers.Add(farmer);
-				}
-			}
-		}
+    public bool IsCancelable() => !this.setPlayers.Contains(Game1.player);
 
-		private IEnumerable<Farmer> GetRequiredPlayers()
-		{
-			if (requiredPlayers.Count == 0)
-			{
-				if (setPlayers.Contains(Game1.player))
-				{
-					return readyPlayers.Intersect(Game1.getOnlineFarmers());
-				}
-				return Game1.getOnlineFarmers();
-			}
-			return requiredPlayers;
-		}
+    public bool IsReady() => this.containsAllPlayers(this.setPlayers);
 
-		private bool containsAllPlayers(NetFarmerCollection farmerSet)
-		{
-			foreach (Farmer farmer in GetRequiredPlayers())
-			{
-				if (!farmerSet.Contains(farmer) && !Game1.multiplayer.isDisconnecting(farmer))
-				{
-					return false;
-				}
-			}
-			return true;
-		}
+    public int GetNumberReady() => this.readyPlayers.Count;
 
-		public bool IsOtherFarmerReady(Farmer farmer)
-		{
-			return setPlayers.Contains(farmer);
-		}
+    public int GetNumberRequired()
+    {
+      int numberRequired = 0;
+      foreach (Farmer requiredPlayer in this.GetRequiredPlayers())
+        ++numberRequired;
+      return numberRequired;
+    }
 
-		public bool IsCancelable()
-		{
-			return !setPlayers.Contains(Game1.player);
-		}
+    public void SetLocalReady(bool ready)
+    {
+      if (ready && !this.readyPlayers.Contains(Game1.player))
+      {
+        this.readyPlayers.Add(Game1.player);
+      }
+      else
+      {
+        if (ready || !this.readyPlayers.Contains(Game1.player))
+          return;
+        this.readyPlayers.Remove(Game1.player);
+        this.setPlayers.Remove(Game1.player);
+      }
+    }
 
-		public bool IsReady()
-		{
-			return containsAllPlayers(setPlayers);
-		}
-
-		public int GetNumberReady()
-		{
-			return readyPlayers.Count;
-		}
-
-		public int GetNumberRequired()
-		{
-			int i = 0;
-			foreach (Farmer requiredPlayer in GetRequiredPlayers())
-			{
-				_ = requiredPlayer;
-				i++;
-			}
-			return i;
-		}
-
-		public void SetLocalReady(bool ready)
-		{
-			if (ready && !readyPlayers.Contains(Game1.player))
-			{
-				readyPlayers.Add(Game1.player);
-			}
-			else if (!ready && readyPlayers.Contains(Game1.player))
-			{
-				readyPlayers.Remove(Game1.player);
-				setPlayers.Remove(Game1.player);
-			}
-		}
-
-		public void Update()
-		{
-			if (readyPlayers.Contains(Game1.player) && !setPlayers.Contains(Game1.player) && !(Game1.activeClickableMenu is SaveGameMenu) && !(Game1.activeClickableMenu is ShippingMenu))
-			{
-				ReadyCheckDialog dialog = Game1.activeClickableMenu as ReadyCheckDialog;
-				if (dialog == null || dialog.checkName != Name)
-				{
-					SetLocalReady(ready: false);
-				}
-			}
-			if (requiredPlayers.RetainOnlinePlayers())
-			{
-				setPlayers.Remove(Game1.player);
-			}
-			if (readyPlayers.RetainOnlinePlayers())
-			{
-				setPlayers.Remove(Game1.player);
-			}
-			if (containsAllPlayers(readyPlayers))
-			{
-				if (!setPlayers.Contains(Game1.player))
-				{
-					setPlayers.Add(Game1.player);
-				}
-			}
-			else if (setPlayers.Contains(Game1.player))
-			{
-				setPlayers.Remove(Game1.player);
-			}
-		}
-	}
+    public void Update()
+    {
+      if (this.readyPlayers.Contains(Game1.player) && !this.setPlayers.Contains(Game1.player))
+      {
+        switch (Game1.activeClickableMenu)
+        {
+          case SaveGameMenu _:
+          case ShippingMenu _:
+            goto label_4;
+          case ReadyCheckDialog readyCheckDialog:
+            if (!(readyCheckDialog.checkName != this.Name))
+              goto label_4;
+            else
+              break;
+        }
+        this.SetLocalReady(false);
+      }
+label_4:
+      if (this.requiredPlayers.RetainOnlinePlayers())
+        this.setPlayers.Remove(Game1.player);
+      if (this.readyPlayers.RetainOnlinePlayers())
+        this.setPlayers.Remove(Game1.player);
+      if (this.containsAllPlayers(this.readyPlayers))
+      {
+        if (this.setPlayers.Contains(Game1.player))
+          return;
+        this.setPlayers.Add(Game1.player);
+      }
+      else
+      {
+        if (!this.setPlayers.Contains(Game1.player))
+          return;
+        this.setPlayers.Remove(Game1.player);
+      }
+    }
+  }
 }

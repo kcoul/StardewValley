@@ -1,139 +1,100 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.NetLocationRef
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 
 namespace StardewValley.Network
 {
-	public class NetLocationRef : INetObject<NetFields>
-	{
-		private readonly NetString locationName = new NetString();
+  public class NetLocationRef : INetObject<NetFields>
+  {
+    private readonly NetString locationName = new NetString();
+    private readonly NetBool isStructure = new NetBool();
+    protected GameLocation _gameLocation;
+    protected bool _dirty = true;
+    protected bool _usedLocalLocation;
 
-		private readonly NetBool isStructure = new NetBool();
+    public GameLocation Value
+    {
+      get => this.Get();
+      set => this.Set(value);
+    }
 
-		protected GameLocation _gameLocation;
+    public NetFields NetFields { get; } = new NetFields();
 
-		protected bool _dirty = true;
+    public NetLocationRef()
+    {
+      this.NetFields.AddFields((INetSerializable) this.locationName, (INetSerializable) this.isStructure);
+      this.locationName.fieldChangeVisibleEvent += new NetFieldBase<string, NetString>.FieldChange(this.OnLocationNameChanged);
+      this.isStructure.fieldChangeVisibleEvent += new NetFieldBase<bool, NetBool>.FieldChange(this.OnStructureValueChanged);
+    }
 
-		protected bool _usedLocalLocation;
+    public virtual void OnLocationNameChanged(NetString field, string old_value, string new_value) => this._dirty = true;
 
-		public GameLocation Value
-		{
-			get
-			{
-				return Get();
-			}
-			set
-			{
-				Set(value);
-			}
-		}
+    public virtual void OnStructureValueChanged(NetBool field, bool old_value, bool new_value) => this._dirty = true;
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    public NetLocationRef(GameLocation value)
+      : this()
+    {
+      this.Set(value);
+    }
 
+    public bool IsChanging() => this.locationName.IsChanging() || this.isStructure.IsChanging();
 
-		public NetLocationRef()
-		{
-			NetFields.AddFields(locationName, isStructure);
-			locationName.fieldChangeVisibleEvent += OnLocationNameChanged;
-			isStructure.fieldChangeVisibleEvent += OnStructureValueChanged;
-		}
+    public void Update() => this.ApplyChangesIfDirty();
 
-		public virtual void OnLocationNameChanged(NetString field, string old_value, string new_value)
-		{
-			_dirty = true;
-		}
+    public void ApplyChangesIfDirty()
+    {
+      if (this._usedLocalLocation && this._gameLocation != Game1.currentLocation)
+      {
+        this._dirty = true;
+        this._usedLocalLocation = false;
+      }
+      if (this._dirty)
+      {
+        this._gameLocation = Game1.getLocationFromName((string) (NetFieldBase<string, NetString>) this.locationName, (bool) (NetFieldBase<bool, NetBool>) this.isStructure);
+        this._dirty = false;
+      }
+      if (this._usedLocalLocation || this._gameLocation == Game1.currentLocation || !this.IsCurrentlyViewedLocation())
+        return;
+      this._usedLocalLocation = true;
+      this._gameLocation = Game1.currentLocation;
+    }
 
-		public virtual void OnStructureValueChanged(NetBool field, bool old_value, bool new_value)
-		{
-			_dirty = true;
-		}
+    public GameLocation Get()
+    {
+      this.ApplyChangesIfDirty();
+      return this._gameLocation;
+    }
 
-		public NetLocationRef(GameLocation value)
-			: this()
-		{
-			Set(value);
-		}
+    public void Set(GameLocation location)
+    {
+      if (location == null)
+      {
+        this.isStructure.Value = false;
+        this.locationName.Value = "";
+      }
+      else
+      {
+        this.isStructure.Value = (bool) (NetFieldBase<bool, NetBool>) location.isStructure;
+        this.locationName.Value = (bool) (NetFieldBase<bool, NetBool>) location.isStructure ? (string) (NetFieldBase<string, NetString>) location.uniqueName : location.Name;
+      }
+      if (this.IsCurrentlyViewedLocation())
+      {
+        this._usedLocalLocation = true;
+        this._gameLocation = Game1.currentLocation;
+      }
+      else
+        this._gameLocation = location;
+      if (this._gameLocation != null && this._gameLocation.isTemp())
+        this._gameLocation = (GameLocation) null;
+      this._dirty = false;
+    }
 
-		public bool IsChanging()
-		{
-			if (!locationName.IsChanging())
-			{
-				return isStructure.IsChanging();
-			}
-			return true;
-		}
+    public bool IsCurrentlyViewedLocation() => Game1.currentLocation != null && this.locationName.Value == Game1.currentLocation.NameOrUniqueName;
 
-		public void Update()
-		{
-			ApplyChangesIfDirty();
-		}
-
-		public void ApplyChangesIfDirty()
-		{
-			if (_usedLocalLocation && _gameLocation != Game1.currentLocation)
-			{
-				_dirty = true;
-				_usedLocalLocation = false;
-			}
-			if (_dirty)
-			{
-				_gameLocation = Game1.getLocationFromName(locationName, isStructure);
-				_dirty = false;
-			}
-			if (!_usedLocalLocation && _gameLocation != Game1.currentLocation && IsCurrentlyViewedLocation())
-			{
-				_usedLocalLocation = true;
-				_gameLocation = Game1.currentLocation;
-			}
-		}
-
-		public GameLocation Get()
-		{
-			ApplyChangesIfDirty();
-			return _gameLocation;
-		}
-
-		public void Set(GameLocation location)
-		{
-			if (location == null)
-			{
-				isStructure.Value = false;
-				locationName.Value = "";
-			}
-			else
-			{
-				isStructure.Value = location.isStructure;
-				locationName.Value = (location.isStructure ? ((string)location.uniqueName) : location.Name);
-			}
-			if (IsCurrentlyViewedLocation())
-			{
-				_usedLocalLocation = true;
-				_gameLocation = Game1.currentLocation;
-			}
-			else
-			{
-				_gameLocation = location;
-			}
-			if (_gameLocation != null && _gameLocation.isTemp())
-			{
-				_gameLocation = null;
-			}
-			_dirty = false;
-		}
-
-		public bool IsCurrentlyViewedLocation()
-		{
-			if (Game1.currentLocation != null && locationName.Value == Game1.currentLocation.NameOrUniqueName)
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public static implicit operator GameLocation(NetLocationRef locationRef)
-		{
-			return locationRef.Value;
-		}
-	}
+    public static implicit operator GameLocation(NetLocationRef locationRef) => locationRef.Value;
+  }
 }

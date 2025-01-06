@@ -1,116 +1,80 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.Server
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using System;
 
 namespace StardewValley.Network
 {
-	public abstract class Server : IBandwidthMonitor
-	{
-		protected IGameServer gameServer;
+  public abstract class Server : IBandwidthMonitor
+  {
+    protected IGameServer gameServer;
+    protected BandwidthLogger bandwidthLogger;
 
-		protected BandwidthLogger bandwidthLogger;
+    public Server(IGameServer gameServer) => this.gameServer = gameServer;
 
-		public abstract int connectionsCount
-		{
-			get;
-		}
+    public abstract int connectionsCount { get; }
 
-		public bool LogBandwidth
-		{
-			get
-			{
-				return bandwidthLogger != null;
-			}
-			set
-			{
-				if (value)
-				{
-					bandwidthLogger = new BandwidthLogger();
-				}
-				else
-				{
-					bandwidthLogger = null;
-				}
-			}
-		}
+    public abstract void initialize();
 
-		public BandwidthLogger BandwidthLogger => bandwidthLogger;
+    public abstract void setPrivacy(ServerPrivacy privacy);
 
-		public Server(IGameServer gameServer)
-		{
-			this.gameServer = gameServer;
-		}
+    public abstract void stopServer();
 
-		public abstract void initialize();
+    public abstract void receiveMessages();
 
-		public abstract void setPrivacy(ServerPrivacy privacy);
+    public abstract void sendMessage(long peerId, OutgoingMessage message);
 
-		public abstract void stopServer();
+    public abstract bool connected();
 
-		public abstract void receiveMessages();
+    public virtual bool canAcceptIPConnections() => false;
 
-		public abstract void sendMessage(long peerId, OutgoingMessage message);
+    public virtual bool canOfferInvite() => false;
 
-		public abstract bool connected();
+    public virtual void offerInvite()
+    {
+    }
 
-		public virtual bool canAcceptIPConnections()
-		{
-			return false;
-		}
+    public virtual string getInviteCode() => (string) null;
 
-		public virtual bool canOfferInvite()
-		{
-			return false;
-		}
+    public virtual bool PopulatePlatformData(Farmer farmer) => false;
 
-		public virtual void offerInvite()
-		{
-		}
+    public virtual string getUserId(long farmerId) => (string) null;
 
-		public virtual string getInviteCode()
-		{
-			return null;
-		}
+    public virtual bool hasUserId(string userId) => false;
 
-		public virtual string getUserId(long farmerId)
-		{
-			return null;
-		}
+    public virtual float getPingToClient(long farmerId) => 0.0f;
 
-		public virtual bool hasUserId(string userId)
-		{
-			return false;
-		}
+    public virtual bool isConnectionActive(string connectionId) => throw new NotImplementedException();
 
-		public virtual float getPingToClient(long farmerId)
-		{
-			return 0f;
-		}
+    public virtual void onConnect(string connectionId) => this.gameServer.onConnect(connectionId);
 
-		public virtual bool isConnectionActive(string connectionId)
-		{
-			throw new NotImplementedException();
-		}
+    public virtual void onDisconnect(string connectionId) => this.gameServer.onDisconnect(connectionId);
 
-		public virtual void onConnect(string connectionId)
-		{
-			gameServer.onConnect(connectionId);
-		}
+    public abstract string getUserName(long farmerId);
 
-		public virtual void onDisconnect(string connectionId)
-		{
-			gameServer.onDisconnect(connectionId);
-		}
+    public abstract void setLobbyData(string key, string value);
 
-		public abstract string getUserName(long farmerId);
+    public virtual void kick(long disconnectee)
+    {
+    }
 
-		public abstract void setLobbyData(string key, string value);
+    public virtual void playerDisconnected(long disconnectee) => this.gameServer.playerDisconnected(disconnectee);
 
-		public virtual void kick(long disconnectee)
-		{
-		}
+    public bool LogBandwidth
+    {
+      get => this.bandwidthLogger != null;
+      set
+      {
+        if (value)
+          this.bandwidthLogger = new BandwidthLogger();
+        else
+          this.bandwidthLogger = (BandwidthLogger) null;
+      }
+    }
 
-		public virtual void playerDisconnected(long disconnectee)
-		{
-			gameServer.playerDisconnected(disconnectee);
-		}
-	}
+    public BandwidthLogger BandwidthLogger => this.bandwidthLogger;
+  }
 }

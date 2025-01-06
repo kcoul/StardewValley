@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Objects.Chest
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -14,1187 +20,1008 @@ using xTile.Dimensions;
 
 namespace StardewValley.Objects
 {
-	[XmlInclude(typeof(MeleeWeapon))]
-	public class Chest : Object
-	{
-		public enum SpecialChestTypes
-		{
-			None,
-			MiniShippingBin,
-			JunimoChest,
-			AutoLoader,
-			Enricher
-		}
-
-		public const int capacity = 36;
-
-		[XmlElement("currentLidFrame")]
-		public readonly NetInt startingLidFrame = new NetInt(501);
-
-		public readonly NetInt lidFrameCount = new NetInt(5);
-
-		private int currentLidFrame;
-
-		[XmlElement("frameCounter")]
-		public readonly NetInt frameCounter = new NetInt(-1);
-
-		[XmlElement("coins")]
-		public readonly NetInt coins = new NetInt();
-
-		public readonly NetObjectList<Item> items = new NetObjectList<Item>();
-
-		public readonly NetLongDictionary<NetObjectList<Item>, NetRef<NetObjectList<Item>>> separateWalletItems = new NetLongDictionary<NetObjectList<Item>, NetRef<NetObjectList<Item>>>();
-
-		[XmlElement("chestType")]
-		public readonly NetString chestType = new NetString("");
-
-		[XmlElement("tint")]
-		public readonly NetColor tint = new NetColor(Color.White);
-
-		[XmlElement("playerChoiceColor")]
-		public readonly NetColor playerChoiceColor = new NetColor(Color.Black);
-
-		[XmlElement("playerChest")]
-		public readonly NetBool playerChest = new NetBool();
-
-		[XmlElement("fridge")]
-		public readonly NetBool fridge = new NetBool();
-
-		[XmlElement("giftbox")]
-		public readonly NetBool giftbox = new NetBool();
-
-		[XmlElement("giftboxIndex")]
-		public readonly NetInt giftboxIndex = new NetInt();
-
-		[XmlElement("spriteIndexOverride")]
-		public readonly NetInt bigCraftableSpriteIndex = new NetInt(-1);
-
-		[XmlElement("dropContents")]
-		public readonly NetBool dropContents = new NetBool(value: false);
-
-		[XmlElement("synchronized")]
-		public readonly NetBool synchronized = new NetBool(value: false);
-
-		[XmlIgnore]
-		protected int _shippingBinFrameCounter;
-
-		[XmlIgnore]
-		protected bool _farmerNearby;
-
-		[XmlIgnore]
-		public NetVector2 kickStartTile = new NetVector2(new Vector2(-1000f, -1000f));
-
-		[XmlIgnore]
-		public Vector2? localKickStartTile;
-
-		[XmlIgnore]
-		public float kickProgress = -1f;
-
-		[XmlIgnore]
-		public readonly NetEvent0 openChestEvent = new NetEvent0();
-
-		[XmlElement("specialChestType")]
-		public readonly NetEnum<SpecialChestTypes> specialChestType = new NetEnum<SpecialChestTypes>();
-
-		[XmlIgnore]
-		public readonly NetMutex mutex = new NetMutex();
-
-		[XmlIgnore]
-		public SpecialChestTypes SpecialChestType
-		{
-			get
-			{
-				return specialChestType.Value;
-			}
-			set
-			{
-				specialChestType.Value = value;
-			}
-		}
-
-		[XmlIgnore]
-		public Color Tint
-		{
-			get
-			{
-				return tint;
-			}
-			set
-			{
-				tint.Value = value;
-			}
-		}
-
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(startingLidFrame, frameCounter, coins, items, chestType, tint, playerChoiceColor, playerChest, fridge, giftbox, giftboxIndex, mutex.NetFields, lidFrameCount, bigCraftableSpriteIndex, dropContents, openChestEvent.NetFields, synchronized, specialChestType, kickStartTile, separateWalletItems);
-			openChestEvent.onEvent += performOpenChest;
-			kickStartTile.fieldChangeVisibleEvent += delegate(NetVector2 field, Vector2 old_value, Vector2 new_value)
-			{
-				if (Game1.gameMode != 6 && new_value.X != -1000f && new_value.Y != -1000f)
-				{
-					localKickStartTile = kickStartTile;
-					kickProgress = 0f;
-				}
-			};
-		}
-
-		public Chest()
-		{
-			Name = "Chest";
-			type.Value = "interactive";
-			boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int)tileLocation.X * 64, (int)tileLocation.Y * 64, 64, 64);
-		}
-
-		public Chest(bool playerChest, Vector2 tileLocation, int parentSheetIndex = 130)
-			: base(tileLocation, parentSheetIndex)
-		{
-			Name = "Chest";
-			type.Value = "Crafting";
-			if (playerChest)
-			{
-				this.playerChest.Value = playerChest;
-				startingLidFrame.Value = parentSheetIndex + 1;
-				bigCraftable.Value = true;
-				canBeSetDown.Value = true;
-			}
-			else
-			{
-				lidFrameCount.Value = 3;
-			}
-		}
-
-		public Chest(bool playerChest, int parentSheedIndex = 130)
-			: base(Vector2.Zero, parentSheedIndex)
-		{
-			Name = "Chest";
-			type.Value = "Crafting";
-			if (playerChest)
-			{
-				this.playerChest.Value = playerChest;
-				startingLidFrame.Value = parentSheedIndex + 1;
-				bigCraftable.Value = true;
-				canBeSetDown.Value = true;
-			}
-			else
-			{
-				lidFrameCount.Value = 3;
-			}
-		}
-
-		public Chest(Vector2 location)
-		{
-			tileLocation.Value = location;
-			base.name = "Chest";
-			type.Value = "interactive";
-			boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int)tileLocation.X * 64, (int)tileLocation.Y * 64, 64, 64);
-		}
-
-		public Chest(string type, Vector2 location, MineShaft mine)
-		{
-			tileLocation.Value = location;
-			switch (type)
-			{
-			case "OreChest":
-			{
-				for (int i = 0; i < 8; i++)
-				{
-					items.Add(new Object(tileLocation, (Game1.random.NextDouble() < 0.5) ? 384 : 382, 1));
-				}
-				break;
-			}
-			case "dungeon":
-				switch ((int)location.X % 5)
-				{
-				case 1:
-					coins.Value = (int)location.Y % 3 + 2;
-					break;
-				case 2:
-					items.Add(new Object(tileLocation, 382, (int)location.Y % 3 + 1));
-					break;
-				case 3:
-					items.Add(new Object(tileLocation, (mine.getMineArea() == 0) ? 378 : ((mine.getMineArea() == 40) ? 380 : 384), (int)location.Y % 3 + 1));
-					break;
-				case 4:
-					chestType.Value = "Monster";
-					break;
-				}
-				break;
-			case "Grand":
-				tint.Value = new Color(150, 150, 255);
-				coins.Value = (int)location.Y % 8 + 6;
-				break;
-			}
-			base.name = "Chest";
-			lidFrameCount.Value = 3;
-			base.type.Value = "interactive";
-			boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int)tileLocation.X * 64, (int)tileLocation.Y * 64, 64, 64);
-		}
-
-		public Chest(int parent_sheet_index, Vector2 tile_location, int starting_lid_frame, int lid_frame_count)
-			: base(tile_location, parent_sheet_index)
-		{
-			playerChest.Value = true;
-			startingLidFrame.Value = starting_lid_frame;
-			lidFrameCount.Value = lid_frame_count;
-			bigCraftable.Value = true;
-			canBeSetDown.Value = true;
-		}
-
-		public Chest(int coins, List<Item> items, Vector2 location, bool giftbox = false, int giftboxIndex = 0)
-		{
-			base.name = "Chest";
-			type.Value = "interactive";
-			this.giftbox.Value = giftbox;
-			this.giftboxIndex.Value = giftboxIndex;
-			if (!this.giftbox.Value)
-			{
-				lidFrameCount.Value = 3;
-			}
-			if (items != null)
-			{
-				this.items.Set(items);
-			}
-			this.coins.Value = coins;
-			tileLocation.Value = location;
-			boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int)tileLocation.X * 64, (int)tileLocation.Y * 64, 64, 64);
-		}
-
-		public void resetLidFrame()
-		{
-			currentLidFrame = startingLidFrame;
-		}
-
-		public void fixLidFrame()
-		{
-			if (currentLidFrame == 0)
-			{
-				currentLidFrame = startingLidFrame;
-			}
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin)
-			{
-				return;
-			}
-			if ((bool)playerChest)
-			{
-				if (GetMutex().IsLocked() && !GetMutex().IsLockHeld())
-				{
-					currentLidFrame = getLastLidFrame();
-				}
-				else if (!GetMutex().IsLocked())
-				{
-					currentLidFrame = startingLidFrame;
-				}
-			}
-			else if (currentLidFrame == startingLidFrame.Value && GetMutex().IsLocked() && !GetMutex().IsLockHeld())
-			{
-				currentLidFrame = getLastLidFrame();
-			}
-		}
-
-		public int getLastLidFrame()
-		{
-			return startingLidFrame.Value + lidFrameCount.Value - 1;
-		}
-
-		public override bool performObjectDropInAction(Item dropIn, bool probe, Farmer who)
-		{
-			return false;
-		}
-
-		public override bool performToolAction(Tool t, GameLocation location)
-		{
-			if (t != null && t.getLastFarmerToUse() != null && t.getLastFarmerToUse() != Game1.player)
-			{
-				return false;
-			}
-			if ((bool)playerChest)
-			{
-				if (t == null)
-				{
-					return false;
-				}
-				if (t is MeleeWeapon || !t.isHeavyHitter())
-				{
-					return false;
-				}
-				if (base.performToolAction(t, location))
-				{
-					Farmer player = t.getLastFarmerToUse();
-					if (player != null)
-					{
-						Vector2 c = base.TileLocation;
-						if (c.X == 0f && c.Y == 0f)
-						{
-							bool found = false;
-							foreach (KeyValuePair<Vector2, Object> pair in location.objects.Pairs)
-							{
-								if (pair.Value == this)
-								{
-									c.X = (int)pair.Key.X;
-									c.Y = (int)pair.Key.Y;
-									found = true;
-									break;
-								}
-							}
-							if (!found)
-							{
-								c = player.GetToolLocation() / 64f;
-								c.X = (int)c.X;
-								c.Y = (int)c.Y;
-							}
-						}
-						GetMutex().RequestLock(delegate
-						{
-							clearNulls();
-							if (isEmpty())
-							{
-								performRemoveAction(tileLocation, location);
-								if (location.Objects.Remove(c) && type.Equals("Crafting") && (int)fragility != 2)
-								{
-									location.debris.Add(new Debris(bigCraftable ? (-base.ParentSheetIndex) : base.ParentSheetIndex, player.GetToolLocation(), new Vector2(player.GetBoundingBox().Center.X, player.GetBoundingBox().Center.Y)));
-								}
-							}
-							else if (t != null && t.isHeavyHitter() && !(t is MeleeWeapon))
-							{
-								location.playSound("hammer");
-								shakeTimer = 100;
-								if (t != player.CurrentTool)
-								{
-									Vector2 zero = Vector2.Zero;
-									zero = ((player.FacingDirection == 1) ? new Vector2(1f, 0f) : ((player.FacingDirection == 3) ? new Vector2(-1f, 0f) : ((player.FacingDirection == 0) ? new Vector2(0f, -1f) : new Vector2(0f, 1f))));
-									if (base.TileLocation.X == 0f && base.TileLocation.Y == 0f && location.getObjectAtTile((int)c.X, (int)c.Y) == this)
-									{
-										base.TileLocation = c;
-									}
-									MoveToSafePosition(location, base.TileLocation, 0, zero);
-								}
-							}
-							GetMutex().ReleaseLock();
-						});
-					}
-				}
-				return false;
-			}
-			if (t != null && t is Pickaxe && currentLidFrame == getLastLidFrame() && (int)frameCounter == -1 && isEmpty())
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public void addContents(int coins, Item item)
-		{
-			this.coins.Value += coins;
-			items.Add(item);
-		}
-
-		public bool MoveToSafePosition(GameLocation location, Vector2 tile_position, int depth = 0, Vector2? prioritize_direction = null)
-		{
-			List<Vector2> offsets = new List<Vector2>();
-			offsets.AddRange(new Vector2[4]
-			{
-				new Vector2(1f, 0f),
-				new Vector2(-1f, 0f),
-				new Vector2(0f, -1f),
-				new Vector2(0f, 1f)
-			});
-			Utility.Shuffle(Game1.random, offsets);
-			if (prioritize_direction.HasValue)
-			{
-				offsets.Remove(-prioritize_direction.Value);
-				offsets.Insert(0, -prioritize_direction.Value);
-				offsets.Remove(prioritize_direction.Value);
-				offsets.Insert(0, prioritize_direction.Value);
-			}
-			foreach (Vector2 offset2 in offsets)
-			{
-				Vector2 new_position2 = tile_position + offset2;
-				if (canBePlacedHere(location, new_position2) && location.isTilePlaceable(new_position2))
-				{
-					if (location.objects.ContainsKey(base.TileLocation) && !location.objects.ContainsKey(new_position2))
-					{
-						location.objects.Remove(base.TileLocation);
-						kickStartTile.Value = base.TileLocation;
-						base.TileLocation = new_position2;
-						location.objects[new_position2] = this;
-						boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int)tileLocation.X * 64, (int)tileLocation.Y * 64, 64, 64);
-					}
-					return true;
-				}
-			}
-			Utility.Shuffle(Game1.random, offsets);
-			if (prioritize_direction.HasValue)
-			{
-				offsets.Remove(-prioritize_direction.Value);
-				offsets.Insert(0, -prioritize_direction.Value);
-				offsets.Remove(prioritize_direction.Value);
-				offsets.Insert(0, prioritize_direction.Value);
-			}
-			if (depth < 3)
-			{
-				foreach (Vector2 offset in offsets)
-				{
-					Vector2 new_position = tile_position + offset;
-					if (location.isPointPassable(new Location((int)(new_position.X + 0.5f) * 64, (int)(new_position.Y + 0.5f) * 64), Game1.viewport) && MoveToSafePosition(location, new_position, depth + 1, prioritize_direction))
-					{
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-
-		public override bool placementAction(GameLocation location, int x, int y, Farmer who = null)
-		{
-			localKickStartTile = null;
-			kickProgress = -1f;
-			return base.placementAction(location, x, y, who);
-		}
-
-		public void destroyAndDropContents(Vector2 pointToDropAt, GameLocation location)
-		{
-			List<Item> item_list = new List<Item>();
-			item_list.AddRange(items);
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin)
-			{
-				foreach (NetObjectList<Item> separate_wallet_item_list in separateWalletItems.Values)
-				{
-					item_list.AddRange(separate_wallet_item_list);
-				}
-			}
-			if (item_list.Count > 0)
-			{
-				location.playSound("throwDownITem");
-			}
-			foreach (Item item in item_list)
-			{
-				if (item != null)
-				{
-					Game1.createItemDebris(item, pointToDropAt, Game1.random.Next(4), location);
-				}
-			}
-			items.Clear();
-			separateWalletItems.Clear();
-			clearNulls();
-		}
-
-		public void dumpContents(GameLocation location)
-		{
-			if (synchronized.Value && (GetMutex().IsLocked() || !Game1.IsMasterGame) && !GetMutex().IsLockHeld())
-			{
-				return;
-			}
-			if (items.Count > 0 && !chestType.Equals("Monster") && items.Count >= 1 && (GetMutex().IsLockHeld() || !playerChest))
-			{
-				bool isStardrop = Utility.IsNormalObjectAtParentSheetIndex(items[0], 434);
-				if (location is FarmHouse)
-				{
-					if ((location as FarmHouse).owner.UniqueMultiplayerID != Game1.player.UniqueMultiplayerID)
-					{
-						Game1.drawObjectDialogue(Game1.content.LoadString("Strings\\Objects:ParsnipSeedPackage_SomeoneElse"));
-						return;
-					}
-					if (!isStardrop)
-					{
-						Game1.player.addQuest(6);
-						Game1.dayTimeMoneyBox.PingQuestLog();
-					}
-				}
-				if (isStardrop)
-				{
-					string stardropName = (location is FarmHouse) ? "CF_Spouse" : "CF_Mines";
-					if (!Game1.player.mailReceived.Contains(stardropName))
-					{
-						Game1.player.eatObject(items[0] as Object, overrideFullness: true);
-						Game1.player.mailReceived.Add(stardropName);
-					}
-					items.Clear();
-				}
-				else if (dropContents.Value)
-				{
-					foreach (Item item2 in items)
-					{
-						if (item2 != null)
-						{
-							Game1.createItemDebris(item2, tileLocation.Value * 64f, -1, location);
-						}
-					}
-					items.Clear();
-					clearNulls();
-					if (location is VolcanoDungeon)
-					{
-						if (bigCraftableSpriteIndex.Value == 223)
-						{
-							Game1.player.team.RequestLimitedNutDrops("VolcanoNormalChest", location, (int)tileLocation.Value.X * 64, (int)tileLocation.Value.Y * 64, 1);
-						}
-						else if (bigCraftableSpriteIndex.Value == 227)
-						{
-							Game1.player.team.RequestLimitedNutDrops("VolcanoRareChest", location, (int)tileLocation.Value.X * 64, (int)tileLocation.Value.Y * 64, 1);
-						}
-					}
-				}
-				else if (!synchronized.Value || GetMutex().IsLockHeld())
-				{
-					Item item = items[0];
-					items[0] = null;
-					items.RemoveAt(0);
-					Game1.player.addItemByMenuIfNecessaryElseHoldUp(item);
-					if (location is Caldera)
-					{
-						Game1.player.mailReceived.Add("CalderaTreasure");
-					}
-					ItemGrabMenu grab_menu;
-					if ((grab_menu = (Game1.activeClickableMenu as ItemGrabMenu)) != null)
-					{
-						ItemGrabMenu itemGrabMenu = grab_menu;
-						itemGrabMenu.behaviorBeforeCleanup = (Action<IClickableMenu>)Delegate.Combine(itemGrabMenu.behaviorBeforeCleanup, (Action<IClickableMenu>)delegate
-						{
-							grab_menu.DropRemainingItems();
-						});
-					}
-				}
-				if (Game1.mine != null)
-				{
-					Game1.mine.chestConsumed();
-				}
-			}
-			if (chestType.Equals("Monster"))
-			{
-				Monster monster = Game1.mine.getMonsterForThisLevel(Game1.CurrentMineLevel, (int)tileLocation.X, (int)tileLocation.Y);
-				Vector2 v = Utility.getVelocityTowardPlayer(new Point((int)tileLocation.X, (int)tileLocation.Y), 8f, Game1.player);
-				monster.xVelocity = v.X;
-				monster.yVelocity = v.Y;
-				location.characters.Add(monster);
-				location.playSound("explosion");
-				Game1.multiplayer.broadcastSprites(location, new TemporaryAnimatedSprite(362, Game1.random.Next(30, 90), 6, 1, new Vector2(tileLocation.X * 64f, tileLocation.Y * 64f), flicker: false, (Game1.random.NextDouble() < 0.5) ? true : false));
-				location.objects.Remove(tileLocation);
-				Game1.addHUDMessage(new HUDMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Chest.cs.12531"), Color.Red, 3500f));
-			}
-			else
-			{
-				Game1.player.gainExperience(5, 25 + Game1.CurrentMineLevel);
-			}
-			if ((bool)giftbox)
-			{
-				TemporaryAnimatedSprite sprite = new TemporaryAnimatedSprite("LooseSprites\\Giftbox", new Microsoft.Xna.Framework.Rectangle(0, (int)giftboxIndex * 32, 16, 32), 80f, 11, 1, tileLocation.Value * 64f - new Vector2(0f, 52f), flicker: false, flipped: false, tileLocation.Y / 10000f, 0f, Color.White, 4f, 0f, 0f, 0f)
-				{
-					destroyable = false,
-					holdLastFrame = true
-				};
-				if (location.netObjects.ContainsKey(tileLocation) && location.netObjects[tileLocation] == this)
-				{
-					Game1.multiplayer.broadcastSprites(location, sprite);
-					location.removeObject(tileLocation, showDestroyedObject: false);
-				}
-				else
-				{
-					location.temporarySprites.Add(sprite);
-				}
-			}
-		}
-
-		public NetMutex GetMutex()
-		{
-			if (specialChestType.Value == SpecialChestTypes.JunimoChest)
-			{
-				return Game1.player.team.junimoChestMutex;
-			}
-			return mutex;
-		}
-
-		public override bool checkForAction(Farmer who, bool justCheckingForActivity = false)
-		{
-			if (justCheckingForActivity)
-			{
-				return true;
-			}
-			if ((bool)giftbox)
-			{
-				Game1.player.Halt();
-				Game1.player.freezePause = 1000;
-				who.currentLocation.playSound("Ship");
-				dumpContents(who.currentLocation);
-			}
-			else if ((bool)playerChest)
-			{
-				if (!Game1.didPlayerJustRightClick(ignoreNonMouseHeldInput: true))
-				{
-					return false;
-				}
-				GetMutex().RequestLock(delegate
-				{
-					if (SpecialChestType == SpecialChestTypes.MiniShippingBin)
-					{
-						OpenMiniShippingMenu();
-					}
-					else
-					{
-						frameCounter.Value = 5;
-						Game1.playSound(fridge ? "doorCreak" : "openChest");
-						Game1.player.Halt();
-						Game1.player.freezePause = 1000;
-					}
-				});
-			}
-			else if (!playerChest)
-			{
-				if (currentLidFrame == startingLidFrame.Value && (int)frameCounter <= -1)
-				{
-					who.currentLocation.playSound("openChest");
-					if (synchronized.Value)
-					{
-						GetMutex().RequestLock(delegate
-						{
-							openChestEvent.Fire();
-						});
-					}
-					else
-					{
-						performOpenChest();
-					}
-				}
-				else if (currentLidFrame == getLastLidFrame() && items.Count > 0 && !synchronized.Value)
-				{
-					Item item = items[0];
-					items[0] = null;
-					items.RemoveAt(0);
-					if (Game1.mine != null)
-					{
-						Game1.mine.chestConsumed();
-					}
-					who.addItemByMenuIfNecessaryElseHoldUp(item);
-					ItemGrabMenu grab_menu;
-					if ((grab_menu = (Game1.activeClickableMenu as ItemGrabMenu)) != null)
-					{
-						ItemGrabMenu itemGrabMenu = grab_menu;
-						itemGrabMenu.behaviorBeforeCleanup = (Action<IClickableMenu>)Delegate.Combine(itemGrabMenu.behaviorBeforeCleanup, (Action<IClickableMenu>)delegate
-						{
-							grab_menu.DropRemainingItems();
-						});
-					}
-				}
-			}
-			if (items.Count == 0 && (int)coins == 0 && !playerChest)
-			{
-				who.currentLocation.removeObject(tileLocation, showDestroyedObject: false);
-				who.currentLocation.playSound("woodWhack");
-			}
-			return true;
-		}
-
-		public virtual void OpenMiniShippingMenu()
-		{
-			Game1.playSound("shwip");
-			ShowMenu();
-		}
-
-		public virtual void performOpenChest()
-		{
-			frameCounter.Value = 5;
-		}
-
-		public virtual void grabItemFromChest(Item item, Farmer who)
-		{
-			if (who.couldInventoryAcceptThisItem(item))
-			{
-				GetItemsForPlayer(Game1.player.UniqueMultiplayerID).Remove(item);
-				clearNulls();
-				ShowMenu();
-			}
-		}
-
-		public virtual Item addItem(Item item)
-		{
-			item.resetState();
-			clearNulls();
-			NetObjectList<Item> item_list = items;
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin || SpecialChestType == SpecialChestTypes.JunimoChest)
-			{
-				item_list = GetItemsForPlayer(Game1.player.UniqueMultiplayerID);
-			}
-			for (int i = 0; i < item_list.Count; i++)
-			{
-				if (item_list[i] != null && item_list[i].canStackWith(item))
-				{
-					item.Stack = item_list[i].addToStack(item);
-					if (item.Stack <= 0)
-					{
-						return null;
-					}
-				}
-			}
-			if (item_list.Count < GetActualCapacity())
-			{
-				item_list.Add(item);
-				return null;
-			}
-			return item;
-		}
-
-		public virtual int GetActualCapacity()
-		{
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin)
-			{
-				return 9;
-			}
-			if (SpecialChestType == SpecialChestTypes.JunimoChest)
-			{
-				return 9;
-			}
-			if (SpecialChestType == SpecialChestTypes.Enricher)
-			{
-				return 1;
-			}
-			return 36;
-		}
-
-		public virtual void CheckAutoLoad(Farmer who)
-		{
-			if (who.currentLocation != null)
-			{
-				Object beneath_object = null;
-				if (who.currentLocation.objects.TryGetValue(new Vector2(base.TileLocation.X, base.TileLocation.Y + 1f), out beneath_object))
-				{
-					beneath_object?.AttemptAutoLoad(who);
-				}
-			}
-		}
-
-		public virtual void ShowMenu()
-		{
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin)
-			{
-				Game1.activeClickableMenu = new ItemGrabMenu(GetItemsForPlayer(Game1.player.UniqueMultiplayerID), reverseGrab: false, showReceivingMenu: true, Utility.highlightShippableObjects, grabItemFromInventory, null, grabItemFromChest, snapToBottom: false, canBeExitedWithKey: true, playRightClickSound: true, allowRightClick: true, showOrganizeButton: false, 1, fridge ? null : this, -1, this);
-			}
-			else if (SpecialChestType == SpecialChestTypes.JunimoChest)
-			{
-				Game1.activeClickableMenu = new ItemGrabMenu(GetItemsForPlayer(Game1.player.UniqueMultiplayerID), reverseGrab: false, showReceivingMenu: true, InventoryMenu.highlightAllItems, grabItemFromInventory, null, grabItemFromChest, snapToBottom: false, canBeExitedWithKey: true, playRightClickSound: true, allowRightClick: true, showOrganizeButton: true, 1, fridge ? null : this, -1, this);
-			}
-			else if (SpecialChestType == SpecialChestTypes.AutoLoader)
-			{
-				ItemGrabMenu itemGrabMenu = new ItemGrabMenu(GetItemsForPlayer(Game1.player.UniqueMultiplayerID), reverseGrab: false, showReceivingMenu: true, InventoryMenu.highlightAllItems, grabItemFromInventory, null, grabItemFromChest, snapToBottom: false, canBeExitedWithKey: true, playRightClickSound: true, allowRightClick: true, showOrganizeButton: true, 1, fridge ? null : this, -1, this);
-				itemGrabMenu.exitFunction = (IClickableMenu.onExit)Delegate.Combine(itemGrabMenu.exitFunction, (IClickableMenu.onExit)delegate
-				{
-					CheckAutoLoad(Game1.player);
-				});
-				Game1.activeClickableMenu = itemGrabMenu;
-			}
-			else if (SpecialChestType == SpecialChestTypes.Enricher)
-			{
-				Game1.activeClickableMenu = new ItemGrabMenu(GetItemsForPlayer(Game1.player.UniqueMultiplayerID), reverseGrab: false, showReceivingMenu: true, Object.HighlightFertilizers, grabItemFromInventory, null, grabItemFromChest, snapToBottom: false, canBeExitedWithKey: true, playRightClickSound: true, allowRightClick: true, showOrganizeButton: true, 1, fridge ? null : this, -1, this);
-			}
-			else
-			{
-				Game1.activeClickableMenu = new ItemGrabMenu(GetItemsForPlayer(Game1.player.UniqueMultiplayerID), reverseGrab: false, showReceivingMenu: true, InventoryMenu.highlightAllItems, grabItemFromInventory, null, grabItemFromChest, snapToBottom: false, canBeExitedWithKey: true, playRightClickSound: true, allowRightClick: true, showOrganizeButton: true, 1, fridge ? null : this, -1, this);
-			}
-		}
-
-		public virtual void grabItemFromInventory(Item item, Farmer who)
-		{
-			if (item.Stack == 0)
-			{
-				item.Stack = 1;
-			}
-			Item tmp = addItem(item);
-			if (tmp == null)
-			{
-				who.removeItemFromInventory(item);
-			}
-			else
-			{
-				tmp = who.addItemToInventory(tmp);
-			}
-			clearNulls();
-			int oldID = (Game1.activeClickableMenu.currentlySnappedComponent != null) ? Game1.activeClickableMenu.currentlySnappedComponent.myID : (-1);
-			ShowMenu();
-			(Game1.activeClickableMenu as ItemGrabMenu).heldItem = tmp;
-			if (oldID != -1)
-			{
-				Game1.activeClickableMenu.currentlySnappedComponent = Game1.activeClickableMenu.getComponentWithID(oldID);
-				Game1.activeClickableMenu.snapCursorToCurrentSnappedComponent();
-			}
-		}
-
-		public NetObjectList<Item> GetItemsForPlayer(long id)
-		{
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin && Game1.player.team.useSeparateWallets.Value && SpecialChestType == SpecialChestTypes.MiniShippingBin && Game1.player.team.useSeparateWallets.Value)
-			{
-				if (!separateWalletItems.ContainsKey(id))
-				{
-					separateWalletItems[id] = new NetObjectList<Item>();
-				}
-				return separateWalletItems[id];
-			}
-			if (SpecialChestType == SpecialChestTypes.JunimoChest)
-			{
-				return Game1.player.team.junimoChest;
-			}
-			return items;
-		}
-
-		public virtual bool isEmpty()
-		{
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin && Game1.player.team.useSeparateWallets.Value)
-			{
-				foreach (NetObjectList<Item> item_list in separateWalletItems.Values)
-				{
-					for (int k = item_list.Count() - 1; k >= 0; k--)
-					{
-						if (item_list[k] != null)
-						{
-							return false;
-						}
-					}
-				}
-				return true;
-			}
-			if (SpecialChestType == SpecialChestTypes.JunimoChest)
-			{
-				NetObjectList<Item> actual_items = GetItemsForPlayer(Game1.player.UniqueMultiplayerID);
-				for (int j = actual_items.Count - 1; j >= 0; j--)
-				{
-					if (actual_items[j] != null)
-					{
-						return false;
-					}
-				}
-				return true;
-			}
-			for (int i = items.Count - 1; i >= 0; i--)
-			{
-				if (items[i] != null)
-				{
-					return false;
-				}
-			}
-			return true;
-		}
-
-		public virtual void clearNulls()
-		{
-			if (SpecialChestType == SpecialChestTypes.MiniShippingBin || SpecialChestType == SpecialChestTypes.JunimoChest)
-			{
-				NetObjectList<Item> item_list = GetItemsForPlayer(Game1.player.UniqueMultiplayerID);
-				for (int i = item_list.Count - 1; i >= 0; i--)
-				{
-					if (item_list[i] == null)
-					{
-						item_list.RemoveAt(i);
-					}
-				}
-				return;
-			}
-			for (int j = items.Count - 1; j >= 0; j--)
-			{
-				if (items[j] == null)
-				{
-					items.RemoveAt(j);
-				}
-			}
-		}
-
-		public override void updateWhenCurrentLocation(GameTime time, GameLocation environment)
-		{
-			if (synchronized.Value)
-			{
-				openChestEvent.Poll();
-			}
-			if (localKickStartTile.HasValue)
-			{
-				if (Game1.currentLocation == environment)
-				{
-					if (kickProgress == 0f)
-					{
-						if (Utility.isOnScreen((localKickStartTile.Value + new Vector2(0.5f, 0.5f)) * 64f, 64))
-						{
-							Game1.playSound("clubhit");
-						}
-						shakeTimer = 100;
-					}
-				}
-				else
-				{
-					localKickStartTile = null;
-					kickProgress = -1f;
-				}
-				if (kickProgress >= 0f)
-				{
-					float move_duration = 0.25f;
-					kickProgress += (float)(time.ElapsedGameTime.TotalSeconds / (double)move_duration);
-					if (kickProgress >= 1f)
-					{
-						kickProgress = -1f;
-						localKickStartTile = null;
-					}
-				}
-			}
-			else
-			{
-				kickProgress = -1f;
-			}
-			fixLidFrame();
-			mutex.Update(environment);
-			if (shakeTimer > 0)
-			{
-				shakeTimer -= time.ElapsedGameTime.Milliseconds;
-				if (shakeTimer <= 0)
-				{
-					health = 10;
-				}
-			}
-			if ((bool)playerChest)
-			{
-				if (SpecialChestType == SpecialChestTypes.MiniShippingBin)
-				{
-					UpdateFarmerNearby(environment);
-					if (_shippingBinFrameCounter > -1)
-					{
-						_shippingBinFrameCounter--;
-						if (_shippingBinFrameCounter <= 0)
-						{
-							_shippingBinFrameCounter = 5;
-							if (_farmerNearby && currentLidFrame < getLastLidFrame())
-							{
-								currentLidFrame++;
-							}
-							else if (!_farmerNearby && currentLidFrame > startingLidFrame.Value)
-							{
-								currentLidFrame--;
-							}
-							else
-							{
-								_shippingBinFrameCounter = -1;
-							}
-						}
-					}
-					if (Game1.activeClickableMenu == null && GetMutex().IsLockHeld())
-					{
-						GetMutex().ReleaseLock();
-					}
-				}
-				else if ((int)frameCounter > -1 && currentLidFrame < getLastLidFrame() + 1)
-				{
-					frameCounter.Value--;
-					if ((int)frameCounter <= 0 && GetMutex().IsLockHeld())
-					{
-						if (currentLidFrame == getLastLidFrame())
-						{
-							ShowMenu();
-							frameCounter.Value = -1;
-						}
-						else
-						{
-							frameCounter.Value = 5;
-							currentLidFrame++;
-						}
-					}
-				}
-				else if ((((int)frameCounter == -1 && currentLidFrame > (int)startingLidFrame) || currentLidFrame >= getLastLidFrame()) && Game1.activeClickableMenu == null && GetMutex().IsLockHeld())
-				{
-					GetMutex().ReleaseLock();
-					currentLidFrame = getLastLidFrame();
-					frameCounter.Value = 2;
-					environment.localSound("doorCreakReverse");
-				}
-			}
-			else
-			{
-				if ((int)frameCounter <= -1 || currentLidFrame > getLastLidFrame())
-				{
-					return;
-				}
-				frameCounter.Value--;
-				if ((int)frameCounter > 0)
-				{
-					return;
-				}
-				if (currentLidFrame == getLastLidFrame())
-				{
-					dumpContents(environment);
-					frameCounter.Value = -1;
-					return;
-				}
-				frameCounter.Value = 10;
-				currentLidFrame++;
-				if (currentLidFrame == getLastLidFrame())
-				{
-					frameCounter.Value += 5;
-				}
-			}
-		}
-
-		public virtual void UpdateFarmerNearby(GameLocation location, bool animate = true)
-		{
-			bool should_open = false;
-			foreach (Farmer f in location.farmers)
-			{
-				if (Math.Abs((float)f.getTileX() - tileLocation.X) <= 1f && Math.Abs((float)f.getTileY() - tileLocation.Y) <= 1f)
-				{
-					should_open = true;
-					break;
-				}
-			}
-			if (should_open == _farmerNearby)
-			{
-				return;
-			}
-			_farmerNearby = should_open;
-			_shippingBinFrameCounter = 5;
-			if (!animate)
-			{
-				_shippingBinFrameCounter = -1;
-				if (_farmerNearby)
-				{
-					currentLidFrame = getLastLidFrame();
-				}
-				else
-				{
-					currentLidFrame = startingLidFrame.Value;
-				}
-			}
-			else if (Game1.gameMode != 6)
-			{
-				if (_farmerNearby)
-				{
-					location.localSound("doorCreak");
-				}
-				else
-				{
-					location.localSound("doorCreakReverse");
-				}
-			}
-		}
-
-		public override void actionOnPlayerEntry()
-		{
-			fixLidFrame();
-			if (specialChestType.Value == SpecialChestTypes.MiniShippingBin)
-			{
-				UpdateFarmerNearby(Game1.currentLocation, animate: false);
-			}
-			kickProgress = -1f;
-			localKickStartTile = null;
-			if (!playerChest && items.Count == 0 && (int)coins == 0)
-			{
-				currentLidFrame = getLastLidFrame();
-			}
-		}
-
-		public virtual void SetBigCraftableSpriteIndex(int sprite_index, int starting_lid_frame = -1, int lid_frame_count = 3)
-		{
-			bigCraftableSpriteIndex.Value = sprite_index;
-			if (starting_lid_frame >= 0)
-			{
-				startingLidFrame.Value = starting_lid_frame;
-			}
-			else
-			{
-				startingLidFrame.Value = sprite_index + 1;
-			}
-			lidFrameCount.Value = lid_frame_count;
-		}
-
-		public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
-		{
-			base.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
-		}
-
-		public override void draw(SpriteBatch spriteBatch, int x, int y, float alpha = 1f)
-		{
-			float draw_x = x;
-			float draw_y = y;
-			if (localKickStartTile.HasValue)
-			{
-				draw_x = Utility.Lerp(localKickStartTile.Value.X, draw_x, kickProgress);
-				draw_y = Utility.Lerp(localKickStartTile.Value.Y, draw_y, kickProgress);
-			}
-			float base_sort_order = Math.Max(0f, ((draw_y + 1f) * 64f - 24f) / 10000f) + draw_x * 1E-05f;
-			if (localKickStartTile.HasValue)
-			{
-				spriteBatch.Draw(Game1.shadowTexture, Game1.GlobalToLocal(Game1.viewport, new Vector2((draw_x + 0.5f) * 64f, (draw_y + 0.5f) * 64f)), Game1.shadowTexture.Bounds, Color.Black * 0.5f, 0f, new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y), 4f, SpriteEffects.None, 0.0001f);
-				draw_y -= (float)Math.Sin((double)kickProgress * Math.PI) * 0.5f;
-			}
-			if ((bool)playerChest && (base.ParentSheetIndex == 130 || base.ParentSheetIndex == 232))
-			{
-				if (playerChoiceColor.Value.Equals(Color.Black))
-				{
-					spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0), (draw_y - 1f) * 64f)), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, base.ParentSheetIndex, 16, 32), tint.Value * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order);
-					spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0), (draw_y - 1f) * 64f)), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, currentLidFrame, 16, 32), tint.Value * alpha * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 1E-05f);
-					return;
-				}
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f, (draw_y - 1f) * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0))), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (base.ParentSheetIndex == 130) ? 168 : base.ParentSheetIndex, 16, 32), playerChoiceColor.Value * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order);
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f, draw_y * 64f + 20f)), new Microsoft.Xna.Framework.Rectangle(0, ((base.ParentSheetIndex == 130) ? 168 : base.ParentSheetIndex) / 8 * 32 + 53, 16, 11), Color.White * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 2E-05f);
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f, (draw_y - 1f) * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0))), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (base.ParentSheetIndex == 130) ? (currentLidFrame + 46) : (currentLidFrame + 8), 16, 32), Color.White * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 2E-05f);
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f, (draw_y - 1f) * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0))), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (base.ParentSheetIndex == 130) ? (currentLidFrame + 38) : currentLidFrame, 16, 32), playerChoiceColor.Value * alpha * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 1E-05f);
-				return;
-			}
-			if ((bool)playerChest)
-			{
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0), (draw_y - 1f) * 64f)), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, base.ParentSheetIndex, 16, 32), tint.Value * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order);
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0), (draw_y - 1f) * 64f)), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, currentLidFrame, 16, 32), tint.Value * alpha * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 1E-05f);
-				return;
-			}
-			if ((bool)giftbox)
-			{
-				spriteBatch.Draw(Game1.shadowTexture, getLocalPosition(Game1.viewport) + new Vector2(16f, 53f), Game1.shadowTexture.Bounds, Color.White, 0f, new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y), 5f, SpriteEffects.None, 1E-07f);
-				if (items.Count > 0 || (int)coins > 0)
-				{
-					int textureY = (int)giftboxIndex * 32;
-					spriteBatch.Draw(Game1.giftboxTexture, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f + (float)((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0), draw_y * 64f - 52f)), new Microsoft.Xna.Framework.Rectangle(0, textureY, 16, 32), tint, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order);
-				}
-				return;
-			}
-			int sprite_index = 500;
-			Texture2D sprite_sheet = Game1.objectSpriteSheet;
-			int sprite_sheet_height = 16;
-			int y_offset = 0;
-			if (bigCraftableSpriteIndex.Value >= 0)
-			{
-				sprite_index = bigCraftableSpriteIndex.Value;
-				sprite_sheet = Game1.bigCraftableSpriteSheet;
-				sprite_sheet_height = 32;
-				y_offset = -64;
-			}
-			if (bigCraftableSpriteIndex.Value < 0)
-			{
-				spriteBatch.Draw(Game1.shadowTexture, getLocalPosition(Game1.viewport) + new Vector2(16f, 53f), Game1.shadowTexture.Bounds, Color.White, 0f, new Vector2(Game1.shadowTexture.Bounds.Center.X, Game1.shadowTexture.Bounds.Center.Y), 5f, SpriteEffects.None, 1E-07f);
-			}
-			spriteBatch.Draw(sprite_sheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f, draw_y * 64f + (float)y_offset)), Game1.getSourceRectForStandardTileSheet(sprite_sheet, sprite_index, 16, sprite_sheet_height), tint, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order);
-			Vector2 lidPosition = new Vector2(draw_x * 64f, draw_y * 64f + (float)y_offset);
-			if (bigCraftableSpriteIndex.Value < 0)
-			{
-				switch (currentLidFrame)
-				{
-				case 501:
-					lidPosition.Y -= 32f;
-					break;
-				case 502:
-					lidPosition.Y -= 40f;
-					break;
-				case 503:
-					lidPosition.Y -= 60f;
-					break;
-				}
-			}
-			spriteBatch.Draw(sprite_sheet, Game1.GlobalToLocal(Game1.viewport, lidPosition), Game1.getSourceRectForStandardTileSheet(sprite_sheet, currentLidFrame, 16, sprite_sheet_height), tint, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 1E-05f);
-		}
-
-		public virtual void draw(SpriteBatch spriteBatch, int x, int y, float alpha = 1f, bool local = false)
-		{
-			if ((bool)playerChest)
-			{
-				if (playerChoiceColor.Equals(Color.Black))
-				{
-					spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2(x, y - 64) : Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64 + ((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0), (y - 1) * 64)), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, parentSheetIndex, 16, 32), tint.Value * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.89f : ((float)(y * 64 + 4) / 10000f));
-					return;
-				}
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2(x, y - 64) : Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64, (y - 1) * 64 + ((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0))), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (base.ParentSheetIndex == 130) ? 168 : base.ParentSheetIndex, 16, 32), playerChoiceColor.Value * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.9f : ((float)(y * 64 + 4) / 10000f));
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2(x, y - 64) : Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64, (y - 1) * 64 + ((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0))), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (base.ParentSheetIndex == 130) ? (currentLidFrame + 38) : currentLidFrame, 16, 32), playerChoiceColor.Value * alpha * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.9f : ((float)(y * 64 + 5) / 10000f));
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2(x, y + 20) : Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64, y * 64 + 20)), new Microsoft.Xna.Framework.Rectangle(0, ((base.ParentSheetIndex == 130) ? 168 : base.ParentSheetIndex) / 8 * 32 + 53, 16, 11), Color.White * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.91f : ((float)(y * 64 + 6) / 10000f));
-				spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2(x, y - 64) : Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64, (y - 1) * 64 + ((shakeTimer > 0) ? Game1.random.Next(-1, 2) : 0))), Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (base.ParentSheetIndex == 130) ? (currentLidFrame + 46) : (currentLidFrame + 8), 16, 32), Color.White * alpha, 0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.91f : ((float)(y * 64 + 6) / 10000f));
-			}
-		}
-	}
+  [XmlInclude(typeof (MeleeWeapon))]
+  public class Chest : StardewValley.Object
+  {
+    public const int capacity = 36;
+    [XmlElement("currentLidFrame")]
+    public readonly NetInt startingLidFrame = new NetInt(501);
+    public readonly NetInt lidFrameCount = new NetInt(5);
+    private int currentLidFrame;
+    [XmlElement("frameCounter")]
+    public readonly NetInt frameCounter = new NetInt(-1);
+    [XmlElement("coins")]
+    public readonly NetInt coins = new NetInt();
+    public readonly NetObjectList<Item> items = new NetObjectList<Item>();
+    public readonly NetLongDictionary<NetObjectList<Item>, NetRef<NetObjectList<Item>>> separateWalletItems = new NetLongDictionary<NetObjectList<Item>, NetRef<NetObjectList<Item>>>();
+    [XmlElement("chestType")]
+    public readonly NetString chestType = new NetString("");
+    [XmlElement("tint")]
+    public readonly NetColor tint = new NetColor(Color.White);
+    [XmlElement("playerChoiceColor")]
+    public readonly NetColor playerChoiceColor = new NetColor(Color.Black);
+    [XmlElement("playerChest")]
+    public readonly NetBool playerChest = new NetBool();
+    [XmlElement("fridge")]
+    public readonly NetBool fridge = new NetBool();
+    [XmlElement("giftbox")]
+    public readonly NetBool giftbox = new NetBool();
+    [XmlElement("giftboxIndex")]
+    public readonly NetInt giftboxIndex = new NetInt();
+    [XmlElement("spriteIndexOverride")]
+    public readonly NetInt bigCraftableSpriteIndex = new NetInt(-1);
+    [XmlElement("dropContents")]
+    public readonly NetBool dropContents = new NetBool(false);
+    [XmlElement("synchronized")]
+    public readonly NetBool synchronized = new NetBool(false);
+    [XmlIgnore]
+    protected int _shippingBinFrameCounter;
+    [XmlIgnore]
+    protected bool _farmerNearby;
+    [XmlIgnore]
+    public NetVector2 kickStartTile = new NetVector2(new Vector2(-1000f, -1000f));
+    [XmlIgnore]
+    public Vector2? localKickStartTile;
+    [XmlIgnore]
+    public float kickProgress = -1f;
+    [XmlIgnore]
+    public readonly NetEvent0 openChestEvent = new NetEvent0();
+    [XmlElement("specialChestType")]
+    public readonly NetEnum<Chest.SpecialChestTypes> specialChestType = new NetEnum<Chest.SpecialChestTypes>();
+    [XmlIgnore]
+    public readonly NetMutex mutex = new NetMutex();
+
+    [XmlIgnore]
+    public Chest.SpecialChestTypes SpecialChestType
+    {
+      get => this.specialChestType.Value;
+      set => this.specialChestType.Value = value;
+    }
+
+    [XmlIgnore]
+    public Color Tint
+    {
+      get => (Color) (NetFieldBase<Color, NetColor>) this.tint;
+      set => this.tint.Value = value;
+    }
+
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.startingLidFrame, (INetSerializable) this.frameCounter, (INetSerializable) this.coins, (INetSerializable) this.items, (INetSerializable) this.chestType, (INetSerializable) this.tint, (INetSerializable) this.playerChoiceColor, (INetSerializable) this.playerChest, (INetSerializable) this.fridge, (INetSerializable) this.giftbox, (INetSerializable) this.giftboxIndex, (INetSerializable) this.mutex.NetFields, (INetSerializable) this.lidFrameCount, (INetSerializable) this.bigCraftableSpriteIndex, (INetSerializable) this.dropContents, this.openChestEvent.NetFields, (INetSerializable) this.synchronized, (INetSerializable) this.specialChestType, (INetSerializable) this.kickStartTile, (INetSerializable) this.separateWalletItems);
+      this.openChestEvent.onEvent += new NetEvent0.Event(this.performOpenChest);
+      this.kickStartTile.fieldChangeVisibleEvent += (NetFieldBase<Vector2, NetVector2>.FieldChange) ((field, old_value, new_value) =>
+      {
+        if (Game1.gameMode == (byte) 6 || (double) new_value.X == -1000.0 || (double) new_value.Y == -1000.0)
+          return;
+        this.localKickStartTile = new Vector2?((Vector2) (NetFieldBase<Vector2, NetVector2>) this.kickStartTile);
+        this.kickProgress = 0.0f;
+      });
+    }
+
+    public Chest()
+    {
+      this.Name = nameof (Chest);
+      this.type.Value = "interactive";
+      this.boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int) this.tileLocation.X * 64, (int) this.tileLocation.Y * 64, 64, 64);
+    }
+
+    public Chest(bool playerChest, Vector2 tileLocation, int parentSheetIndex = 130)
+      : base(tileLocation, parentSheetIndex)
+    {
+      this.Name = nameof (Chest);
+      this.type.Value = "Crafting";
+      if (playerChest)
+      {
+        this.playerChest.Value = playerChest;
+        this.startingLidFrame.Value = parentSheetIndex + 1;
+        this.bigCraftable.Value = true;
+        this.canBeSetDown.Value = true;
+      }
+      else
+        this.lidFrameCount.Value = 3;
+    }
+
+    public Chest(bool playerChest, int parentSheedIndex = 130)
+      : base(Vector2.Zero, parentSheedIndex)
+    {
+      this.Name = nameof (Chest);
+      this.type.Value = "Crafting";
+      if (playerChest)
+      {
+        this.playerChest.Value = playerChest;
+        this.startingLidFrame.Value = parentSheedIndex + 1;
+        this.bigCraftable.Value = true;
+        this.canBeSetDown.Value = true;
+      }
+      else
+        this.lidFrameCount.Value = 3;
+    }
+
+    public Chest(Vector2 location)
+    {
+      this.tileLocation.Value = location;
+      this.name = nameof (Chest);
+      this.type.Value = "interactive";
+      this.boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int) this.tileLocation.X * 64, (int) this.tileLocation.Y * 64, 64, 64);
+    }
+
+    public Chest(string type, Vector2 location, MineShaft mine)
+    {
+      this.tileLocation.Value = location;
+      if (!(type == "OreChest"))
+      {
+        if (!(type == "dungeon"))
+        {
+          if (type == "Grand")
+          {
+            this.tint.Value = new Color(150, 150, (int) byte.MaxValue);
+            this.coins.Value = (int) location.Y % 8 + 6;
+          }
+        }
+        else
+        {
+          switch ((int) location.X % 5)
+          {
+            case 1:
+              this.coins.Value = (int) location.Y % 3 + 2;
+              break;
+            case 2:
+              this.items.Add((Item) new StardewValley.Object((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation, 382, (int) location.Y % 3 + 1));
+              break;
+            case 3:
+              this.items.Add((Item) new StardewValley.Object((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation, mine.getMineArea() == 0 ? 378 : (mine.getMineArea() == 40 ? 380 : 384), (int) location.Y % 3 + 1));
+              break;
+            case 4:
+              this.chestType.Value = "Monster";
+              break;
+          }
+        }
+      }
+      else
+      {
+        for (int index = 0; index < 8; ++index)
+          this.items.Add((Item) new StardewValley.Object((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation, Game1.random.NextDouble() < 0.5 ? 384 : 382, 1));
+      }
+      this.name = nameof (Chest);
+      this.lidFrameCount.Value = 3;
+      this.type.Value = "interactive";
+      this.boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int) this.tileLocation.X * 64, (int) this.tileLocation.Y * 64, 64, 64);
+    }
+
+    public Chest(
+      int parent_sheet_index,
+      Vector2 tile_location,
+      int starting_lid_frame,
+      int lid_frame_count)
+      : base(tile_location, parent_sheet_index)
+    {
+      this.playerChest.Value = true;
+      this.startingLidFrame.Value = starting_lid_frame;
+      this.lidFrameCount.Value = lid_frame_count;
+      this.bigCraftable.Value = true;
+      this.canBeSetDown.Value = true;
+    }
+
+    public Chest(int coins, List<Item> items, Vector2 location, bool giftbox = false, int giftboxIndex = 0)
+    {
+      this.name = nameof (Chest);
+      this.type.Value = "interactive";
+      this.giftbox.Value = giftbox;
+      this.giftboxIndex.Value = giftboxIndex;
+      if (!this.giftbox.Value)
+        this.lidFrameCount.Value = 3;
+      if (items != null)
+        this.items.Set((IList<Item>) items);
+      this.coins.Value = coins;
+      this.tileLocation.Value = location;
+      this.boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int) this.tileLocation.X * 64, (int) this.tileLocation.Y * 64, 64, 64);
+    }
+
+    public void resetLidFrame() => this.currentLidFrame = (int) (NetFieldBase<int, NetInt>) this.startingLidFrame;
+
+    public void fixLidFrame()
+    {
+      if (this.currentLidFrame == 0)
+        this.currentLidFrame = (int) (NetFieldBase<int, NetInt>) this.startingLidFrame;
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin)
+        return;
+      if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        if (this.GetMutex().IsLocked() && !this.GetMutex().IsLockHeld())
+        {
+          this.currentLidFrame = this.getLastLidFrame();
+        }
+        else
+        {
+          if (this.GetMutex().IsLocked())
+            return;
+          this.currentLidFrame = (int) (NetFieldBase<int, NetInt>) this.startingLidFrame;
+        }
+      }
+      else
+      {
+        if (this.currentLidFrame != this.startingLidFrame.Value || !this.GetMutex().IsLocked() || this.GetMutex().IsLockHeld())
+          return;
+        this.currentLidFrame = this.getLastLidFrame();
+      }
+    }
+
+    public int getLastLidFrame() => this.startingLidFrame.Value + this.lidFrameCount.Value - 1;
+
+    public override bool performObjectDropInAction(Item dropIn, bool probe, Farmer who) => false;
+
+    public override bool performToolAction(Tool t, GameLocation location)
+    {
+      if (t != null && t.getLastFarmerToUse() != null && t.getLastFarmerToUse() != Game1.player)
+        return false;
+      if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        if (t == null || t is MeleeWeapon || !t.isHeavyHitter() || !base.performToolAction(t, location))
+          return false;
+        Farmer player = t.getLastFarmerToUse();
+        if (player != null)
+        {
+          Vector2 c = this.TileLocation;
+          if ((double) c.X == 0.0 && (double) c.Y == 0.0)
+          {
+            bool flag = false;
+            foreach (KeyValuePair<Vector2, StardewValley.Object> pair in location.objects.Pairs)
+            {
+              if (pair.Value == this)
+              {
+                c.X = (float) (int) pair.Key.X;
+                c.Y = (float) (int) pair.Key.Y;
+                flag = true;
+                break;
+              }
+            }
+            if (!flag)
+            {
+              c = player.GetToolLocation() / 64f;
+              c.X = (float) (int) c.X;
+              c.Y = (float) (int) c.Y;
+            }
+          }
+          this.GetMutex().RequestLock((Action) (() =>
+          {
+            this.clearNulls();
+            if (this.isEmpty())
+            {
+              this.performRemoveAction((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation, location);
+              if (location.Objects.Remove(c) && this.type.Equals((object) "Crafting") && (int) (NetFieldBase<int, NetInt>) this.fragility != 2)
+              {
+                NetCollection<Debris> debris1 = location.debris;
+                int objectIndex = (bool) (NetFieldBase<bool, NetBool>) this.bigCraftable ? -this.ParentSheetIndex : this.ParentSheetIndex;
+                Vector2 toolLocation = player.GetToolLocation();
+                Microsoft.Xna.Framework.Rectangle boundingBox = player.GetBoundingBox();
+                double x = (double) boundingBox.Center.X;
+                boundingBox = player.GetBoundingBox();
+                double y = (double) boundingBox.Center.Y;
+                Vector2 playerPosition = new Vector2((float) x, (float) y);
+                Debris debris2 = new Debris(objectIndex, toolLocation, playerPosition);
+                debris1.Add(debris2);
+              }
+            }
+            else if (t != null && t.isHeavyHitter() && !(t is MeleeWeapon))
+            {
+              location.playSound("hammer");
+              this.shakeTimer = 100;
+              if (t != player.CurrentTool)
+              {
+                Vector2 vector2 = Vector2.Zero;
+                vector2 = player.FacingDirection != 1 ? (player.FacingDirection != 3 ? (player.FacingDirection != 0 ? new Vector2(0.0f, 1f) : new Vector2(0.0f, -1f)) : new Vector2(-1f, 0.0f)) : new Vector2(1f, 0.0f);
+                if ((double) this.TileLocation.X == 0.0 && (double) this.TileLocation.Y == 0.0 && location.getObjectAtTile((int) c.X, (int) c.Y) == this)
+                  this.TileLocation = c;
+                this.MoveToSafePosition(location, this.TileLocation, prioritize_direction: new Vector2?(vector2));
+              }
+            }
+            this.GetMutex().ReleaseLock();
+          }));
+        }
+        return false;
+      }
+      return t != null && t is Pickaxe && this.currentLidFrame == this.getLastLidFrame() && (int) (NetFieldBase<int, NetInt>) this.frameCounter == -1 && this.isEmpty();
+    }
+
+    public void addContents(int coins, Item item)
+    {
+      this.coins.Value += coins;
+      this.items.Add(item);
+    }
+
+    public bool MoveToSafePosition(
+      GameLocation location,
+      Vector2 tile_position,
+      int depth = 0,
+      Vector2? prioritize_direction = null)
+    {
+      List<Vector2> list = new List<Vector2>();
+      list.AddRange((IEnumerable<Vector2>) new Vector2[4]
+      {
+        new Vector2(1f, 0.0f),
+        new Vector2(-1f, 0.0f),
+        new Vector2(0.0f, -1f),
+        new Vector2(0.0f, 1f)
+      });
+      Utility.Shuffle<Vector2>(Game1.random, list);
+      if (prioritize_direction.HasValue)
+      {
+        list.Remove(-prioritize_direction.Value);
+        list.Insert(0, -prioritize_direction.Value);
+        list.Remove(prioritize_direction.Value);
+        list.Insert(0, prioritize_direction.Value);
+      }
+      foreach (Vector2 vector2_1 in list)
+      {
+        Vector2 vector2_2 = tile_position + vector2_1;
+        if (this.canBePlacedHere(location, vector2_2) && location.isTilePlaceable(vector2_2))
+        {
+          if (location.objects.ContainsKey(this.TileLocation) && !location.objects.ContainsKey(vector2_2))
+          {
+            location.objects.Remove(this.TileLocation);
+            this.kickStartTile.Value = this.TileLocation;
+            this.TileLocation = vector2_2;
+            location.objects[vector2_2] = (StardewValley.Object) this;
+            this.boundingBox.Value = new Microsoft.Xna.Framework.Rectangle((int) this.tileLocation.X * 64, (int) this.tileLocation.Y * 64, 64, 64);
+          }
+          return true;
+        }
+      }
+      Utility.Shuffle<Vector2>(Game1.random, list);
+      if (prioritize_direction.HasValue)
+      {
+        list.Remove(-prioritize_direction.Value);
+        list.Insert(0, -prioritize_direction.Value);
+        list.Remove(prioritize_direction.Value);
+        list.Insert(0, prioritize_direction.Value);
+      }
+      if (depth < 3)
+      {
+        foreach (Vector2 vector2 in list)
+        {
+          Vector2 tile_position1 = tile_position + vector2;
+          if (location.isPointPassable(new Location((int) ((double) tile_position1.X + 0.5) * 64, (int) ((double) tile_position1.Y + 0.5) * 64), Game1.viewport) && this.MoveToSafePosition(location, tile_position1, depth + 1, prioritize_direction))
+            return true;
+        }
+      }
+      return false;
+    }
+
+    public override bool placementAction(GameLocation location, int x, int y, Farmer who = null)
+    {
+      this.localKickStartTile = new Vector2?();
+      this.kickProgress = -1f;
+      return base.placementAction(location, x, y, who);
+    }
+
+    public void destroyAndDropContents(Vector2 pointToDropAt, GameLocation location)
+    {
+      List<Item> objList = new List<Item>();
+      objList.AddRange((IEnumerable<Item>) this.items);
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin)
+      {
+        foreach (NetObjectList<Item> collection in this.separateWalletItems.Values)
+          objList.AddRange((IEnumerable<Item>) collection);
+      }
+      if (objList.Count > 0)
+        location.playSound("throwDownITem");
+      foreach (Item obj in objList)
+      {
+        if (obj != null)
+          Game1.createItemDebris(obj, pointToDropAt, Game1.random.Next(4), location);
+      }
+      this.items.Clear();
+      this.separateWalletItems.Clear();
+      this.clearNulls();
+    }
+
+    public void dumpContents(GameLocation location)
+    {
+      if (this.synchronized.Value && (this.GetMutex().IsLocked() || !Game1.IsMasterGame) && !this.GetMutex().IsLockHeld())
+        return;
+      if (this.items.Count > 0 && !this.chestType.Equals((object) "Monster") && this.items.Count >= 1 && (this.GetMutex().IsLockHeld() || !(bool) (NetFieldBase<bool, NetBool>) this.playerChest))
+      {
+        bool flag = Utility.IsNormalObjectAtParentSheetIndex(this.items[0], 434);
+        if (location is FarmHouse)
+        {
+          if ((location as FarmHouse).owner.UniqueMultiplayerID != Game1.player.UniqueMultiplayerID)
+          {
+            Game1.drawObjectDialogue(Game1.content.LoadString("Strings\\Objects:ParsnipSeedPackage_SomeoneElse"));
+            return;
+          }
+          if (!flag)
+          {
+            Game1.player.addQuest(6);
+            Game1.dayTimeMoneyBox.PingQuestLog();
+          }
+        }
+        if (flag)
+        {
+          string str = location is FarmHouse ? "CF_Spouse" : "CF_Mines";
+          if (!Game1.player.mailReceived.Contains(str))
+          {
+            Game1.player.eatObject(this.items[0] as StardewValley.Object, true);
+            Game1.player.mailReceived.Add(str);
+          }
+          this.items.Clear();
+        }
+        else if (this.dropContents.Value)
+        {
+          foreach (Item obj in (NetList<Item, NetRef<Item>>) this.items)
+          {
+            if (obj != null)
+              Game1.createItemDebris(obj, this.tileLocation.Value * 64f, -1, location);
+          }
+          this.items.Clear();
+          this.clearNulls();
+          if (location is VolcanoDungeon)
+          {
+            if (this.bigCraftableSpriteIndex.Value == 223)
+              Game1.player.team.RequestLimitedNutDrops("VolcanoNormalChest", location, (int) this.tileLocation.Value.X * 64, (int) this.tileLocation.Value.Y * 64, 1);
+            else if (this.bigCraftableSpriteIndex.Value == 227)
+              Game1.player.team.RequestLimitedNutDrops("VolcanoRareChest", location, (int) this.tileLocation.Value.X * 64, (int) this.tileLocation.Value.Y * 64, 1);
+          }
+        }
+        else if (!this.synchronized.Value || this.GetMutex().IsLockHeld())
+        {
+          Item obj = this.items[0];
+          this.items[0] = (Item) null;
+          this.items.RemoveAt(0);
+          Game1.player.addItemByMenuIfNecessaryElseHoldUp(obj);
+          if (location is Caldera)
+            Game1.player.mailReceived.Add("CalderaTreasure");
+          ItemGrabMenu grab_menu = Game1.activeClickableMenu as ItemGrabMenu;
+          if (grab_menu != null)
+          {
+            ItemGrabMenu itemGrabMenu = grab_menu;
+            itemGrabMenu.behaviorBeforeCleanup = itemGrabMenu.behaviorBeforeCleanup + (Action<IClickableMenu>) (menu => grab_menu.DropRemainingItems());
+          }
+        }
+        if (Game1.mine != null)
+          Game1.mine.chestConsumed();
+      }
+      if (this.chestType.Equals((object) "Monster"))
+      {
+        Monster monsterForThisLevel = Game1.mine.getMonsterForThisLevel(Game1.CurrentMineLevel, (int) this.tileLocation.X, (int) this.tileLocation.Y);
+        Vector2 velocityTowardPlayer = Utility.getVelocityTowardPlayer(new Point((int) this.tileLocation.X, (int) this.tileLocation.Y), 8f, Game1.player);
+        monsterForThisLevel.xVelocity = velocityTowardPlayer.X;
+        monsterForThisLevel.yVelocity = velocityTowardPlayer.Y;
+        location.characters.Add((NPC) monsterForThisLevel);
+        location.playSound("explosion");
+        Game1.multiplayer.broadcastSprites(location, new TemporaryAnimatedSprite(362, (float) Game1.random.Next(30, 90), 6, 1, new Vector2(this.tileLocation.X * 64f, this.tileLocation.Y * 64f), false, Game1.random.NextDouble() < 0.5));
+        location.objects.Remove((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation);
+        Game1.addHUDMessage(new HUDMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Chest.cs.12531"), Color.Red, 3500f));
+      }
+      else
+        Game1.player.gainExperience(5, 25 + Game1.CurrentMineLevel);
+      if (!(bool) (NetFieldBase<bool, NetBool>) this.giftbox)
+        return;
+      TemporaryAnimatedSprite temporaryAnimatedSprite = new TemporaryAnimatedSprite("LooseSprites\\Giftbox", new Microsoft.Xna.Framework.Rectangle(0, (int) (NetFieldBase<int, NetInt>) this.giftboxIndex * 32, 16, 32), 80f, 11, 1, this.tileLocation.Value * 64f - new Vector2(0.0f, 52f), false, false, this.tileLocation.Y / 10000f, 0.0f, Color.White, 4f, 0.0f, 0.0f, 0.0f)
+      {
+        destroyable = false,
+        holdLastFrame = true
+      };
+      if (location.netObjects.ContainsKey((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation) && location.netObjects[(Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation] == this)
+      {
+        Game1.multiplayer.broadcastSprites(location, temporaryAnimatedSprite);
+        location.removeObject((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation, false);
+      }
+      else
+        location.temporarySprites.Add(temporaryAnimatedSprite);
+    }
+
+    public NetMutex GetMutex() => this.specialChestType.Value == Chest.SpecialChestTypes.JunimoChest ? Game1.player.team.junimoChestMutex : this.mutex;
+
+    public override bool checkForAction(Farmer who, bool justCheckingForActivity = false)
+    {
+      if (justCheckingForActivity)
+        return true;
+      if ((bool) (NetFieldBase<bool, NetBool>) this.giftbox)
+      {
+        Game1.player.Halt();
+        Game1.player.freezePause = 1000;
+        who.currentLocation.playSound("Ship");
+        this.dumpContents(who.currentLocation);
+      }
+      else if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        if (!Game1.didPlayerJustRightClick(true))
+          return false;
+        this.GetMutex().RequestLock((Action) (() =>
+        {
+          if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin)
+          {
+            this.OpenMiniShippingMenu();
+          }
+          else
+          {
+            this.frameCounter.Value = 5;
+            Game1.playSound((bool) (NetFieldBase<bool, NetBool>) this.fridge ? "doorCreak" : "openChest");
+            Game1.player.Halt();
+            Game1.player.freezePause = 1000;
+          }
+        }));
+      }
+      else if (!(bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        if (this.currentLidFrame == this.startingLidFrame.Value && (int) (NetFieldBase<int, NetInt>) this.frameCounter <= -1)
+        {
+          who.currentLocation.playSound("openChest");
+          if (this.synchronized.Value)
+            this.GetMutex().RequestLock((Action) (() => this.openChestEvent.Fire()));
+          else
+            this.performOpenChest();
+        }
+        else if (this.currentLidFrame == this.getLastLidFrame() && this.items.Count > 0 && !this.synchronized.Value)
+        {
+          Item obj = this.items[0];
+          this.items[0] = (Item) null;
+          this.items.RemoveAt(0);
+          if (Game1.mine != null)
+            Game1.mine.chestConsumed();
+          who.addItemByMenuIfNecessaryElseHoldUp(obj);
+          ItemGrabMenu grab_menu = Game1.activeClickableMenu as ItemGrabMenu;
+          if (grab_menu != null)
+          {
+            ItemGrabMenu itemGrabMenu = grab_menu;
+            itemGrabMenu.behaviorBeforeCleanup = itemGrabMenu.behaviorBeforeCleanup + (Action<IClickableMenu>) (menu => grab_menu.DropRemainingItems());
+          }
+        }
+      }
+      if (this.items.Count == 0 && (int) (NetFieldBase<int, NetInt>) this.coins == 0 && !(bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        who.currentLocation.removeObject((Vector2) (NetFieldBase<Vector2, NetVector2>) this.tileLocation, false);
+        who.currentLocation.playSound("woodWhack");
+      }
+      return true;
+    }
+
+    public virtual void OpenMiniShippingMenu()
+    {
+      Game1.playSound("shwip");
+      this.ShowMenu();
+    }
+
+    public virtual void performOpenChest() => this.frameCounter.Value = 5;
+
+    public virtual void grabItemFromChest(Item item, Farmer who)
+    {
+      if (!who.couldInventoryAcceptThisItem(item))
+        return;
+      this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID).Remove(item);
+      this.clearNulls();
+      this.ShowMenu();
+    }
+
+    public virtual Item addItem(Item item)
+    {
+      item.resetState();
+      this.clearNulls();
+      NetObjectList<Item> netObjectList = this.items;
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin || this.SpecialChestType == Chest.SpecialChestTypes.JunimoChest)
+        netObjectList = this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID);
+      for (int index = 0; index < netObjectList.Count; ++index)
+      {
+        if (netObjectList[index] != null && netObjectList[index].canStackWith((ISalable) item))
+        {
+          item.Stack = netObjectList[index].addToStack(item);
+          if (item.Stack <= 0)
+            return (Item) null;
+        }
+      }
+      if (netObjectList.Count >= this.GetActualCapacity())
+        return item;
+      netObjectList.Add(item);
+      return (Item) null;
+    }
+
+    public virtual int GetActualCapacity()
+    {
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin || this.SpecialChestType == Chest.SpecialChestTypes.JunimoChest)
+        return 9;
+      return this.SpecialChestType == Chest.SpecialChestTypes.Enricher ? 1 : 36;
+    }
+
+    public virtual void CheckAutoLoad(Farmer who)
+    {
+      if (who.currentLocation == null)
+        return;
+      StardewValley.Object @object = (StardewValley.Object) null;
+      if (!who.currentLocation.objects.TryGetValue(new Vector2(this.TileLocation.X, this.TileLocation.Y + 1f), out @object) || @object == null)
+        return;
+      @object.AttemptAutoLoad(who);
+    }
+
+    public virtual void ShowMenu()
+    {
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin)
+        Game1.activeClickableMenu = (IClickableMenu) new ItemGrabMenu((IList<Item>) this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID), false, true, new InventoryMenu.highlightThisItem(Utility.highlightShippableObjects), new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromInventory), (string) null, new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromChest), canBeExitedWithKey: true, source: 1, sourceItem: ((bool) (NetFieldBase<bool, NetBool>) this.fridge ? (Item) null : (Item) this), context: ((object) this));
+      else if (this.SpecialChestType == Chest.SpecialChestTypes.JunimoChest)
+        Game1.activeClickableMenu = (IClickableMenu) new ItemGrabMenu((IList<Item>) this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID), false, true, new InventoryMenu.highlightThisItem(InventoryMenu.highlightAllItems), new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromInventory), (string) null, new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromChest), canBeExitedWithKey: true, showOrganizeButton: true, source: 1, sourceItem: ((bool) (NetFieldBase<bool, NetBool>) this.fridge ? (Item) null : (Item) this), context: ((object) this));
+      else if (this.SpecialChestType == Chest.SpecialChestTypes.AutoLoader)
+      {
+        ItemGrabMenu itemGrabMenu = new ItemGrabMenu((IList<Item>) this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID), false, true, new InventoryMenu.highlightThisItem(InventoryMenu.highlightAllItems), new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromInventory), (string) null, new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromChest), canBeExitedWithKey: true, showOrganizeButton: true, source: 1, sourceItem: ((bool) (NetFieldBase<bool, NetBool>) this.fridge ? (Item) null : (Item) this), context: ((object) this));
+        itemGrabMenu.exitFunction = itemGrabMenu.exitFunction + (IClickableMenu.onExit) (() => this.CheckAutoLoad(Game1.player));
+        Game1.activeClickableMenu = (IClickableMenu) itemGrabMenu;
+      }
+      else if (this.SpecialChestType == Chest.SpecialChestTypes.Enricher)
+        Game1.activeClickableMenu = (IClickableMenu) new ItemGrabMenu((IList<Item>) this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID), false, true, new InventoryMenu.highlightThisItem(StardewValley.Object.HighlightFertilizers), new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromInventory), (string) null, new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromChest), canBeExitedWithKey: true, showOrganizeButton: true, source: 1, sourceItem: ((bool) (NetFieldBase<bool, NetBool>) this.fridge ? (Item) null : (Item) this), context: ((object) this));
+      else
+        Game1.activeClickableMenu = (IClickableMenu) new ItemGrabMenu((IList<Item>) this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID), false, true, new InventoryMenu.highlightThisItem(InventoryMenu.highlightAllItems), new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromInventory), (string) null, new ItemGrabMenu.behaviorOnItemSelect(this.grabItemFromChest), canBeExitedWithKey: true, showOrganizeButton: true, source: 1, sourceItem: ((bool) (NetFieldBase<bool, NetBool>) this.fridge ? (Item) null : (Item) this), context: ((object) this));
+    }
+
+    public virtual void grabItemFromInventory(Item item, Farmer who)
+    {
+      if (item.Stack == 0)
+        item.Stack = 1;
+      Item obj = this.addItem(item);
+      if (obj == null)
+        who.removeItemFromInventory(item);
+      else
+        obj = who.addItemToInventory(obj);
+      this.clearNulls();
+      int id = Game1.activeClickableMenu.currentlySnappedComponent != null ? Game1.activeClickableMenu.currentlySnappedComponent.myID : -1;
+      this.ShowMenu();
+      (Game1.activeClickableMenu as ItemGrabMenu).heldItem = obj;
+      if (id == -1)
+        return;
+      Game1.activeClickableMenu.currentlySnappedComponent = Game1.activeClickableMenu.getComponentWithID(id);
+      Game1.activeClickableMenu.snapCursorToCurrentSnappedComponent();
+    }
+
+    public NetObjectList<Item> GetItemsForPlayer(long id)
+    {
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin && Game1.player.team.useSeparateWallets.Value && this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin && Game1.player.team.useSeparateWallets.Value)
+      {
+        if (!this.separateWalletItems.ContainsKey(id))
+          this.separateWalletItems[id] = new NetObjectList<Item>();
+        return this.separateWalletItems[id];
+      }
+      return this.SpecialChestType == Chest.SpecialChestTypes.JunimoChest ? Game1.player.team.junimoChest : this.items;
+    }
+
+    public virtual bool isEmpty()
+    {
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin && Game1.player.team.useSeparateWallets.Value)
+      {
+        foreach (NetObjectList<Item> source in this.separateWalletItems.Values)
+        {
+          for (int index = source.Count<Item>() - 1; index >= 0; --index)
+          {
+            if (source[index] != null)
+              return false;
+          }
+        }
+        return true;
+      }
+      if (this.SpecialChestType == Chest.SpecialChestTypes.JunimoChest)
+      {
+        NetObjectList<Item> itemsForPlayer = this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID);
+        for (int index = itemsForPlayer.Count - 1; index >= 0; --index)
+        {
+          if (itemsForPlayer[index] != null)
+            return false;
+        }
+        return true;
+      }
+      for (int index = this.items.Count - 1; index >= 0; --index)
+      {
+        if (this.items[index] != null)
+          return false;
+      }
+      return true;
+    }
+
+    public virtual void clearNulls()
+    {
+      if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin || this.SpecialChestType == Chest.SpecialChestTypes.JunimoChest)
+      {
+        NetObjectList<Item> itemsForPlayer = this.GetItemsForPlayer(Game1.player.UniqueMultiplayerID);
+        for (int index = itemsForPlayer.Count - 1; index >= 0; --index)
+        {
+          if (itemsForPlayer[index] == null)
+            itemsForPlayer.RemoveAt(index);
+        }
+      }
+      else
+      {
+        for (int index = this.items.Count - 1; index >= 0; --index)
+        {
+          if (this.items[index] == null)
+            this.items.RemoveAt(index);
+        }
+      }
+    }
+
+    public override void updateWhenCurrentLocation(GameTime time, GameLocation environment)
+    {
+      if (this.synchronized.Value)
+        this.openChestEvent.Poll();
+      if (this.localKickStartTile.HasValue)
+      {
+        if (Game1.currentLocation == environment)
+        {
+          if ((double) this.kickProgress == 0.0)
+          {
+            if (Utility.isOnScreen((this.localKickStartTile.Value + new Vector2(0.5f, 0.5f)) * 64f, 64))
+              Game1.playSound("clubhit");
+            this.shakeTimer = 100;
+          }
+        }
+        else
+        {
+          this.localKickStartTile = new Vector2?();
+          this.kickProgress = -1f;
+        }
+        if ((double) this.kickProgress >= 0.0)
+        {
+          float num = 0.25f;
+          this.kickProgress += (float) time.ElapsedGameTime.TotalSeconds / num;
+          if ((double) this.kickProgress >= 1.0)
+          {
+            this.kickProgress = -1f;
+            this.localKickStartTile = new Vector2?();
+          }
+        }
+      }
+      else
+        this.kickProgress = -1f;
+      this.fixLidFrame();
+      this.mutex.Update(environment);
+      if (this.shakeTimer > 0)
+      {
+        this.shakeTimer -= time.ElapsedGameTime.Milliseconds;
+        if (this.shakeTimer <= 0)
+          this.health = 10;
+      }
+      if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        if (this.SpecialChestType == Chest.SpecialChestTypes.MiniShippingBin)
+        {
+          this.UpdateFarmerNearby(environment);
+          if (this._shippingBinFrameCounter > -1)
+          {
+            --this._shippingBinFrameCounter;
+            if (this._shippingBinFrameCounter <= 0)
+            {
+              this._shippingBinFrameCounter = 5;
+              if (this._farmerNearby && this.currentLidFrame < this.getLastLidFrame())
+                ++this.currentLidFrame;
+              else if (!this._farmerNearby && this.currentLidFrame > this.startingLidFrame.Value)
+                --this.currentLidFrame;
+              else
+                this._shippingBinFrameCounter = -1;
+            }
+          }
+          if (Game1.activeClickableMenu != null || !this.GetMutex().IsLockHeld())
+            return;
+          this.GetMutex().ReleaseLock();
+        }
+        else if ((int) (NetFieldBase<int, NetInt>) this.frameCounter > -1 && this.currentLidFrame < this.getLastLidFrame() + 1)
+        {
+          --this.frameCounter.Value;
+          if ((int) (NetFieldBase<int, NetInt>) this.frameCounter > 0 || !this.GetMutex().IsLockHeld())
+            return;
+          if (this.currentLidFrame == this.getLastLidFrame())
+          {
+            this.ShowMenu();
+            this.frameCounter.Value = -1;
+          }
+          else
+          {
+            this.frameCounter.Value = 5;
+            ++this.currentLidFrame;
+          }
+        }
+        else
+        {
+          if (((int) (NetFieldBase<int, NetInt>) this.frameCounter != -1 || this.currentLidFrame <= (int) (NetFieldBase<int, NetInt>) this.startingLidFrame) && this.currentLidFrame < this.getLastLidFrame() || Game1.activeClickableMenu != null || !this.GetMutex().IsLockHeld())
+            return;
+          this.GetMutex().ReleaseLock();
+          this.currentLidFrame = this.getLastLidFrame();
+          this.frameCounter.Value = 2;
+          environment.localSound("doorCreakReverse");
+        }
+      }
+      else
+      {
+        if ((int) (NetFieldBase<int, NetInt>) this.frameCounter <= -1 || this.currentLidFrame > this.getLastLidFrame())
+          return;
+        --this.frameCounter.Value;
+        if ((int) (NetFieldBase<int, NetInt>) this.frameCounter > 0)
+          return;
+        if (this.currentLidFrame == this.getLastLidFrame())
+        {
+          this.dumpContents(environment);
+          this.frameCounter.Value = -1;
+        }
+        else
+        {
+          this.frameCounter.Value = 10;
+          ++this.currentLidFrame;
+          if (this.currentLidFrame != this.getLastLidFrame())
+            return;
+          this.frameCounter.Value += 5;
+        }
+      }
+    }
+
+    public virtual void UpdateFarmerNearby(GameLocation location, bool animate = true)
+    {
+      bool flag = false;
+      foreach (Farmer farmer in location.farmers)
+      {
+        if ((double) Math.Abs((float) farmer.getTileX() - this.tileLocation.X) <= 1.0 && (double) Math.Abs((float) farmer.getTileY() - this.tileLocation.Y) <= 1.0)
+        {
+          flag = true;
+          break;
+        }
+      }
+      if (flag == this._farmerNearby)
+        return;
+      this._farmerNearby = flag;
+      this._shippingBinFrameCounter = 5;
+      if (!animate)
+      {
+        this._shippingBinFrameCounter = -1;
+        if (this._farmerNearby)
+          this.currentLidFrame = this.getLastLidFrame();
+        else
+          this.currentLidFrame = this.startingLidFrame.Value;
+      }
+      else
+      {
+        if (Game1.gameMode == (byte) 6)
+          return;
+        if (this._farmerNearby)
+          location.localSound("doorCreak");
+        else
+          location.localSound("doorCreakReverse");
+      }
+    }
+
+    public override void actionOnPlayerEntry()
+    {
+      this.fixLidFrame();
+      if (this.specialChestType.Value == Chest.SpecialChestTypes.MiniShippingBin)
+        this.UpdateFarmerNearby(Game1.currentLocation, false);
+      this.kickProgress = -1f;
+      this.localKickStartTile = new Vector2?();
+      if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest || this.items.Count != 0 || (int) (NetFieldBase<int, NetInt>) this.coins != 0)
+        return;
+      this.currentLidFrame = this.getLastLidFrame();
+    }
+
+    public virtual void SetBigCraftableSpriteIndex(
+      int sprite_index,
+      int starting_lid_frame = -1,
+      int lid_frame_count = 3)
+    {
+      this.bigCraftableSpriteIndex.Value = sprite_index;
+      if (starting_lid_frame >= 0)
+        this.startingLidFrame.Value = starting_lid_frame;
+      else
+        this.startingLidFrame.Value = sprite_index + 1;
+      this.lidFrameCount.Value = lid_frame_count;
+    }
+
+    public override void drawInMenu(
+      SpriteBatch spriteBatch,
+      Vector2 location,
+      float scaleSize,
+      float transparency,
+      float layerDepth,
+      StackDrawType drawStackNumber,
+      Color color,
+      bool drawShadow)
+    {
+      base.drawInMenu(spriteBatch, location, scaleSize, transparency, layerDepth, drawStackNumber, color, drawShadow);
+    }
+
+    public override void draw(SpriteBatch spriteBatch, int x, int y, float alpha = 1f)
+    {
+      float b1 = (float) x;
+      float b2 = (float) y;
+      if (this.localKickStartTile.HasValue)
+      {
+        b1 = Utility.Lerp(this.localKickStartTile.Value.X, b1, this.kickProgress);
+        b2 = Utility.Lerp(this.localKickStartTile.Value.Y, b2, this.kickProgress);
+      }
+      float layerDepth = Math.Max(0.0f, (float) ((((double) b2 + 1.0) * 64.0 - 24.0) / 10000.0)) + b1 * 1E-05f;
+      if (this.localKickStartTile.HasValue)
+      {
+        spriteBatch.Draw(Game1.shadowTexture, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) (((double) b1 + 0.5) * 64.0), (float) (((double) b2 + 0.5) * 64.0))), new Microsoft.Xna.Framework.Rectangle?(Game1.shadowTexture.Bounds), Color.Black * 0.5f, 0.0f, new Vector2((float) Game1.shadowTexture.Bounds.Center.X, (float) Game1.shadowTexture.Bounds.Center.Y), 4f, SpriteEffects.None, 0.0001f);
+        b2 -= (float) Math.Sin((double) this.kickProgress * Math.PI) * 0.5f;
+      }
+      if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest && (this.ParentSheetIndex == 130 || this.ParentSheetIndex == 232))
+      {
+        if (this.playerChoiceColor.Value.Equals(Color.Black))
+        {
+          spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) ((double) b1 * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)), (float) (((double) b2 - 1.0) * 64.0))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex, 16, 32)), this.tint.Value * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth);
+          spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) ((double) b1 * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)), (float) (((double) b2 - 1.0) * 64.0))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.currentLidFrame, 16, 32)), this.tint.Value * alpha * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth + 1E-05f);
+        }
+        else
+        {
+          spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(b1 * 64f, (float) (((double) b2 - 1.0) * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex == 130 ? 168 : this.ParentSheetIndex, 16, 32)), this.playerChoiceColor.Value * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth);
+          spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(b1 * 64f, (float) ((double) b2 * 64.0 + 20.0))), new Microsoft.Xna.Framework.Rectangle?(new Microsoft.Xna.Framework.Rectangle(0, (this.ParentSheetIndex == 130 ? 168 : this.ParentSheetIndex) / 8 * 32 + 53, 16, 11)), Color.White * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth + 2E-05f);
+          spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(b1 * 64f, (float) (((double) b2 - 1.0) * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex == 130 ? this.currentLidFrame + 46 : this.currentLidFrame + 8, 16, 32)), Color.White * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth + 2E-05f);
+          spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(b1 * 64f, (float) (((double) b2 - 1.0) * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex == 130 ? this.currentLidFrame + 38 : this.currentLidFrame, 16, 32)), this.playerChoiceColor.Value * alpha * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth + 1E-05f);
+        }
+      }
+      else if ((bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+      {
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) ((double) b1 * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)), (float) (((double) b2 - 1.0) * 64.0))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex, 16, 32)), this.tint.Value * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth);
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) ((double) b1 * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)), (float) (((double) b2 - 1.0) * 64.0))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.currentLidFrame, 16, 32)), this.tint.Value * alpha * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth + 1E-05f);
+      }
+      else if ((bool) (NetFieldBase<bool, NetBool>) this.giftbox)
+      {
+        spriteBatch.Draw(Game1.shadowTexture, this.getLocalPosition(Game1.viewport) + new Vector2(16f, 53f), new Microsoft.Xna.Framework.Rectangle?(Game1.shadowTexture.Bounds), Color.White, 0.0f, new Vector2((float) Game1.shadowTexture.Bounds.Center.X, (float) Game1.shadowTexture.Bounds.Center.Y), 5f, SpriteEffects.None, 1E-07f);
+        if (this.items.Count <= 0 && (int) (NetFieldBase<int, NetInt>) this.coins <= 0)
+          return;
+        int y1 = (int) (NetFieldBase<int, NetInt>) this.giftboxIndex * 32;
+        spriteBatch.Draw(Game1.giftboxTexture, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) ((double) b1 * 64.0 + (this.shakeTimer > 0 ? (double) Game1.random.Next(-1, 2) : 0.0)), (float) ((double) b2 * 64.0 - 52.0))), new Microsoft.Xna.Framework.Rectangle?(new Microsoft.Xna.Framework.Rectangle(0, y1, 16, 32)), (Color) (NetFieldBase<Color, NetColor>) this.tint, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth);
+      }
+      else
+      {
+        int tilePosition = 500;
+        Texture2D texture2D = Game1.objectSpriteSheet;
+        int height = 16;
+        int num = 0;
+        if (this.bigCraftableSpriteIndex.Value >= 0)
+        {
+          tilePosition = this.bigCraftableSpriteIndex.Value;
+          texture2D = Game1.bigCraftableSpriteSheet;
+          height = 32;
+          num = -64;
+        }
+        if (this.bigCraftableSpriteIndex.Value < 0)
+          spriteBatch.Draw(Game1.shadowTexture, this.getLocalPosition(Game1.viewport) + new Vector2(16f, 53f), new Microsoft.Xna.Framework.Rectangle?(Game1.shadowTexture.Bounds), Color.White, 0.0f, new Vector2((float) Game1.shadowTexture.Bounds.Center.X, (float) Game1.shadowTexture.Bounds.Center.Y), 5f, SpriteEffects.None, 1E-07f);
+        spriteBatch.Draw(texture2D, Game1.GlobalToLocal(Game1.viewport, new Vector2(b1 * 64f, b2 * 64f + (float) num)), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(texture2D, tilePosition, 16, height)), (Color) (NetFieldBase<Color, NetColor>) this.tint, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth);
+        Vector2 globalPosition = new Vector2(b1 * 64f, b2 * 64f + (float) num);
+        if (this.bigCraftableSpriteIndex.Value < 0)
+        {
+          switch (this.currentLidFrame)
+          {
+            case 501:
+              globalPosition.Y -= 32f;
+              break;
+            case 502:
+              globalPosition.Y -= 40f;
+              break;
+            case 503:
+              globalPosition.Y -= 60f;
+              break;
+          }
+        }
+        spriteBatch.Draw(texture2D, Game1.GlobalToLocal(Game1.viewport, globalPosition), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(texture2D, this.currentLidFrame, 16, height)), (Color) (NetFieldBase<Color, NetColor>) this.tint, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, layerDepth + 1E-05f);
+      }
+    }
+
+    public virtual void draw(SpriteBatch spriteBatch, int x, int y, float alpha = 1f, bool local = false)
+    {
+      if (!(bool) (NetFieldBase<bool, NetBool>) this.playerChest)
+        return;
+      if (this.playerChoiceColor.Equals(Color.Black))
+      {
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2((float) x, (float) (y - 64)) : Game1.GlobalToLocal(Game1.viewport, new Vector2((float) (x * 64 + (this.shakeTimer > 0 ? Game1.random.Next(-1, 2) : 0)), (float) ((y - 1) * 64))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, (int) (NetFieldBase<int, NetInt>) this.parentSheetIndex, 16, 32)), this.tint.Value * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.89f : (float) (y * 64 + 4) / 10000f);
+      }
+      else
+      {
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2((float) x, (float) (y - 64)) : Game1.GlobalToLocal(Game1.viewport, new Vector2((float) (x * 64), (float) ((y - 1) * 64 + (this.shakeTimer > 0 ? Game1.random.Next(-1, 2) : 0)))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex == 130 ? 168 : this.ParentSheetIndex, 16, 32)), this.playerChoiceColor.Value * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.9f : (float) (y * 64 + 4) / 10000f);
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2((float) x, (float) (y - 64)) : Game1.GlobalToLocal(Game1.viewport, new Vector2((float) (x * 64), (float) ((y - 1) * 64 + (this.shakeTimer > 0 ? Game1.random.Next(-1, 2) : 0)))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex == 130 ? this.currentLidFrame + 38 : this.currentLidFrame, 16, 32)), this.playerChoiceColor.Value * alpha * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.9f : (float) (y * 64 + 5) / 10000f);
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2((float) x, (float) (y + 20)) : Game1.GlobalToLocal(Game1.viewport, new Vector2((float) (x * 64), (float) (y * 64 + 20))), new Microsoft.Xna.Framework.Rectangle?(new Microsoft.Xna.Framework.Rectangle(0, (this.ParentSheetIndex == 130 ? 168 : this.ParentSheetIndex) / 8 * 32 + 53, 16, 11)), Color.White * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.91f : (float) (y * 64 + 6) / 10000f);
+        spriteBatch.Draw(Game1.bigCraftableSpriteSheet, local ? new Vector2((float) x, (float) (y - 64)) : Game1.GlobalToLocal(Game1.viewport, new Vector2((float) (x * 64), (float) ((y - 1) * 64 + (this.shakeTimer > 0 ? Game1.random.Next(-1, 2) : 0)))), new Microsoft.Xna.Framework.Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.bigCraftableSpriteSheet, this.ParentSheetIndex == 130 ? this.currentLidFrame + 46 : this.currentLidFrame + 8, 16, 32)), Color.White * alpha, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, local ? 0.91f : (float) (y * 64 + 6) / 10000f);
+      }
+    }
+
+    public enum SpecialChestTypes
+    {
+      None,
+      MiniShippingBin,
+      JunimoChest,
+      AutoLoader,
+      Enricher,
+    }
+  }
 }

@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Monsters.BigSlime
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -8,224 +14,215 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Monsters
 {
-	public class BigSlime : Monster
-	{
-		[XmlElement("c")]
-		public readonly NetColor c = new NetColor();
+  public class BigSlime : Monster
+  {
+    [XmlElement("c")]
+    public readonly NetColor c = new NetColor();
+    [XmlElement("heldObject")]
+    public readonly NetRef<StardewValley.Object> heldObject = new NetRef<StardewValley.Object>();
+    private float heldObjectBobTimer;
 
-		[XmlElement("heldObject")]
-		public readonly NetRef<Object> heldObject = new NetRef<Object>();
+    public BigSlime()
+    {
+    }
 
-		private float heldObjectBobTimer;
+    public BigSlime(Vector2 position, MineShaft mine)
+      : this(position, mine.getMineArea())
+    {
+      this.Sprite.ignoreStopAnimation = true;
+      this.ignoreMovementAnimations = true;
+      this.HideShadow = true;
+    }
 
-		public BigSlime()
-		{
-		}
+    public BigSlime(Vector2 position, int mineArea)
+      : base("Big Slime", position)
+    {
+      this.ignoreMovementAnimations = true;
+      this.Sprite.ignoreStopAnimation = true;
+      this.Sprite.SpriteWidth = 32;
+      this.Sprite.SpriteHeight = 32;
+      this.Sprite.UpdateSourceRect();
+      this.Sprite.framesPerAnimation = 8;
+      this.c.Value = Color.White;
+      switch (mineArea)
+      {
+        case 0:
+        case 10:
+          this.c.Value = Color.Lime;
+          break;
+        case 40:
+          this.c.Value = Color.Turquoise;
+          this.Health *= 2;
+          this.ExperienceGained *= 2;
+          break;
+        case 80:
+          this.c.Value = Color.Red;
+          this.Health *= 3;
+          this.DamageToFarmer *= 2;
+          this.ExperienceGained *= 3;
+          break;
+        case 121:
+          this.c.Value = Color.BlueViolet;
+          this.Health *= 4;
+          this.DamageToFarmer *= 3;
+          this.ExperienceGained *= 3;
+          break;
+      }
+      int r = (int) this.c.R;
+      int g = (int) this.c.G;
+      int b = (int) this.c.B;
+      int val2_1 = r + Game1.random.Next(-20, 21);
+      int val2_2 = g + Game1.random.Next(-20, 21);
+      int val2_3 = b + Game1.random.Next(-20, 21);
+      this.c.R = (byte) Math.Max(Math.Min((int) byte.MaxValue, val2_1), 0);
+      this.c.G = (byte) Math.Max(Math.Min((int) byte.MaxValue, val2_2), 0);
+      this.c.B = (byte) Math.Max(Math.Min((int) byte.MaxValue, val2_3), 0);
+      NetColor c = this.c;
+      c.Value = c.Value * ((float) Game1.random.Next(7, 11) / 10f);
+      this.Sprite.interval = 300f;
+      this.HideShadow = true;
+      if (Game1.random.NextDouble() < 0.01 && mineArea >= 40)
+        this.heldObject.Value = new StardewValley.Object(221, 1);
+      if (Game1.mine != null && Game1.mine.GetAdditionalDifficulty() > 0)
+      {
+        if (Game1.random.NextDouble() < 0.1)
+          this.heldObject.Value = new StardewValley.Object(858, 1);
+        else if (Game1.random.NextDouble() < 0.005)
+          this.heldObject.Value = new StardewValley.Object(896, 1);
+      }
+      if (Game1.random.NextDouble() >= 0.5 || !Game1.player.team.SpecialOrderRuleActive("SC_NO_FOOD"))
+        return;
+      this.heldObject.Value = new StardewValley.Object(930, 1);
+    }
 
-		public BigSlime(Vector2 position, MineShaft mine)
-			: this(position, mine.getMineArea())
-		{
-			Sprite.ignoreStopAnimation = true;
-			ignoreMovementAnimations = true;
-			base.HideShadow = true;
-		}
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.c, (INetSerializable) this.heldObject);
+    }
 
-		public BigSlime(Vector2 position, int mineArea)
-			: base("Big Slime", position)
-		{
-			ignoreMovementAnimations = true;
-			Sprite.ignoreStopAnimation = true;
-			Sprite.SpriteWidth = 32;
-			Sprite.SpriteHeight = 32;
-			Sprite.UpdateSourceRect();
-			Sprite.framesPerAnimation = 8;
-			c.Value = Color.White;
-			switch (mineArea)
-			{
-			case 0:
-			case 10:
-				c.Value = Color.Lime;
-				break;
-			case 40:
-				c.Value = Color.Turquoise;
-				base.Health *= 2;
-				base.ExperienceGained *= 2;
-				break;
-			case 80:
-				c.Value = Color.Red;
-				base.Health *= 3;
-				base.DamageToFarmer *= 2;
-				base.ExperienceGained *= 3;
-				break;
-			case 121:
-				c.Value = Color.BlueViolet;
-				base.Health *= 4;
-				base.DamageToFarmer *= 3;
-				base.ExperienceGained *= 3;
-				break;
-			}
-			int r2 = c.R;
-			int g2 = c.G;
-			int b2 = c.B;
-			r2 += Game1.random.Next(-20, 21);
-			g2 += Game1.random.Next(-20, 21);
-			b2 += Game1.random.Next(-20, 21);
-			c.R = (byte)Math.Max(Math.Min(255, r2), 0);
-			c.G = (byte)Math.Max(Math.Min(255, g2), 0);
-			c.B = (byte)Math.Max(Math.Min(255, b2), 0);
-			c.Value *= (float)Game1.random.Next(7, 11) / 10f;
-			Sprite.interval = 300f;
-			base.HideShadow = true;
-			if (Game1.random.NextDouble() < 0.01 && mineArea >= 40)
-			{
-				heldObject.Value = new Object(221, 1);
-			}
-			if (Game1.mine != null && Game1.mine.GetAdditionalDifficulty() > 0)
-			{
-				if (Game1.random.NextDouble() < 0.1)
-				{
-					heldObject.Value = new Object(858, 1);
-				}
-				else if (Game1.random.NextDouble() < 0.005)
-				{
-					heldObject.Value = new Object(896, 1);
-				}
-			}
-			if (Game1.random.NextDouble() < 0.5 && Game1.player.team.SpecialOrderRuleActive("SC_NO_FOOD"))
-			{
-				heldObject.Value = new Object(930, 1);
-			}
-		}
+    public override void reloadSprite()
+    {
+      base.reloadSprite();
+      this.Sprite.SpriteWidth = 32;
+      this.Sprite.SpriteHeight = 32;
+      this.Sprite.interval = 300f;
+      this.Sprite.ignoreStopAnimation = true;
+      this.ignoreMovementAnimations = true;
+      this.HideShadow = true;
+      this.Sprite.UpdateSourceRect();
+      this.Sprite.framesPerAnimation = 8;
+    }
 
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(c, heldObject);
-		}
+    public override int takeDamage(
+      int damage,
+      int xTrajectory,
+      int yTrajectory,
+      bool isBomb,
+      double addedPrecision,
+      Farmer who)
+    {
+      int damage1 = Math.Max(1, damage - (int) (NetFieldBase<int, NetInt>) this.resilience);
+      if (Game1.random.NextDouble() < (double) (NetFieldBase<double, NetDouble>) this.missChance - (double) (NetFieldBase<double, NetDouble>) this.missChance * addedPrecision)
+      {
+        damage1 = -1;
+      }
+      else
+      {
+        this.Slipperiness = 3;
+        this.Health -= damage1;
+        this.setTrajectory(xTrajectory, yTrajectory);
+        this.currentLocation.playSound("hitEnemy");
+        this.IsWalkingTowardPlayer = true;
+        if (this.Health <= 0)
+        {
+          this.deathAnimation();
+          ++Game1.stats.SlimesKilled;
+          if (Game1.gameMode == (byte) 3 && Game1.random.NextDouble() < 0.75)
+          {
+            int num = Game1.random.Next(2, 5);
+            for (int index = 0; index < num; ++index)
+            {
+              this.currentLocation.characters.Add((NPC) new GreenSlime(this.Position, Game1.CurrentMineLevel));
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].setTrajectory(xTrajectory / 8 + Game1.random.Next(-2, 3), yTrajectory / 8 + Game1.random.Next(-2, 3));
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].willDestroyObjectsUnderfoot = false;
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].moveTowardPlayer(4);
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].Scale = (float) (0.75 + (double) Game1.random.Next(-5, 10) / 100.0);
+              this.currentLocation.characters[this.currentLocation.characters.Count - 1].currentLocation = this.currentLocation;
+            }
+          }
+        }
+      }
+      return damage1;
+    }
 
-		public override void reloadSprite()
-		{
-			base.reloadSprite();
-			Sprite.SpriteWidth = 32;
-			Sprite.SpriteHeight = 32;
-			Sprite.interval = 300f;
-			Sprite.ignoreStopAnimation = true;
-			ignoreMovementAnimations = true;
-			base.HideShadow = true;
-			Sprite.UpdateSourceRect();
-			Sprite.framesPerAnimation = 8;
-		}
+    protected override void localDeathAnimation()
+    {
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, this.Position, (Color) (NetFieldBase<Color, NetColor>) this.c, 10, animationInterval: 70f));
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, this.Position + new Vector2(-32f, 0.0f), (Color) (NetFieldBase<Color, NetColor>) this.c, 10, animationInterval: 70f)
+      {
+        delayBeforeAnimationStart = 100
+      });
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, this.Position + new Vector2(32f, 0.0f), (Color) (NetFieldBase<Color, NetColor>) this.c, 10, animationInterval: 70f)
+      {
+        delayBeforeAnimationStart = 200
+      });
+      this.currentLocation.localSound("slimedead");
+      this.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, this.Position + new Vector2(0.0f, -32f), (Color) (NetFieldBase<Color, NetColor>) this.c, 10)
+      {
+        delayBeforeAnimationStart = 300
+      });
+    }
 
-		public override int takeDamage(int damage, int xTrajectory, int yTrajectory, bool isBomb, double addedPrecision, Farmer who)
-		{
-			int actualDamage = Math.Max(1, damage - (int)resilience);
-			if (Game1.random.NextDouble() < (double)missChance - (double)missChance * addedPrecision)
-			{
-				actualDamage = -1;
-			}
-			else
-			{
-				base.Slipperiness = 3;
-				base.Health -= actualDamage;
-				setTrajectory(xTrajectory, yTrajectory);
-				base.currentLocation.playSound("hitEnemy");
-				base.IsWalkingTowardPlayer = true;
-				if (base.Health <= 0)
-				{
-					deathAnimation();
-					Game1.stats.SlimesKilled++;
-					if (Game1.gameMode == 3 && Game1.random.NextDouble() < 0.75)
-					{
-						int toCreate = Game1.random.Next(2, 5);
-						for (int i = 0; i < toCreate; i++)
-						{
-							base.currentLocation.characters.Add(new GreenSlime(base.Position, Game1.CurrentMineLevel));
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].setTrajectory(xTrajectory / 8 + Game1.random.Next(-2, 3), yTrajectory / 8 + Game1.random.Next(-2, 3));
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].willDestroyObjectsUnderfoot = false;
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].moveTowardPlayer(4);
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].Scale = 0.75f + (float)Game1.random.Next(-5, 10) / 100f;
-							base.currentLocation.characters[base.currentLocation.characters.Count - 1].currentLocation = base.currentLocation;
-						}
-					}
-				}
-			}
-			return actualDamage;
-		}
+    protected override void updateAnimation(GameTime time)
+    {
+      int currentFrame = this.Sprite.currentFrame;
+      this.Sprite.AnimateDown(time);
+      if (this.isMoving())
+      {
+        this.Sprite.interval = 100f;
+        this.heldObjectBobTimer += (float) (time.ElapsedGameTime.TotalMilliseconds * 0.00785398203879595);
+      }
+      else
+      {
+        this.Sprite.interval = 200f;
+        this.heldObjectBobTimer += (float) (time.ElapsedGameTime.TotalMilliseconds * (Math.PI / 800.0));
+      }
+      if (!Utility.isOnScreen(this.Position, 128) || this.Sprite.currentFrame != 0 || currentFrame != 7)
+        return;
+      this.currentLocation.localSound("slimeHit");
+    }
 
-		protected override void localDeathAnimation()
-		{
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, base.Position, c, 10, flipped: false, 70f));
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, base.Position + new Vector2(-32f, 0f), c, 10, flipped: false, 70f)
-			{
-				delayBeforeAnimationStart = 100
-			});
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, base.Position + new Vector2(32f, 0f), c, 10, flipped: false, 70f)
-			{
-				delayBeforeAnimationStart = 200
-			});
-			base.currentLocation.localSound("slimedead");
-			base.currentLocation.temporarySprites.Add(new TemporaryAnimatedSprite(44, base.Position + new Vector2(0f, -32f), c, 10)
-			{
-				delayBeforeAnimationStart = 300
-			});
-		}
+    public override List<Item> getExtraDropItems()
+    {
+      if (this.heldObject.Value == null)
+        return base.getExtraDropItems();
+      return new List<Item>()
+      {
+        (Item) this.heldObject.Value
+      };
+    }
 
-		protected override void updateAnimation(GameTime time)
-		{
-			int currentIndex = Sprite.currentFrame;
-			Sprite.AnimateDown(time);
-			if (isMoving())
-			{
-				Sprite.interval = 100f;
-				heldObjectBobTimer += (float)time.ElapsedGameTime.TotalMilliseconds * ((float)Math.PI / 400f);
-			}
-			else
-			{
-				Sprite.interval = 200f;
-				heldObjectBobTimer += (float)time.ElapsedGameTime.TotalMilliseconds * ((float)Math.PI / 800f);
-			}
-			if (Utility.isOnScreen(base.Position, 128) && Sprite.currentFrame == 0 && currentIndex == 7)
-			{
-				base.currentLocation.localSound("slimeHit");
-			}
-		}
+    public override void draw(SpriteBatch b)
+    {
+      if (this.IsInvisible || !Utility.isOnScreen(this.Position, 128))
+        return;
+      if (this.heldObject.Value != null)
+        this.heldObject.Value.drawInMenu(b, this.getLocalPosition(Game1.viewport) + new Vector2(28f, (float) (Math.Sin((double) this.heldObjectBobTimer + 1.0) * 4.0 - 16.0)), 1f, 1f, (float) (this.getStandingY() - 1) / 10000f, StackDrawType.Hide, Color.White, false);
+      b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + new Vector2(56f, (float) (16 + this.yJumpOffset)), new Rectangle?(this.Sprite.SourceRect), (Color) (NetFieldBase<Color, NetColor>) this.c, this.rotation, new Vector2(16f, 16f), Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale) * 4f, this.flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) this.getStandingY() / 10000f));
+      if (!this.isGlowing)
+        return;
+      b.Draw(this.Sprite.Texture, this.getLocalPosition(Game1.viewport) + new Vector2(56f, (float) (16 + this.yJumpOffset)), new Rectangle?(this.Sprite.SourceRect), this.glowingColor * this.glowingTransparency, 0.0f, new Vector2(16f, 16f), 4f * Math.Max(0.2f, (float) (NetFieldBase<float, NetFloat>) this.scale), this.flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0.0f, this.drawOnTop ? 0.991f : (float) ((double) this.getStandingY() / 10000.0 + 1.0 / 1000.0)));
+    }
 
-		public override List<Item> getExtraDropItems()
-		{
-			if (heldObject.Value != null)
-			{
-				return new List<Item>
-				{
-					heldObject.Value
-				};
-			}
-			return base.getExtraDropItems();
-		}
+    public override Rectangle GetBoundingBox()
+    {
+      Vector2 position = this.Position;
+      return new Rectangle((int) position.X + 8, (int) position.Y, this.Sprite.SpriteWidth * 4 * 3 / 4, 64);
+    }
 
-		public override void draw(SpriteBatch b)
-		{
-			if (!base.IsInvisible && Utility.isOnScreen(base.Position, 128))
-			{
-				if (heldObject.Value != null)
-				{
-					heldObject.Value.drawInMenu(b, getLocalPosition(Game1.viewport) + new Vector2(28f, -16f + (float)Math.Sin(heldObjectBobTimer + 1f) * 4f), 1f, 1f, (float)(getStandingY() - 1) / 10000f, StackDrawType.Hide, Color.White, drawShadow: false);
-				}
-				b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + new Vector2(56f, 16 + yJumpOffset), Sprite.SourceRect, c, rotation, new Vector2(16f, 16f), Math.Max(0.2f, scale) * 4f, flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)getStandingY() / 10000f)));
-				if (isGlowing)
-				{
-					b.Draw(Sprite.Texture, getLocalPosition(Game1.viewport) + new Vector2(56f, 16 + yJumpOffset), Sprite.SourceRect, glowingColor * glowingTransparency, 0f, new Vector2(16f, 16f), 4f * Math.Max(0.2f, scale), flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, Math.Max(0f, drawOnTop ? 0.991f : ((float)getStandingY() / 10000f + 0.001f)));
-				}
-			}
-		}
-
-		public override Rectangle GetBoundingBox()
-		{
-			Vector2 position = base.Position;
-			return new Rectangle((int)position.X + 8, (int)position.Y, Sprite.SpriteWidth * 4 * 3 / 4, 64);
-		}
-
-		public override void shedChunks(int number, float scale)
-		{
-		}
-	}
+    public override void shedChunks(int number, float scale)
+    {
+    }
+  }
 }

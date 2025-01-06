@@ -1,561 +1,404 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.GameRunner
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Force.DeepCloner;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Netcode;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using System.Threading;
 
 namespace StardewValley
 {
-	public class GameRunner : Game
-	{
-		public static GameRunner instance;
+  public class GameRunner : Game
+  {
+    public static GameRunner instance;
+    public List<Game1> gameInstances = new List<Game1>();
+    public List<Game1> gameInstancesToRemove = new List<Game1>();
+    public Game1 gamePtr;
+    public bool shouldLoadContent;
+    protected bool _initialized;
+    protected bool _windowSizeChanged;
+    public List<int> startButtonState = new List<int>();
+    public List<KeyValuePair<Game1, IEnumerator<int>>> activeNewDayProcesses = new List<KeyValuePair<Game1, IEnumerator<int>>>();
+    public int nextInstanceId;
+    public static int MaxTextureSize = 4096;
 
-		public List<Game1> gameInstances = new List<Game1>();
+    public GameRunner()
+    {
+      Program.sdk.EarlyInitialize();
+      if (!Program.releaseBuild)
+        this.InactiveSleepTime = new TimeSpan(0L);
+      Game1.graphics = new GraphicsDeviceManager((Game) this);
+      Game1.graphics.PreparingDeviceSettings += (EventHandler<PreparingDeviceSettingsEventArgs>) ((sender, args) => args.GraphicsDeviceInformation.PresentationParameters.RenderTargetUsage = RenderTargetUsage.PreserveContents);
+      Game1.graphics.PreferredBackBufferWidth = 1280;
+      Game1.graphics.PreferredBackBufferHeight = 720;
+      this.Content.RootDirectory = "Content";
+      SpriteBatch.TextureTuckAmount = 1f / 1000f;
+      LocalMultiplayer.Initialize();
+      GameRunner.MaxTextureSize = int.MaxValue;
+      this.Window.AllowUserResizing = true;
+      this.SubscribeClientSizeChange();
+      this.Exiting += (EventHandler<EventArgs>) ((sender, args) =>
+      {
+        this.ExecuteForInstances((Action<Game1>) (instance => instance.exitEvent(sender, args)));
+        Process.GetCurrentProcess().Kill();
+      });
+      Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+      LocalizedContentManager.OnLanguageChange += (LocalizedContentManager.LanguageChangedHandler) (code => this.ExecuteForInstances((Action<Game1>) (instance => instance.TranslateFields())));
+      DebugTools.GameConstructed((Game) this);
+    }
 
-		public List<Game1> gameInstancesToRemove = new List<Game1>();
+    protected override void OnActivated(object sender, EventArgs args) => this.ExecuteForInstances((Action<Game1>) (instance => instance.Instance_OnActivated(sender, args)));
 
-		public Game1 gamePtr;
+    public void SubscribeClientSizeChange() => this.Window.ClientSizeChanged += new EventHandler<EventArgs>(this.OnWindowSizeChange);
 
-		public bool shouldLoadContent;
+    public void OnWindowSizeChange(object sender, EventArgs args)
+    {
+      this.Window.ClientSizeChanged -= new EventHandler<EventArgs>(this.OnWindowSizeChange);
+      this._windowSizeChanged = true;
+    }
 
-		protected bool _initialized;
+    protected override bool BeginDraw() => base.BeginDraw();
 
-		protected bool _windowSizeChanged;
+    protected override void BeginRun() => base.BeginRun();
 
-		public List<int> startButtonState = new List<int>();
+    protected override void Dispose(bool disposing) => base.Dispose(disposing);
 
-		public List<KeyValuePair<Game1, IEnumerator<int>>> activeNewDayProcesses = new List<KeyValuePair<Game1, IEnumerator<int>>>();
+    protected override void Draw(GameTime gameTime)
+    {
+      if (this._windowSizeChanged)
+      {
+        this.ExecuteForInstances((Action<Game1>) (instance => instance.Window_ClientSizeChanged((object) null, (EventArgs) null)));
+        this._windowSizeChanged = false;
+        this.SubscribeClientSizeChange();
+      }
+      foreach (Game1 gameInstance in this.gameInstances)
+      {
+        GameRunner.LoadInstance((InstanceGame) gameInstance);
+        Viewport viewport = this.GraphicsDevice.Viewport;
+        Game1.graphics.GraphicsDevice.Viewport = new Viewport(0, 0, Math.Min(gameInstance.localMultiplayerWindow.Width, Game1.graphics.GraphicsDevice.PresentationParameters.BackBufferWidth), Math.Min(gameInstance.localMultiplayerWindow.Height, Game1.graphics.GraphicsDevice.PresentationParameters.BackBufferHeight));
+        gameInstance.Instance_Draw(gameTime);
+        this.GraphicsDevice.Viewport = viewport;
+        GameRunner.SaveInstance((InstanceGame) gameInstance);
+      }
+      if (LocalMultiplayer.IsLocalMultiplayer())
+      {
+        this.GraphicsDevice.Clear(Game1.bgColor);
+        foreach (Game1 gameInstance in this.gameInstances)
+        {
+          Game1.isRenderingScreenBuffer = true;
+          gameInstance.DrawSplitScreenWindow();
+          Game1.isRenderingScreenBuffer = false;
+        }
+      }
+      if (Game1.shouldDrawSafeAreaBounds)
+      {
+        SpriteBatch spriteBatch = Game1.spriteBatch;
+        spriteBatch.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+        Rectangle safeAreaBounds = Game1.safeAreaBounds;
+        spriteBatch.Draw(Game1.staminaRect, new Rectangle(safeAreaBounds.X, safeAreaBounds.Y, safeAreaBounds.Width, 2), Color.White);
+        spriteBatch.Draw(Game1.staminaRect, new Rectangle(safeAreaBounds.X, safeAreaBounds.Y + safeAreaBounds.Height - 2, safeAreaBounds.Width, 2), Color.White);
+        spriteBatch.Draw(Game1.staminaRect, new Rectangle(safeAreaBounds.X, safeAreaBounds.Y, 2, safeAreaBounds.Height), Color.White);
+        spriteBatch.Draw(Game1.staminaRect, new Rectangle(safeAreaBounds.X + safeAreaBounds.Width - 2, safeAreaBounds.Y, 2, safeAreaBounds.Height), Color.White);
+        spriteBatch.End();
+      }
+      base.Draw(gameTime);
+    }
 
-		public int nextInstanceId;
+    public int GetNewInstanceID() => this.nextInstanceId++;
 
-		public static int MaxTextureSize = 4096;
+    public virtual Game1 GetFirstInstanceAtThisLocation(
+      GameLocation location,
+      Func<Game1, bool> additional_check = null)
+    {
+      if (location == null)
+        return (Game1) null;
+      Game1 game1 = Game1.game1;
+      if (game1 != null)
+        GameRunner.SaveInstance((InstanceGame) game1);
+      foreach (Game1 gameInstance in this.gameInstances)
+      {
+        if (gameInstance.instanceGameLocation != null && gameInstance.instanceGameLocation.Equals(location))
+        {
+          if (additional_check != null)
+          {
+            GameRunner.LoadInstance((InstanceGame) gameInstance);
+            int num = additional_check(gameInstance) ? 1 : 0;
+            GameRunner.SaveInstance((InstanceGame) gameInstance);
+            if (num == 0)
+              continue;
+          }
+          if (game1 != null)
+            GameRunner.LoadInstance((InstanceGame) game1);
+          else
+            Game1.game1 = (Game1) null;
+          return gameInstance;
+        }
+      }
+      if (game1 != null)
+        GameRunner.LoadInstance((InstanceGame) game1);
+      else
+        Game1.game1 = (Game1) null;
+      return (Game1) null;
+    }
 
-		public GameRunner()
-		{
-			Program.sdk.EarlyInitialize();
-			if (!Program.releaseBuild)
-			{
-				base.InactiveSleepTime = new TimeSpan(0L);
-			}
-			Game1.graphics = new GraphicsDeviceManager(this);
-			Game1.graphics.PreparingDeviceSettings += delegate(object sender, PreparingDeviceSettingsEventArgs args)
-			{
-				args.GraphicsDeviceInformation.PresentationParameters.RenderTargetUsage = RenderTargetUsage.PreserveContents;
-			};
-			Game1.graphics.PreferredBackBufferWidth = 1280;
-			Game1.graphics.PreferredBackBufferHeight = 720;
-			base.Content.RootDirectory = "Content";
-			LocalMultiplayer.Initialize();
-			bool first_attempt = true;
-			MaxTextureSize = 65536;
-			try
-			{
-				do
-				{
-					if (!first_attempt)
-					{
-						MaxTextureSize /= 2;
-					}
-					first_attempt = false;
-					Type profile_capabilities2 = Assembly.GetAssembly(typeof(GraphicsProfile)).GetType("Microsoft.Xna.Framework.Graphics.ProfileCapabilities", throwOnError: true);
-					if (profile_capabilities2 != null)
-					{
-						FieldInfo max_texture_size2 = profile_capabilities2.GetField("MaxTextureSize", BindingFlags.Instance | BindingFlags.NonPublic);
-						FieldInfo hidef_profile2 = profile_capabilities2.GetField("HiDef", BindingFlags.Static | BindingFlags.NonPublic);
-						if (max_texture_size2 != null && hidef_profile2 != null)
-						{
-							hidef_profile2.GetValue(null);
-							max_texture_size2.SetValue(hidef_profile2.GetValue(null), MaxTextureSize);
-						}
-					}
-				}
-				while (MaxTextureSize > 4096 && !GraphicsAdapter.DefaultAdapter.IsProfileSupported(GraphicsProfile.HiDef));
-			}
-			catch (Exception)
-			{
-				MaxTextureSize = 4096;
-				try
-				{
-					Type profile_capabilities = Assembly.GetAssembly(typeof(GraphicsProfile)).GetType("Microsoft.Xna.Framework.Graphics.ProfileCapabilities", throwOnError: true);
-					if (profile_capabilities != null)
-					{
-						FieldInfo max_texture_size = profile_capabilities.GetField("MaxTextureSize", BindingFlags.Instance | BindingFlags.NonPublic);
-						FieldInfo hidef_profile = profile_capabilities.GetField("HiDef", BindingFlags.Static | BindingFlags.NonPublic);
-						if (max_texture_size != null && hidef_profile != null)
-						{
-							hidef_profile.GetValue(null);
-							max_texture_size.SetValue(hidef_profile.GetValue(null), MaxTextureSize);
-						}
-					}
-				}
-				catch (Exception)
-				{
-				}
-			}
-			base.Window.AllowUserResizing = true;
-			SubscribeClientSizeChange();
-			base.Exiting += delegate(object sender, EventArgs args)
-			{
-				ExecuteForInstances(delegate(Game1 instance)
-				{
-					instance.exitEvent(sender, args);
-				});
-				Process.GetCurrentProcess().Kill();
-			};
-			Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
-			LocalizedContentManager.OnLanguageChange += delegate
-			{
-				ExecuteForInstances(delegate(Game1 instance)
-				{
-					instance.TranslateFields();
-				});
-			};
-			DebugTools.GameConstructed(this);
-		}
+    protected override void EndDraw() => base.EndDraw();
 
-		protected override void OnActivated(object sender, EventArgs args)
-		{
-			ExecuteForInstances(delegate(Game1 instance)
-			{
-				instance.Instance_OnActivated(sender, args);
-			});
-		}
+    protected override void EndRun() => base.EndRun();
 
-		public void SubscribeClientSizeChange()
-		{
-			base.Window.ClientSizeChanged += OnWindowSizeChange;
-		}
+    protected override void Initialize()
+    {
+      DebugTools.BeforeGameInitialize((Game) this);
+      this.InitializeMainInstance();
+      this.IsFixedTimeStep = true;
+      base.Initialize();
+      Game1.graphics.SynchronizeWithVerticalRetrace = true;
+      Program.sdk.Initialize();
+    }
 
-		public void OnWindowSizeChange(object sender, EventArgs args)
-		{
-			base.Window.ClientSizeChanged -= OnWindowSizeChange;
-			_windowSizeChanged = true;
-		}
+    public bool WasWindowSizeChanged() => this._windowSizeChanged;
 
-		protected override bool BeginDraw()
-		{
-			return base.BeginDraw();
-		}
+    public int GetMaxSimultaneousPlayers() => 4;
 
-		protected override void BeginRun()
-		{
-			base.BeginRun();
-		}
+    public void InitializeMainInstance()
+    {
+      this.gameInstances = new List<Game1>();
+      this.AddGameInstance(PlayerIndex.One);
+    }
 
-		protected override void Dispose(bool disposing)
-		{
-			base.Dispose(disposing);
-		}
+    public virtual void ExecuteForInstances(Action<Game1> action)
+    {
+      Game1 game1 = Game1.game1;
+      if (game1 != null)
+        GameRunner.SaveInstance((InstanceGame) game1);
+      foreach (Game1 gameInstance in this.gameInstances)
+      {
+        GameRunner.LoadInstance((InstanceGame) gameInstance);
+        action(gameInstance);
+        GameRunner.SaveInstance((InstanceGame) gameInstance);
+      }
+      if (game1 != null)
+        GameRunner.LoadInstance((InstanceGame) game1);
+      else
+        Game1.game1 = (Game1) null;
+    }
 
-		protected override void Draw(GameTime gameTime)
-		{
-			if (_windowSizeChanged)
-			{
-				ExecuteForInstances(delegate(Game1 instance)
-				{
-					instance.Window_ClientSizeChanged(null, null);
-				});
-				_windowSizeChanged = false;
-				SubscribeClientSizeChange();
-			}
-			foreach (Game1 instance2 in gameInstances)
-			{
-				LoadInstance(instance2);
-				Viewport old_viewport = base.GraphicsDevice.Viewport;
-				Game1.graphics.GraphicsDevice.Viewport = new Viewport(0, 0, Math.Min(instance2.localMultiplayerWindow.Width, Game1.graphics.GraphicsDevice.PresentationParameters.BackBufferWidth), Math.Min(instance2.localMultiplayerWindow.Height, Game1.graphics.GraphicsDevice.PresentationParameters.BackBufferHeight));
-				instance2.Instance_Draw(gameTime);
-				base.GraphicsDevice.Viewport = old_viewport;
-				SaveInstance(instance2);
-			}
-			if (LocalMultiplayer.IsLocalMultiplayer())
-			{
-				base.GraphicsDevice.Clear(Game1.bgColor);
-				foreach (Game1 gameInstance in gameInstances)
-				{
-					Game1.isRenderingScreenBuffer = true;
-					gameInstance.DrawSplitScreenWindow();
-					Game1.isRenderingScreenBuffer = false;
-				}
-			}
-			if (Game1.shouldDrawSafeAreaBounds)
-			{
-				SpriteBatch spriteBatch = Game1.spriteBatch;
-				spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null);
-				Rectangle safe_area = Game1.safeAreaBounds;
-				spriteBatch.Draw(Game1.staminaRect, new Rectangle(safe_area.X, safe_area.Y, safe_area.Width, 2), Color.White);
-				spriteBatch.Draw(Game1.staminaRect, new Rectangle(safe_area.X, safe_area.Y + safe_area.Height - 2, safe_area.Width, 2), Color.White);
-				spriteBatch.Draw(Game1.staminaRect, new Rectangle(safe_area.X, safe_area.Y, 2, safe_area.Height), Color.White);
-				spriteBatch.Draw(Game1.staminaRect, new Rectangle(safe_area.X + safe_area.Width - 2, safe_area.Y, 2, safe_area.Height), Color.White);
-				spriteBatch.End();
-			}
-			base.Draw(gameTime);
-		}
+    public virtual void RemoveGameInstance(Game1 instance)
+    {
+      if (!this.gameInstances.Contains(instance) || this.gameInstancesToRemove.Contains(instance))
+        return;
+      this.gameInstancesToRemove.Add(instance);
+    }
 
-		public int GetNewInstanceID()
-		{
-			return nextInstanceId++;
-		}
+    public virtual void AddGameInstance(PlayerIndex player_index)
+    {
+      Game1 game1 = Game1.game1;
+      if (game1 != null)
+        GameRunner.SaveInstance((InstanceGame) game1, true);
+      if (this.gameInstances.Count > 0)
+      {
+        Game1 gameInstance = this.gameInstances[0];
+        GameRunner.LoadInstance((InstanceGame) gameInstance);
+        Game1.StartLocalMultiplayerIfNecessary();
+        GameRunner.SaveInstance((InstanceGame) gameInstance, true);
+      }
+      Game1 instance = this.gameInstances.Count != 0 ? this.CreateGameInstance(player_index, this.gameInstances.Count) : this.CreateGameInstance();
+      this.gameInstances.Add(instance);
+      if (this.gamePtr == null)
+        this.gamePtr = instance;
+      if (this.gameInstances.Count > 0)
+      {
+        instance.staticVarHolder = Activator.CreateInstance(LocalMultiplayer.StaticVarHolderType);
+        GameRunner.SetInstanceDefaults((InstanceGame) instance);
+        GameRunner.LoadInstance((InstanceGame) instance);
+      }
+      Game1.game1 = instance;
+      instance.Instance_Initialize();
+      if (this.shouldLoadContent)
+        instance.Instance_LoadContent();
+      GameRunner.SaveInstance((InstanceGame) instance);
+      if (game1 != null)
+        GameRunner.LoadInstance((InstanceGame) game1);
+      else
+        Game1.game1 = (Game1) null;
+      this._windowSizeChanged = true;
+    }
 
-		public virtual Game1 GetFirstInstanceAtThisLocation(GameLocation location, Func<Game1, bool> additional_check = null)
-		{
-			if (location == null)
-			{
-				return null;
-			}
-			Game1 old_game = Game1.game1;
-			if (old_game != null)
-			{
-				SaveInstance(old_game);
-			}
-			foreach (Game1 instance in gameInstances)
-			{
-				if (instance.instanceGameLocation != null && instance.instanceGameLocation.Equals(location))
-				{
-					if (additional_check != null)
-					{
-						LoadInstance(instance);
-						bool num = additional_check(instance);
-						SaveInstance(instance);
-						if (!num)
-						{
-							continue;
-						}
-					}
-					if (old_game != null)
-					{
-						LoadInstance(old_game);
-					}
-					else
-					{
-						Game1.game1 = null;
-					}
-					return instance;
-				}
-			}
-			if (old_game != null)
-			{
-				LoadInstance(old_game);
-			}
-			else
-			{
-				Game1.game1 = null;
-			}
-			return null;
-		}
+    public virtual Game1 CreateGameInstance(PlayerIndex player_index = PlayerIndex.One, int index = 0) => new Game1(player_index, index);
 
-		protected override void EndDraw()
-		{
-			base.EndDraw();
-		}
+    public Game1 GetGamePtr() => this.gamePtr;
 
-		protected override void EndRun()
-		{
-			base.EndRun();
-		}
+    protected override void LoadContent()
+    {
+      Game1.graphics.PreferredBackBufferWidth = 1280;
+      Game1.graphics.PreferredBackBufferHeight = 720;
+      Game1.graphics.ApplyChanges();
+      GameRunner.LoadInstance((InstanceGame) this.gamePtr);
+      this.gamePtr.Instance_LoadContent();
+      GameRunner.SaveInstance((InstanceGame) this.gamePtr);
+      DebugTools.GameLoadContent((Game) this);
+      foreach (Game1 gameInstance in this.gameInstances)
+      {
+        if (gameInstance != this.gamePtr)
+        {
+          GameRunner.LoadInstance((InstanceGame) gameInstance);
+          gameInstance.Instance_LoadContent();
+          GameRunner.SaveInstance((InstanceGame) gameInstance);
+        }
+      }
+      this.shouldLoadContent = true;
+      base.LoadContent();
+    }
 
-		protected override void Initialize()
-		{
-			DebugTools.BeforeGameInitialize(this);
-			InitializeMainInstance();
-			base.IsFixedTimeStep = true;
-			base.Initialize();
-			Game1.graphics.SynchronizeWithVerticalRetrace = true;
-			Program.sdk.Initialize();
-		}
+    protected override void UnloadContent()
+    {
+      this.gamePtr.Instance_UnloadContent();
+      base.UnloadContent();
+    }
 
-		public int GetMaxSimultaneousPlayers()
-		{
-			return 4;
-		}
+    protected override void Update(GameTime gameTime)
+    {
+      for (int index = 0; index < this.activeNewDayProcesses.Count; ++index)
+      {
+        KeyValuePair<Game1, IEnumerator<int>> activeNewDayProcess = this.activeNewDayProcesses[index];
+        Game1 key = this.activeNewDayProcesses[index].Key;
+        GameRunner.LoadInstance((InstanceGame) key);
+        if (!activeNewDayProcess.Value.MoveNext())
+        {
+          key.isLocalMultiplayerNewDayActive = false;
+          this.activeNewDayProcesses.RemoveAt(index);
+          --index;
+          Utility.CollectGarbage();
+        }
+        GameRunner.SaveInstance((InstanceGame) key);
+      }
+      while (this.startButtonState.Count < 4)
+        this.startButtonState.Add(-1);
+      for (PlayerIndex playerIndex = PlayerIndex.One; playerIndex <= PlayerIndex.Four; ++playerIndex)
+      {
+        if (GamePad.GetState(playerIndex).IsButtonDown(Buttons.Start))
+        {
+          if (this.startButtonState[(int) playerIndex] >= 0)
+            this.startButtonState[(int) playerIndex]++;
+        }
+        else if (this.startButtonState[(int) playerIndex] != 0)
+          this.startButtonState[(int) playerIndex] = 0;
+      }
+      for (int index1 = 0; index1 < this.gameInstances.Count; ++index1)
+      {
+        Game1 gameInstance1 = this.gameInstances[index1];
+        GameRunner.LoadInstance((InstanceGame) gameInstance1);
+        if (index1 == 0)
+        {
+          PlayerIndex playerIndex = PlayerIndex.Two;
+          if (gameInstance1.instanceOptions.gamepadMode == Options.GamepadModes.ForceOff)
+            playerIndex = PlayerIndex.One;
+          for (PlayerIndex index2 = playerIndex; index2 <= PlayerIndex.Four; ++index2)
+          {
+            bool flag = false;
+            foreach (Game1 gameInstance2 in this.gameInstances)
+            {
+              if (gameInstance2.instancePlayerOneIndex == index2)
+              {
+                flag = true;
+                break;
+              }
+            }
+            if (!flag && gameInstance1.IsLocalCoopJoinable() && this.IsStartDown(index2) && gameInstance1.ShowLocalCoopJoinMenu())
+              this.InvalidateStartPress(index2);
+          }
+        }
+        else
+          Game1.options.gamepadMode = Options.GamepadModes.ForceOn;
+        gameInstance1.Instance_Update(gameTime);
+        GameRunner.SaveInstance((InstanceGame) gameInstance1);
+      }
+      if (this.gameInstancesToRemove.Count > 0)
+      {
+        foreach (Game1 instance in this.gameInstancesToRemove)
+        {
+          GameRunner.LoadInstance((InstanceGame) instance);
+          instance.exitEvent((object) null, (EventArgs) null);
+          this.gameInstances.Remove(instance);
+          Game1.game1 = (Game1) null;
+        }
+        for (int index = 0; index < this.gameInstances.Count; ++index)
+          this.gameInstances[index].instanceIndex = index;
+        if (this.gameInstances.Count == 1)
+        {
+          Game1 gameInstance = this.gameInstances[0];
+          GameRunner.LoadInstance((InstanceGame) gameInstance, true);
+          gameInstance.staticVarHolder = (object) null;
+          Game1.EndLocalMultiplayer();
+        }
+        bool flag = false;
+        if (this.gameInstances.Count > 0)
+        {
+          foreach (Game1 gameInstance in this.gameInstances)
+          {
+            if (gameInstance.instancePlayerOneIndex == PlayerIndex.One)
+            {
+              flag = true;
+              break;
+            }
+          }
+          if (!flag)
+            this.gameInstances[0].instancePlayerOneIndex = PlayerIndex.One;
+        }
+        this.gameInstancesToRemove.Clear();
+        this._windowSizeChanged = true;
+      }
+      base.Update(gameTime);
+    }
 
-		public void InitializeMainInstance()
-		{
-			gameInstances = new List<Game1>();
-			AddGameInstance(PlayerIndex.One);
-		}
+    public virtual void InvalidateStartPress(PlayerIndex index)
+    {
+      if (index < PlayerIndex.One || index >= (PlayerIndex) this.startButtonState.Count)
+        return;
+      this.startButtonState[(int) index] = -1;
+    }
 
-		public virtual void ExecuteForInstances(Action<Game1> action)
-		{
-			Game1 old_game = Game1.game1;
-			if (old_game != null)
-			{
-				SaveInstance(old_game);
-			}
-			foreach (Game1 instance in gameInstances)
-			{
-				LoadInstance(instance);
-				action(instance);
-				SaveInstance(instance);
-			}
-			if (old_game != null)
-			{
-				LoadInstance(old_game);
-			}
-			else
-			{
-				Game1.game1 = null;
-			}
-		}
+    public virtual bool IsStartDown(PlayerIndex index) => index >= PlayerIndex.One && index < (PlayerIndex) this.startButtonState.Count && this.startButtonState[(int) index] == 1;
 
-		public virtual void RemoveGameInstance(Game1 instance)
-		{
-			if (gameInstances.Contains(instance) && !gameInstancesToRemove.Contains(instance))
-			{
-				gameInstancesToRemove.Add(instance);
-			}
-		}
+    private static void SetInstanceDefaults(InstanceGame instance)
+    {
+      for (int index = 0; index < LocalMultiplayer.staticDefaults.Count; ++index)
+      {
+        object obj = LocalMultiplayer.staticDefaults[index];
+        if (obj != null)
+          obj = obj.DeepClone<object>();
+        LocalMultiplayer.staticFields[index].SetValue((object) null, obj);
+      }
+      GameRunner.SaveInstance(instance);
+    }
 
-		public virtual void AddGameInstance(PlayerIndex player_index)
-		{
-			Game1 old_game = Game1.game1;
-			if (old_game != null)
-			{
-				SaveInstance(old_game, force: true);
-			}
-			if (gameInstances.Count > 0)
-			{
-				Game1 game = gameInstances[0];
-				LoadInstance(game);
-				Game1.StartLocalMultiplayerIfNecessary();
-				SaveInstance(game, force: true);
-			}
-			Game1 new_instance2 = null;
-			new_instance2 = ((gameInstances.Count != 0) ? CreateGameInstance(player_index, gameInstances.Count) : CreateGameInstance());
-			gameInstances.Add(new_instance2);
-			if (gamePtr == null)
-			{
-				gamePtr = new_instance2;
-			}
-			if (gameInstances.Count > 0)
-			{
-				new_instance2.staticVarHolder = Activator.CreateInstance(LocalMultiplayer.StaticVarHolderType);
-				SetInstanceDefaults(new_instance2);
-				LoadInstance(new_instance2);
-			}
-			Game1.game1 = new_instance2;
-			new_instance2.Instance_Initialize();
-			if (shouldLoadContent)
-			{
-				new_instance2.Instance_LoadContent();
-			}
-			SaveInstance(new_instance2);
-			if (old_game != null)
-			{
-				LoadInstance(old_game);
-			}
-			else
-			{
-				Game1.game1 = null;
-			}
-			_windowSizeChanged = true;
-		}
+    public static void SaveInstance(InstanceGame instance, bool force = false)
+    {
+      if (!force && !LocalMultiplayer.IsLocalMultiplayer())
+        return;
+      if (instance.staticVarHolder == null)
+        instance.staticVarHolder = Activator.CreateInstance(LocalMultiplayer.StaticVarHolderType);
+      LocalMultiplayer.StaticSave(instance.staticVarHolder);
+    }
 
-		public virtual Game1 CreateGameInstance(PlayerIndex player_index = PlayerIndex.One, int index = 0)
-		{
-			return new Game1(player_index, index);
-		}
-
-		public Game1 GetGamePtr()
-		{
-			return gamePtr;
-		}
-
-		protected override void LoadContent()
-		{
-			LoadInstance(gamePtr);
-			gamePtr.Instance_LoadContent();
-			SaveInstance(gamePtr);
-			DebugTools.GameLoadContent(this);
-			foreach (Game1 instance in gameInstances)
-			{
-				if (instance != gamePtr)
-				{
-					LoadInstance(instance);
-					instance.Instance_LoadContent();
-					SaveInstance(instance);
-				}
-			}
-			shouldLoadContent = true;
-			base.LoadContent();
-		}
-
-		protected override void UnloadContent()
-		{
-			gamePtr.Instance_UnloadContent();
-			base.UnloadContent();
-		}
-
-		protected override void Update(GameTime gameTime)
-		{
-			for (int i = 0; i < activeNewDayProcesses.Count; i++)
-			{
-				KeyValuePair<Game1, IEnumerator<int>> active_new_days = activeNewDayProcesses[i];
-				Game1 instance = activeNewDayProcesses[i].Key;
-				LoadInstance(instance);
-				if (!active_new_days.Value.MoveNext())
-				{
-					instance.isLocalMultiplayerNewDayActive = false;
-					activeNewDayProcesses.RemoveAt(i);
-					i--;
-					Utility.CollectGarbage();
-				}
-				SaveInstance(instance);
-			}
-			while (startButtonState.Count < 4)
-			{
-				startButtonState.Add(-1);
-			}
-			for (PlayerIndex player_index = PlayerIndex.One; player_index <= PlayerIndex.Four; player_index++)
-			{
-				if (GamePad.GetState(player_index).IsButtonDown(Buttons.Start))
-				{
-					if (startButtonState[(int)player_index] >= 0)
-					{
-						startButtonState[(int)player_index]++;
-					}
-				}
-				else if (startButtonState[(int)player_index] != 0)
-				{
-					startButtonState[(int)player_index] = 0;
-				}
-			}
-			for (int j = 0; j < gameInstances.Count; j++)
-			{
-				Game1 instance2 = gameInstances[j];
-				LoadInstance(instance2);
-				if (j == 0)
-				{
-					PlayerIndex start_player_index = PlayerIndex.Two;
-					if (instance2.instanceOptions.gamepadMode == Options.GamepadModes.ForceOff)
-					{
-						start_player_index = PlayerIndex.One;
-					}
-					for (PlayerIndex player_index2 = start_player_index; player_index2 <= PlayerIndex.Four; player_index2++)
-					{
-						bool fail = false;
-						foreach (Game1 gameInstance in gameInstances)
-						{
-							if (gameInstance.instancePlayerOneIndex == player_index2)
-							{
-								fail = true;
-								break;
-							}
-						}
-						if (!fail && instance2.IsLocalCoopJoinable() && IsStartDown(player_index2) && instance2.ShowLocalCoopJoinMenu())
-						{
-							InvalidateStartPress(player_index2);
-						}
-					}
-				}
-				else
-				{
-					Game1.options.gamepadMode = Options.GamepadModes.ForceOn;
-				}
-				instance2.Instance_Update(gameTime);
-				SaveInstance(instance2);
-			}
-			if (gameInstancesToRemove.Count > 0)
-			{
-				foreach (Game1 instance3 in gameInstancesToRemove)
-				{
-					LoadInstance(instance3);
-					instance3.exitEvent(null, null);
-					gameInstances.Remove(instance3);
-					Game1.game1 = null;
-				}
-				for (int k = 0; k < gameInstances.Count; k++)
-				{
-					gameInstances[k].instanceIndex = k;
-				}
-				if (gameInstances.Count == 1)
-				{
-					Game1 game = gameInstances[0];
-					LoadInstance(game, force: true);
-					game.staticVarHolder = null;
-					Game1.EndLocalMultiplayer();
-				}
-				bool controller_1_assigned = false;
-				if (gameInstances.Count > 0)
-				{
-					foreach (Game1 gameInstance2 in gameInstances)
-					{
-						if (gameInstance2.instancePlayerOneIndex == PlayerIndex.One)
-						{
-							controller_1_assigned = true;
-							break;
-						}
-					}
-					if (!controller_1_assigned)
-					{
-						gameInstances[0].instancePlayerOneIndex = PlayerIndex.One;
-					}
-				}
-				gameInstancesToRemove.Clear();
-				_windowSizeChanged = true;
-			}
-			base.Update(gameTime);
-		}
-
-		public virtual void InvalidateStartPress(PlayerIndex index)
-		{
-			if (index >= PlayerIndex.One && (int)index < startButtonState.Count)
-			{
-				startButtonState[(int)index] = -1;
-			}
-		}
-
-		public virtual bool IsStartDown(PlayerIndex index)
-		{
-			if (index >= PlayerIndex.One && (int)index < startButtonState.Count)
-			{
-				return startButtonState[(int)index] == 1;
-			}
-			return false;
-		}
-
-		private static void SetInstanceDefaults(InstanceGame instance)
-		{
-			for (int i = 0; i < LocalMultiplayer.staticDefaults.Count; i++)
-			{
-				object value = LocalMultiplayer.staticDefaults[i];
-				if (value != null)
-				{
-					value = value.DeepClone();
-				}
-				LocalMultiplayer.staticFields[i].SetValue(null, value);
-			}
-			SaveInstance(instance);
-		}
-
-		public static void SaveInstance(InstanceGame instance, bool force = false)
-		{
-			if (force || LocalMultiplayer.IsLocalMultiplayer())
-			{
-				if (instance.staticVarHolder == null)
-				{
-					instance.staticVarHolder = Activator.CreateInstance(LocalMultiplayer.StaticVarHolderType);
-				}
-				LocalMultiplayer.StaticSave(instance.staticVarHolder);
-			}
-		}
-
-		public static void LoadInstance(InstanceGame instance, bool force = false)
-		{
-			Game1.game1 = (instance as Game1);
-			if ((force || LocalMultiplayer.IsLocalMultiplayer()) && instance.staticVarHolder != null)
-			{
-				LocalMultiplayer.StaticLoad(instance.staticVarHolder);
-				if (Game1.player != null && (bool)Game1.player.isCustomized && Game1.splitscreenOptions.ContainsKey(Game1.player.UniqueMultiplayerID))
-				{
-					Game1.options = Game1.splitscreenOptions[Game1.player.UniqueMultiplayerID];
-					Game1.options.lightingQuality = GameRunner.instance.gameInstances[0].instanceOptions.lightingQuality;
-				}
-			}
-		}
-	}
+    public static void LoadInstance(InstanceGame instance, bool force = false)
+    {
+      Game1.game1 = instance as Game1;
+      if (!force && !LocalMultiplayer.IsLocalMultiplayer() || instance.staticVarHolder == null)
+        return;
+      LocalMultiplayer.StaticLoad(instance.staticVarHolder);
+      if (Game1.player == null || !(bool) (NetFieldBase<bool, NetBool>) Game1.player.isCustomized || !Game1.splitscreenOptions.ContainsKey(Game1.player.UniqueMultiplayerID))
+        return;
+      Game1.options = Game1.splitscreenOptions[Game1.player.UniqueMultiplayerID];
+      Game1.options.lightingQuality = GameRunner.instance.gameInstances[0].instanceOptions.lightingQuality;
+    }
+  }
 }

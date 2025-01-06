@@ -1,194 +1,158 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Buildings.PondFishSilhouette
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Netcode;
 using System;
 
 namespace StardewValley.Buildings
 {
-	public class PondFishSilhouette
-	{
-		public Vector2 position;
+  public class PondFishSilhouette
+  {
+    public Vector2 position;
+    protected FishPond _pond;
+    protected StardewValley.Object _fishObject;
+    protected Vector2 _velocity = Vector2.Zero;
+    protected float nextDart;
+    protected bool _upRight;
+    protected float _age;
+    protected float _wiggleTimer;
+    protected float _sinkAmount = 1f;
+    protected float _randomOffset;
+    protected bool _flipped;
 
-		protected FishPond _pond;
+    public PondFishSilhouette(FishPond pond)
+    {
+      this._pond = pond;
+      this._fishObject = this._pond.GetFishObject();
+      if (this._fishObject.HasContextTag("fish_upright"))
+        this._upRight = true;
+      this.position = (this._pond.GetCenterTile() + new Vector2(0.5f, 0.5f)) * 64f;
+      this._age = 0.0f;
+      this._randomOffset = Utility.Lerp(0.0f, 500f, (float) Game1.random.NextDouble());
+      this.ResetDartTime();
+    }
 
-		protected Object _fishObject;
+    public void ResetDartTime() => this.nextDart = Utility.Lerp(20f, 40f, (float) Game1.random.NextDouble());
 
-		protected Vector2 _velocity = Vector2.Zero;
+    public void Draw(SpriteBatch b)
+    {
+      float num1 = 0.7853982f;
+      if (this._upRight)
+        num1 = 0.0f;
+      SpriteEffects effects = SpriteEffects.None;
+      float rotation = num1 + (float) (Math.Sin((double) this._wiggleTimer + (double) this._randomOffset) * 2.0 * 3.14159274101257 / 180.0);
+      if ((double) this._velocity.Y < 0.0)
+        rotation -= 0.1745329f;
+      if ((double) this._velocity.Y > 0.0)
+        rotation += 0.1745329f;
+      if (this._flipped)
+      {
+        effects = SpriteEffects.FlipHorizontally;
+        rotation *= -1f;
+      }
+      float num2 = Utility.Lerp(0.75f, 0.65f, Utility.Clamp(this._sinkAmount, 0.0f, 1f)) * Utility.Lerp(1f, 0.75f, (float) (int) (NetFieldBase<int, NetInt>) this._pond.currentOccupants / 10f);
+      Vector2 position = this.position;
+      position.Y += (float) Math.Sin((double) this._age * 2.0 + (double) this._randomOffset) * 5f;
+      position.Y += (float) (int) ((double) this._sinkAmount * 4.0);
+      float num3 = Utility.Lerp(0.25f, 0.15f, Utility.Clamp(this._sinkAmount, 0.0f, 1f));
+      Vector2 origin = new Vector2(8f, 8f);
+      b.Draw(Game1.objectSpriteSheet, Game1.GlobalToLocal(Game1.viewport, position), new Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.objectSpriteSheet, this._fishObject.ParentSheetIndex, 16, 16)), Color.Black * num3, rotation, origin, 4f * num2, effects, (float) ((double) this.position.Y / 10000.0 + 9.99999997475243E-07));
+    }
 
-		protected float nextDart;
+    public bool IsMoving() => (double) this._velocity.LengthSquared() > 0.0;
 
-		protected bool _upRight;
-
-		protected float _age;
-
-		protected float _wiggleTimer;
-
-		protected float _sinkAmount = 1f;
-
-		protected float _randomOffset;
-
-		protected bool _flipped;
-
-		public PondFishSilhouette(FishPond pond)
-		{
-			_pond = pond;
-			_fishObject = _pond.GetFishObject();
-			if (_fishObject.HasContextTag("fish_upright"))
-			{
-				_upRight = true;
-			}
-			position = (_pond.GetCenterTile() + new Vector2(0.5f, 0.5f)) * 64f;
-			_age = 0f;
-			_randomOffset = Utility.Lerp(0f, 500f, (float)Game1.random.NextDouble());
-			ResetDartTime();
-		}
-
-		public void ResetDartTime()
-		{
-			nextDart = Utility.Lerp(20f, 40f, (float)Game1.random.NextDouble());
-		}
-
-		public void Draw(SpriteBatch b)
-		{
-			float angle2 = (float)Math.PI / 4f;
-			if (_upRight)
-			{
-				angle2 = 0f;
-			}
-			SpriteEffects effect = SpriteEffects.None;
-			angle2 += (float)Math.Sin(_wiggleTimer + _randomOffset) * 2f * (float)Math.PI / 180f;
-			if (_velocity.Y < 0f)
-			{
-				angle2 -= (float)Math.PI / 18f;
-			}
-			if (_velocity.Y > 0f)
-			{
-				angle2 += (float)Math.PI / 18f;
-			}
-			if (_flipped)
-			{
-				effect = SpriteEffects.FlipHorizontally;
-				angle2 *= -1f;
-			}
-			float draw_scale2 = Utility.Lerp(0.75f, 0.65f, Utility.Clamp(_sinkAmount, 0f, 1f));
-			draw_scale2 *= Utility.Lerp(1f, 0.75f, (float)(int)_pond.currentOccupants / 10f);
-			Vector2 draw_position = position;
-			draw_position.Y += (float)Math.Sin(_age * 2f + _randomOffset) * 5f;
-			draw_position.Y += (int)(_sinkAmount * 4f);
-			float transparency = Utility.Lerp(0.25f, 0.15f, Utility.Clamp(_sinkAmount, 0f, 1f));
-			b.Draw(origin: new Vector2(8f, 8f), texture: Game1.objectSpriteSheet, position: Game1.GlobalToLocal(Game1.viewport, draw_position), sourceRectangle: Game1.getSourceRectForStandardTileSheet(Game1.objectSpriteSheet, _fishObject.ParentSheetIndex, 16, 16), color: Color.Black * transparency, rotation: angle2, scale: 4f * draw_scale2, effects: effect, layerDepth: position.Y / 10000f + 1E-06f);
-		}
-
-		public bool IsMoving()
-		{
-			return _velocity.LengthSquared() > 0f;
-		}
-
-		public void Update(float time)
-		{
-			nextDart -= time;
-			_age += time;
-			_wiggleTimer += time;
-			if (nextDart <= 0f || (nextDart <= 0.5f && Game1.random.NextDouble() < 0.10000000149011612))
-			{
-				ResetDartTime();
-				int direction = Game1.random.Next(0, 2) * 2 - 1;
-				if (direction < 0)
-				{
-					_flipped = true;
-				}
-				else
-				{
-					_flipped = false;
-				}
-				_velocity = new Vector2((float)direction * Utility.Lerp(50f, 100f, (float)Game1.random.NextDouble()), Utility.Lerp(-50f, 50f, (float)Game1.random.NextDouble()));
-			}
-			bool moving = false;
-			if (_velocity.LengthSquared() > 0f)
-			{
-				moving = true;
-				_wiggleTimer += time * 30f;
-				_sinkAmount = Utility.MoveTowards(_sinkAmount, 0f, 2f * time);
-			}
-			else
-			{
-				_sinkAmount = Utility.MoveTowards(_sinkAmount, 1f, 1f * time);
-			}
-			position += _velocity * time;
-			for (int i = 0; i < _pond.GetFishSilhouettes().Count; i++)
-			{
-				PondFishSilhouette other_silhouette = _pond.GetFishSilhouettes()[i];
-				if (other_silhouette == this)
-				{
-					continue;
-				}
-				float push_amount = 30f;
-				float push_other_amount = 30f;
-				if (IsMoving())
-				{
-					push_amount = 0f;
-				}
-				if (other_silhouette.IsMoving())
-				{
-					push_other_amount = 0f;
-				}
-				if (Math.Abs(other_silhouette.position.X - position.X) < 32f)
-				{
-					if (other_silhouette.position.X > position.X)
-					{
-						other_silhouette.position.X += push_other_amount * time;
-						position.X += (0f - push_amount) * time;
-					}
-					else
-					{
-						other_silhouette.position.X -= push_other_amount * time;
-						position.X += push_amount * time;
-					}
-				}
-				if (Math.Abs(other_silhouette.position.Y - position.Y) < 32f)
-				{
-					if (other_silhouette.position.Y > position.Y)
-					{
-						other_silhouette.position.Y += push_other_amount * time;
-						position.Y += -1f * time;
-					}
-					else
-					{
-						other_silhouette.position.Y -= push_other_amount * time;
-						position.Y += 1f * time;
-					}
-				}
-			}
-			_velocity.X = Utility.MoveTowards(_velocity.X, 0f, 50f * time);
-			_velocity.Y = Utility.MoveTowards(_velocity.Y, 0f, 20f * time);
-			float border_width = 1.3f;
-			if (position.X > ((float)((int)_pond.tileX + (int)_pond.tilesWide) - border_width) * 64f)
-			{
-				position.X = ((float)((int)_pond.tileX + (int)_pond.tilesWide) - border_width) * 64f;
-				_velocity.X *= -1f;
-				if (moving && (Game1.random.NextDouble() < 0.25 || Math.Abs(_velocity.X) > 30f))
-				{
-					_flipped = !_flipped;
-				}
-			}
-			if (position.X < ((float)(int)_pond.tileX + border_width) * 64f)
-			{
-				position.X = ((float)(int)_pond.tileX + border_width) * 64f;
-				_velocity.X *= -1f;
-				if (moving && (Game1.random.NextDouble() < 0.25 || Math.Abs(_velocity.X) > 30f))
-				{
-					_flipped = !_flipped;
-				}
-			}
-			if (position.Y > ((float)((int)_pond.tileY + (int)_pond.tilesHigh) - border_width) * 64f)
-			{
-				position.Y = ((float)((int)_pond.tileY + (int)_pond.tilesHigh) - border_width) * 64f;
-				_velocity.Y *= -1f;
-			}
-			if (position.Y < ((float)(int)_pond.tileY + border_width) * 64f)
-			{
-				position.Y = ((float)(int)_pond.tileY + border_width) * 64f;
-				_velocity.Y *= -1f;
-			}
-		}
-	}
+    public void Update(float time)
+    {
+      this.nextDart -= time;
+      this._age += time;
+      this._wiggleTimer += time;
+      if ((double) this.nextDart <= 0.0 || (double) this.nextDart <= 0.5 && Game1.random.NextDouble() < 0.100000001490116)
+      {
+        this.ResetDartTime();
+        int num = Game1.random.Next(0, 2) * 2 - 1;
+        this._flipped = num < 0;
+        this._velocity = new Vector2((float) num * Utility.Lerp(50f, 100f, (float) Game1.random.NextDouble()), Utility.Lerp(-50f, 50f, (float) Game1.random.NextDouble()));
+      }
+      bool flag = false;
+      if ((double) this._velocity.LengthSquared() > 0.0)
+      {
+        flag = true;
+        this._wiggleTimer += time * 30f;
+        this._sinkAmount = Utility.MoveTowards(this._sinkAmount, 0.0f, 2f * time);
+      }
+      else
+        this._sinkAmount = Utility.MoveTowards(this._sinkAmount, 1f, 1f * time);
+      this.position += this._velocity * time;
+      for (int index = 0; index < this._pond.GetFishSilhouettes().Count; ++index)
+      {
+        PondFishSilhouette fishSilhouette = this._pond.GetFishSilhouettes()[index];
+        if (fishSilhouette != this)
+        {
+          float num1 = 30f;
+          float num2 = 30f;
+          if (this.IsMoving())
+            num1 = 0.0f;
+          if (fishSilhouette.IsMoving())
+            num2 = 0.0f;
+          if ((double) Math.Abs(fishSilhouette.position.X - this.position.X) < 32.0)
+          {
+            if ((double) fishSilhouette.position.X > (double) this.position.X)
+            {
+              fishSilhouette.position.X += num2 * time;
+              this.position.X += -num1 * time;
+            }
+            else
+            {
+              fishSilhouette.position.X -= num2 * time;
+              this.position.X += num1 * time;
+            }
+          }
+          if ((double) Math.Abs(fishSilhouette.position.Y - this.position.Y) < 32.0)
+          {
+            if ((double) fishSilhouette.position.Y > (double) this.position.Y)
+            {
+              fishSilhouette.position.Y += num2 * time;
+              this.position.Y += -1f * time;
+            }
+            else
+            {
+              fishSilhouette.position.Y -= num2 * time;
+              this.position.Y += 1f * time;
+            }
+          }
+        }
+      }
+      this._velocity.X = Utility.MoveTowards(this._velocity.X, 0.0f, 50f * time);
+      this._velocity.Y = Utility.MoveTowards(this._velocity.Y, 0.0f, 20f * time);
+      float num3 = 1.3f;
+      if ((double) this.position.X > ((double) ((int) (NetFieldBase<int, NetInt>) this._pond.tileX + (int) (NetFieldBase<int, NetInt>) this._pond.tilesWide) - (double) num3) * 64.0)
+      {
+        this.position.X = (float) (((double) ((int) (NetFieldBase<int, NetInt>) this._pond.tileX + (int) (NetFieldBase<int, NetInt>) this._pond.tilesWide) - (double) num3) * 64.0);
+        this._velocity.X *= -1f;
+        if (flag && (Game1.random.NextDouble() < 0.25 || (double) Math.Abs(this._velocity.X) > 30.0))
+          this._flipped = !this._flipped;
+      }
+      if ((double) this.position.X < ((double) (int) (NetFieldBase<int, NetInt>) this._pond.tileX + (double) num3) * 64.0)
+      {
+        this.position.X = (float) (((double) (int) (NetFieldBase<int, NetInt>) this._pond.tileX + (double) num3) * 64.0);
+        this._velocity.X *= -1f;
+        if (flag && (Game1.random.NextDouble() < 0.25 || (double) Math.Abs(this._velocity.X) > 30.0))
+          this._flipped = !this._flipped;
+      }
+      if ((double) this.position.Y > ((double) ((int) (NetFieldBase<int, NetInt>) this._pond.tileY + (int) (NetFieldBase<int, NetInt>) this._pond.tilesHigh) - (double) num3) * 64.0)
+      {
+        this.position.Y = (float) (((double) ((int) (NetFieldBase<int, NetInt>) this._pond.tileY + (int) (NetFieldBase<int, NetInt>) this._pond.tilesHigh) - (double) num3) * 64.0);
+        this._velocity.Y *= -1f;
+      }
+      if ((double) this.position.Y >= ((double) (int) (NetFieldBase<int, NetInt>) this._pond.tileY + (double) num3) * 64.0)
+        return;
+      this.position.Y = (float) (((double) (int) (NetFieldBase<int, NetInt>) this._pond.tileY + (double) num3) * 64.0);
+      this._velocity.Y *= -1f;
+    }
+  }
 }

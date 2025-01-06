@@ -1,7 +1,14 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.TailoringMenu
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Netcode;
 using StardewValley.GameData.Crafting;
 using StardewValley.Objects;
 using System;
@@ -9,1320 +16,961 @@ using System.Collections.Generic;
 
 namespace StardewValley.Menus
 {
-	public class TailoringMenu : MenuWithInventory
-	{
-		protected enum CraftState
-		{
-			MissingIngredients,
-			Valid,
-			InvalidRecipe,
-			NotDyeable
-		}
-
-		protected int _timeUntilCraft;
-
-		public const int region_leftIngredient = 998;
-
-		public const int region_rightIngredient = 997;
-
-		public const int region_startButton = 996;
-
-		public const int region_resultItem = 995;
-
-		public ClickableTextureComponent needleSprite;
-
-		public ClickableTextureComponent presserSprite;
-
-		public ClickableTextureComponent craftResultDisplay;
-
-		public Vector2 needlePosition;
-
-		public Vector2 presserPosition;
-
-		public Vector2 leftIngredientStartSpot;
-
-		public Vector2 leftIngredientEndSpot;
-
-		protected float _rightItemOffset;
-
-		public ClickableTextureComponent leftIngredientSpot;
-
-		public ClickableTextureComponent rightIngredientSpot;
-
-		public ClickableTextureComponent blankLeftIngredientSpot;
-
-		public ClickableTextureComponent blankRightIngredientSpot;
-
-		public ClickableTextureComponent startTailoringButton;
-
-		public const int region_shirt = 108;
-
-		public const int region_pants = 109;
-
-		public const int region_hat = 101;
-
-		public List<ClickableComponent> equipmentIcons = new List<ClickableComponent>();
-
-		public const int CRAFT_TIME = 1500;
-
-		public Texture2D tailoringTextures;
-
-		public List<TailorItemRecipe> _tailoringRecipes;
-
-		private ICue _sewingSound;
-
-		protected Dictionary<Item, bool> _highlightDictionary;
-
-		protected Dictionary<string, Item> _lastValidEquippedItems;
-
-		protected bool _shouldPrismaticDye;
-
-		protected bool _heldItemIsEquipped;
-
-		protected bool _isDyeCraft;
-
-		protected bool _isMultipleResultCraft;
-
-		protected string displayedDescription = "";
-
-		protected CraftState _craftState;
-
-		public Vector2 questionMarkOffset;
-
-		public TailoringMenu()
-			: base(null, okButton: true, trashCan: true, 12, 132)
-		{
-			Game1.playSound("bigSelect");
-			if (yPositionOnScreen == IClickableMenu.borderWidth + IClickableMenu.spaceToClearTopBorder)
-			{
-				movePosition(0, -IClickableMenu.spaceToClearTopBorder);
-			}
-			inventory.highlightMethod = HighlightItems;
-			tailoringTextures = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\tailoring");
-			_tailoringRecipes = Game1.temporaryContent.Load<List<TailorItemRecipe>>("Data\\TailoringRecipes");
-			_CreateButtons();
-			if (trashCan != null)
-			{
-				trashCan.myID = 106;
-			}
-			if (okButton != null)
-			{
-				okButton.leftNeighborID = 11;
-			}
-			if (Game1.options.SnappyMenus)
-			{
-				populateClickableComponentList();
-				snapToDefaultClickableComponent();
-			}
-			_ValidateCraft();
-		}
-
-		protected void _CreateButtons()
-		{
-			leftIngredientSpot = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 192, 96, 96), tailoringTextures, new Rectangle(0, 156, 24, 24), 4f)
-			{
-				myID = 998,
-				downNeighborID = -99998,
-				leftNeighborID = 109,
-				rightNeighborID = 996,
-				upNeighborID = 997,
-				item = ((leftIngredientSpot != null) ? leftIngredientSpot.item : null)
-			};
-			leftIngredientStartSpot = new Vector2(leftIngredientSpot.bounds.X, leftIngredientSpot.bounds.Y);
-			leftIngredientEndSpot = leftIngredientStartSpot + new Vector2(256f, 0f);
-			needleSprite = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 116, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 128, 96, 96), tailoringTextures, new Rectangle(64, 80, 16, 32), 4f);
-			presserSprite = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 116, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 128, 96, 96), tailoringTextures, new Rectangle(48, 80, 16, 32), 4f);
-			needlePosition = new Vector2(needleSprite.bounds.X, needleSprite.bounds.Y);
-			presserPosition = new Vector2(presserSprite.bounds.X, presserSprite.bounds.Y);
-			rightIngredientSpot = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 400, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8, 96, 96), tailoringTextures, new Rectangle(0, 180, 24, 24), 4f)
-			{
-				myID = 997,
-				downNeighborID = 996,
-				leftNeighborID = 998,
-				rightNeighborID = -99998,
-				upNeighborID = -99998,
-				item = ((rightIngredientSpot != null) ? rightIngredientSpot.item : null),
-				fullyImmutable = true
-			};
-			blankRightIngredientSpot = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 400, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8, 96, 96), tailoringTextures, new Rectangle(0, 128, 24, 24), 4f);
-			blankLeftIngredientSpot = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 192, 96, 96), tailoringTextures, new Rectangle(0, 128, 24, 24), 4f);
-			startTailoringButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 448, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 128, 96, 96), tailoringTextures, new Rectangle(24, 80, 24, 24), 4f)
-			{
-				myID = 996,
-				downNeighborID = -99998,
-				leftNeighborID = 998,
-				rightNeighborID = 995,
-				upNeighborID = 997,
-				item = ((startTailoringButton != null) ? startTailoringButton.item : null),
-				fullyImmutable = true
-			};
-			if (inventory.inventory != null && inventory.inventory.Count >= 12)
-			{
-				for (int j = 0; j < 12; j++)
-				{
-					if (inventory.inventory[j] != null)
-					{
-						inventory.inventory[j].upNeighborID = -99998;
-					}
-				}
-			}
-			equipmentIcons = new List<ClickableComponent>();
-			equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Hat")
-			{
-				myID = 101,
-				leftNeighborID = -99998,
-				downNeighborID = -99998,
-				upNeighborID = -99998,
-				rightNeighborID = -99998
-			});
-			equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Shirt")
-			{
-				myID = 108,
-				upNeighborID = -99998,
-				downNeighborID = -99998,
-				rightNeighborID = -99998,
-				leftNeighborID = -99998
-			});
-			equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Pants")
-			{
-				myID = 109,
-				upNeighborID = -99998,
-				rightNeighborID = -99998,
-				leftNeighborID = -99998,
-				downNeighborID = -99998
-			});
-			for (int i = 0; i < equipmentIcons.Count; i++)
-			{
-				equipmentIcons[i].bounds.X = xPositionOnScreen - 64 + 9;
-				equipmentIcons[i].bounds.Y = yPositionOnScreen + 192 + i * 64;
-			}
-			craftResultDisplay = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 660, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 232, 64, 64), tailoringTextures, new Rectangle(0, 208, 16, 16), 4f)
-			{
-				myID = 995,
-				downNeighborID = -99998,
-				leftNeighborID = 996,
-				upNeighborID = 997,
-				item = ((craftResultDisplay != null) ? craftResultDisplay.item : null)
-			};
-		}
-
-		public override void snapToDefaultClickableComponent()
-		{
-			currentlySnappedComponent = getComponentWithID(0);
-			snapCursorToCurrentSnappedComponent();
-		}
-
-		public bool IsBusy()
-		{
-			return _timeUntilCraft > 0;
-		}
-
-		public override bool readyToClose()
-		{
-			if (base.readyToClose() && heldItem == null)
-			{
-				return !IsBusy();
-			}
-			return false;
-		}
-
-		public bool HighlightItems(Item i)
-		{
-			if (i == null)
-			{
-				return false;
-			}
-			if (i != null && !IsValidCraftIngredient(i))
-			{
-				return false;
-			}
-			if (_highlightDictionary == null)
-			{
-				GenerateHighlightDictionary();
-			}
-			if (!_highlightDictionary.ContainsKey(i))
-			{
-				_highlightDictionary = null;
-				GenerateHighlightDictionary();
-			}
-			return _highlightDictionary[i];
-		}
-
-		public void GenerateHighlightDictionary()
-		{
-			_highlightDictionary = new Dictionary<Item, bool>();
-			List<Item> item_list = new List<Item>(inventory.actualInventory);
-			if (Game1.player.pantsItem.Value != null)
-			{
-				item_list.Add(Game1.player.pantsItem.Value);
-			}
-			if (Game1.player.shirtItem.Value != null)
-			{
-				item_list.Add(Game1.player.shirtItem.Value);
-			}
-			if (Game1.player.hat.Value != null)
-			{
-				item_list.Add(Game1.player.hat.Value);
-			}
-			foreach (Item item in item_list)
-			{
-				if (item != null)
-				{
-					if (leftIngredientSpot.item == null && rightIngredientSpot.item == null)
-					{
-						_highlightDictionary[item] = true;
-					}
-					else if (leftIngredientSpot.item != null && rightIngredientSpot.item != null)
-					{
-						_highlightDictionary[item] = false;
-					}
-					else if (leftIngredientSpot.item != null)
-					{
-						_highlightDictionary[item] = IsValidCraft(leftIngredientSpot.item, item);
-					}
-					else
-					{
-						_highlightDictionary[item] = IsValidCraft(item, rightIngredientSpot.item);
-					}
-				}
-			}
-		}
-
-		private void _leftIngredientSpotClicked()
-		{
-			Item old_item = leftIngredientSpot.item;
-			if (heldItem == null || IsValidCraftIngredient(heldItem))
-			{
-				Game1.playSound("stoneStep");
-				leftIngredientSpot.item = heldItem;
-				heldItem = old_item;
-				_highlightDictionary = null;
-				_ValidateCraft();
-			}
-		}
-
-		public bool IsValidCraftIngredient(Item item)
-		{
-			if (item.HasContextTag("item_lucky_purple_shorts"))
-			{
-				return true;
-			}
-			if (!item.canBeTrashed())
-			{
-				return false;
-			}
-			return true;
-		}
-
-		private void _rightIngredientSpotClicked()
-		{
-			Item old_item = rightIngredientSpot.item;
-			if (heldItem == null || IsValidCraftIngredient(heldItem))
-			{
-				Game1.playSound("stoneStep");
-				rightIngredientSpot.item = heldItem;
-				heldItem = old_item;
-				_highlightDictionary = null;
-				_ValidateCraft();
-			}
-		}
-
-		public override void receiveKeyPress(Keys key)
-		{
-			if (key == Keys.Delete)
-			{
-				if (heldItem != null && IsValidCraftIngredient(heldItem))
-				{
-					Utility.trashItem(heldItem);
-					heldItem = null;
-				}
-			}
-			else
-			{
-				base.receiveKeyPress(key);
-			}
-		}
-
-		public bool IsHoldingEquippedItem()
-		{
-			if (heldItem == null)
-			{
-				return false;
-			}
-			if (!Game1.player.IsEquippedItem(heldItem))
-			{
-				return Game1.player.IsEquippedItem(Utility.PerformSpecialItemGrabReplacement(heldItem));
-			}
-			return true;
-		}
-
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-			Item oldHeldItem = heldItem;
-			bool num = Game1.player.IsEquippedItem(oldHeldItem);
-			base.receiveLeftClick(x, y, playSound: true);
-			if (num && heldItem != oldHeldItem)
-			{
-				if (oldHeldItem == Game1.player.hat.Value)
-				{
-					Game1.player.hat.Value = null;
-					_highlightDictionary = null;
-				}
-				else if (oldHeldItem == Game1.player.shirtItem.Value)
-				{
-					Game1.player.shirtItem.Value = null;
-					_highlightDictionary = null;
-				}
-				else if (oldHeldItem == Game1.player.pantsItem.Value)
-				{
-					Game1.player.pantsItem.Value = null;
-					_highlightDictionary = null;
-				}
-			}
-			foreach (ClickableComponent c in equipmentIcons)
-			{
-				if (c.containsPoint(x, y))
-				{
-					string name = c.name;
-					if (!(name == "Hat"))
-					{
-						if (!(name == "Shirt"))
-						{
-							if (name == "Pants")
-							{
-								Item item_to_place3 = Utility.PerformSpecialItemPlaceReplacement(heldItem);
-								if (heldItem == null)
-								{
-									if (HighlightItems((Clothing)Game1.player.pantsItem))
-									{
-										heldItem = Utility.PerformSpecialItemGrabReplacement((Clothing)Game1.player.pantsItem);
-										if (!(heldItem is Clothing))
-										{
-											Game1.player.pantsItem.Value = null;
-										}
-										Game1.playSound("dwop");
-										_highlightDictionary = null;
-										_ValidateCraft();
-									}
-								}
-								else if (item_to_place3 is Clothing && (item_to_place3 as Clothing).clothesType.Value == 1)
-								{
-									Item old_item6 = Game1.player.pantsItem.Value;
-									old_item6 = Utility.PerformSpecialItemGrabReplacement(old_item6);
-									if (old_item6 == heldItem)
-									{
-										old_item6 = null;
-									}
-									Game1.player.pantsItem.Value = (item_to_place3 as Clothing);
-									heldItem = old_item6;
-									Game1.playSound("sandyStep");
-									_highlightDictionary = null;
-									_ValidateCraft();
-								}
-							}
-						}
-						else
-						{
-							Item item_to_place2 = Utility.PerformSpecialItemPlaceReplacement(heldItem);
-							if (heldItem == null)
-							{
-								if (HighlightItems((Clothing)Game1.player.shirtItem))
-								{
-									heldItem = Utility.PerformSpecialItemGrabReplacement((Clothing)Game1.player.shirtItem);
-									Game1.playSound("dwop");
-									if (!(heldItem is Clothing))
-									{
-										Game1.player.shirtItem.Value = null;
-									}
-									_highlightDictionary = null;
-									_ValidateCraft();
-								}
-							}
-							else if (heldItem is Clothing && (heldItem as Clothing).clothesType.Value == 0)
-							{
-								Item old_item4 = (Clothing)Game1.player.shirtItem;
-								old_item4 = Utility.PerformSpecialItemGrabReplacement(old_item4);
-								if (old_item4 == heldItem)
-								{
-									old_item4 = null;
-								}
-								Game1.player.shirtItem.Value = (item_to_place2 as Clothing);
-								heldItem = old_item4;
-								Game1.playSound("sandyStep");
-								_highlightDictionary = null;
-								_ValidateCraft();
-							}
-						}
-					}
-					else
-					{
-						Item item_to_place = Utility.PerformSpecialItemPlaceReplacement(heldItem);
-						if (heldItem == null)
-						{
-							if (HighlightItems((Hat)Game1.player.hat))
-							{
-								heldItem = Utility.PerformSpecialItemGrabReplacement((Hat)Game1.player.hat);
-								Game1.playSound("dwop");
-								if (!(heldItem is Hat))
-								{
-									Game1.player.hat.Value = null;
-								}
-								_highlightDictionary = null;
-								_ValidateCraft();
-							}
-						}
-						else if (item_to_place is Hat)
-						{
-							Item old_item2 = Game1.player.hat.Value;
-							old_item2 = Utility.PerformSpecialItemGrabReplacement(old_item2);
-							if (old_item2 == heldItem)
-							{
-								old_item2 = null;
-							}
-							Game1.player.hat.Value = (item_to_place as Hat);
-							heldItem = old_item2;
-							Game1.playSound("grassyStep");
-							_highlightDictionary = null;
-							_ValidateCraft();
-						}
-					}
-					return;
-				}
-			}
-			if (Game1.GetKeyboardState().IsKeyDown(Keys.LeftShift) && oldHeldItem != heldItem && heldItem != null)
-			{
-				if (heldItem.Name == "Cloth" || (heldItem is Clothing && (bool)(heldItem as Clothing).dyeable))
-				{
-					_leftIngredientSpotClicked();
-				}
-				else
-				{
-					_rightIngredientSpotClicked();
-				}
-			}
-			if (IsBusy())
-			{
-				return;
-			}
-			if (leftIngredientSpot.containsPoint(x, y))
-			{
-				_leftIngredientSpotClicked();
-				if (Game1.GetKeyboardState().IsKeyDown(Keys.LeftShift) && heldItem != null)
-				{
-					if (Game1.player.IsEquippedItem(heldItem))
-					{
-						heldItem = null;
-					}
-					else
-					{
-						heldItem = inventory.tryToAddItem(heldItem, "");
-					}
-				}
-			}
-			else if (rightIngredientSpot.containsPoint(x, y))
-			{
-				_rightIngredientSpotClicked();
-				if (Game1.GetKeyboardState().IsKeyDown(Keys.LeftShift) && heldItem != null)
-				{
-					if (Game1.player.IsEquippedItem(heldItem))
-					{
-						heldItem = null;
-					}
-					else
-					{
-						heldItem = inventory.tryToAddItem(heldItem, "");
-					}
-				}
-			}
-			else if (startTailoringButton.containsPoint(x, y))
-			{
-				if (heldItem == null)
-				{
-					bool fail = false;
-					if (!CanFitCraftedItem())
-					{
-						Game1.playSound("cancel");
-						Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
-						_timeUntilCraft = 0;
-						fail = true;
-					}
-					if (!fail && IsValidCraft(leftIngredientSpot.item, rightIngredientSpot.item))
-					{
-						Game1.playSound("bigSelect");
-						_sewingSound = Game1.soundBank.GetCue("sewing_loop");
-						_sewingSound.Play();
-						startTailoringButton.scale = startTailoringButton.baseScale;
-						_timeUntilCraft = 1500;
-						_UpdateDescriptionText();
-					}
-					else
-					{
-						Game1.playSound("sell");
-					}
-				}
-				else
-				{
-					Game1.playSound("sell");
-				}
-			}
-			if (heldItem == null || isWithinBounds(x, y) || !heldItem.canBeTrashed())
-			{
-				return;
-			}
-			if (Game1.player.IsEquippedItem(heldItem))
-			{
-				if (heldItem == Game1.player.hat.Value)
-				{
-					Game1.player.hat.Value = null;
-				}
-				else if (heldItem == Game1.player.shirtItem.Value)
-				{
-					Game1.player.shirtItem.Value = null;
-				}
-				else if (heldItem == Game1.player.pantsItem.Value)
-				{
-					Game1.player.pantsItem.Value = null;
-				}
-			}
-			Game1.playSound("throwDownITem");
-			Game1.createItemDebris(heldItem, Game1.player.getStandingPosition(), Game1.player.FacingDirection);
-			heldItem = null;
-		}
-
-		protected virtual bool CheckHeldItem(Func<Item, bool> f = null)
-		{
-			return f?.Invoke(heldItem) ?? (heldItem != null);
-		}
-
-		protected void _ValidateCraft()
-		{
-			Item left_item = leftIngredientSpot.item;
-			Item right_item = rightIngredientSpot.item;
-			if (left_item == null || right_item == null)
-			{
-				_craftState = CraftState.MissingIngredients;
-			}
-			else if (left_item is Clothing && !(left_item as Clothing).dyeable)
-			{
-				_craftState = CraftState.NotDyeable;
-			}
-			else if (IsValidCraft(left_item, right_item))
-			{
-				_craftState = CraftState.Valid;
-				bool should_prismatic_dye = _shouldPrismaticDye;
-				Item left_item_clone = left_item.getOne();
-				if (IsMultipleResultCraft(left_item, right_item))
-				{
-					_isMultipleResultCraft = true;
-				}
-				else
-				{
-					_isMultipleResultCraft = false;
-				}
-				craftResultDisplay.item = CraftItem(left_item_clone, right_item.getOne());
-				if (craftResultDisplay.item == left_item_clone)
-				{
-					_isDyeCraft = true;
-				}
-				else
-				{
-					_isDyeCraft = false;
-				}
-				_shouldPrismaticDye = should_prismatic_dye;
-			}
-			else
-			{
-				_craftState = CraftState.InvalidRecipe;
-			}
-			_UpdateDescriptionText();
-		}
-
-		protected void _UpdateDescriptionText()
-		{
-			if (IsBusy())
-			{
-				displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_Busy");
-			}
-			else if (_craftState == CraftState.NotDyeable)
-			{
-				displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_NotDyeable");
-			}
-			else if (_craftState == CraftState.MissingIngredients)
-			{
-				displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_MissingIngredients");
-			}
-			else if (_craftState == CraftState.Valid)
-			{
-				if (!CanFitCraftedItem())
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588");
-				}
-				else
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_Valid");
-				}
-			}
-			else if (_craftState == CraftState.InvalidRecipe)
-			{
-				displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_InvalidRecipe");
-			}
-			else
-			{
-				displayedDescription = "";
-			}
-		}
-
-		public static Color? GetDyeColor(Item dye_object)
-		{
-			if (dye_object != null)
-			{
-				if (dye_object.Name == "Prismatic Shard")
-				{
-					return Color.White;
-				}
-				if (dye_object is ColoredObject)
-				{
-					return (dye_object as ColoredObject).color;
-				}
-				Dictionary<string, Color> color_dictionary = new Dictionary<string, Color>();
-				color_dictionary["black"] = new Color(45, 45, 45);
-				color_dictionary["gray"] = Color.Gray;
-				color_dictionary["white"] = Color.White;
-				color_dictionary["pink"] = new Color(255, 163, 186);
-				color_dictionary["red"] = new Color(220, 0, 0);
-				color_dictionary["orange"] = new Color(255, 128, 0);
-				color_dictionary["yellow"] = new Color(255, 230, 0);
-				color_dictionary["green"] = new Color(10, 143, 0);
-				color_dictionary["blue"] = new Color(46, 85, 183);
-				color_dictionary["purple"] = new Color(115, 41, 181);
-				color_dictionary["brown"] = new Color(130, 73, 37);
-				color_dictionary["light_cyan"] = new Color(180, 255, 255);
-				color_dictionary["cyan"] = Color.Cyan;
-				color_dictionary["aquamarine"] = Color.Aquamarine;
-				color_dictionary["sea_green"] = Color.SeaGreen;
-				color_dictionary["lime"] = Color.Lime;
-				color_dictionary["yellow_green"] = Color.GreenYellow;
-				color_dictionary["pale_violet_red"] = Color.PaleVioletRed;
-				color_dictionary["salmon"] = new Color(255, 85, 95);
-				color_dictionary["jade"] = new Color(130, 158, 93);
-				color_dictionary["sand"] = Color.NavajoWhite;
-				color_dictionary["poppyseed"] = new Color(82, 47, 153);
-				color_dictionary["dark_red"] = Color.DarkRed;
-				color_dictionary["dark_orange"] = Color.DarkOrange;
-				color_dictionary["dark_yellow"] = Color.DarkGoldenrod;
-				color_dictionary["dark_green"] = Color.DarkGreen;
-				color_dictionary["dark_blue"] = Color.DarkBlue;
-				color_dictionary["dark_purple"] = Color.DarkViolet;
-				color_dictionary["dark_pink"] = Color.DeepPink;
-				color_dictionary["dark_cyan"] = Color.DarkCyan;
-				color_dictionary["dark_gray"] = Color.DarkGray;
-				color_dictionary["dark_brown"] = Color.SaddleBrown;
-				color_dictionary["gold"] = Color.Gold;
-				color_dictionary["copper"] = new Color(179, 85, 0);
-				color_dictionary["iron"] = new Color(197, 213, 224);
-				color_dictionary["iridium"] = new Color(105, 15, 255);
-				foreach (string key in color_dictionary.Keys)
-				{
-					if (dye_object.HasContextTag("color_" + key))
-					{
-						return color_dictionary[key];
-					}
-				}
-			}
-			return null;
-		}
-
-		public bool DyeItems(Clothing clothing, Item dye_object, float dye_strength_override = -1f)
-		{
-			if (dye_object.Name == "Prismatic Shard")
-			{
-				clothing.Dye(Color.White, 1f);
-				clothing.isPrismatic.Set(newValue: true);
-				return true;
-			}
-			Color? dye_color = GetDyeColor(dye_object);
-			if (dye_color.HasValue)
-			{
-				float dye_strength = 0.25f;
-				if (dye_object.HasContextTag("dye_medium"))
-				{
-					dye_strength = 0.5f;
-				}
-				if (dye_object.HasContextTag("dye_strong"))
-				{
-					dye_strength = 1f;
-				}
-				if (dye_strength_override >= 0f)
-				{
-					dye_strength = dye_strength_override;
-				}
-				clothing.Dye(dye_color.Value, dye_strength);
-				if (clothing == Game1.player.shirtItem.Value || clothing == Game1.player.pantsItem.Value)
-				{
-					Game1.player.FarmerRenderer.MarkSpriteDirty();
-				}
-				return true;
-			}
-			return false;
-		}
-
-		public TailorItemRecipe GetRecipeForItems(Item left_item, Item right_item)
-		{
-			foreach (TailorItemRecipe recipe in _tailoringRecipes)
-			{
-				bool fail = false;
-				if (recipe.FirstItemTags != null && recipe.FirstItemTags.Count > 0)
-				{
-					if (left_item == null)
-					{
-						continue;
-					}
-					foreach (string required_tag2 in recipe.FirstItemTags)
-					{
-						if (!left_item.HasContextTag(required_tag2))
-						{
-							fail = true;
-							break;
-						}
-					}
-				}
-				if (!fail)
-				{
-					if (recipe.SecondItemTags != null && recipe.SecondItemTags.Count > 0)
-					{
-						if (right_item == null)
-						{
-							continue;
-						}
-						foreach (string required_tag in recipe.SecondItemTags)
-						{
-							if (!right_item.HasContextTag(required_tag))
-							{
-								fail = true;
-								break;
-							}
-						}
-					}
-					if (!fail)
-					{
-						return recipe;
-					}
-				}
-			}
-			return null;
-		}
-
-		public bool IsValidCraft(Item left_item, Item right_item)
-		{
-			if (left_item == null || right_item == null)
-			{
-				return false;
-			}
-			if (left_item is Boots && right_item is Boots)
-			{
-				return true;
-			}
-			if (left_item is Clothing && (left_item as Clothing).dyeable.Value)
-			{
-				if (right_item.HasContextTag("color_prismatic"))
-				{
-					return true;
-				}
-				if (GetDyeColor(right_item).HasValue)
-				{
-					return true;
-				}
-			}
-			if (GetRecipeForItems(left_item, right_item) != null)
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public bool IsMultipleResultCraft(Item left_item, Item right_item)
-		{
-			TailorItemRecipe recipe = GetRecipeForItems(left_item, right_item);
-			if (recipe != null && recipe.CraftedItemIDs != null && recipe.CraftedItemIDs.Count > 0)
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public Item CraftItem(Item left_item, Item right_item)
-		{
-			if (left_item == null || right_item == null)
-			{
-				return null;
-			}
-			if (left_item is Boots && left_item is Boots)
-			{
-				(left_item as Boots).applyStats(right_item as Boots);
-				return left_item;
-			}
-			if (left_item is Clothing && (left_item as Clothing).dyeable.Value)
-			{
-				if (right_item.HasContextTag("color_prismatic"))
-				{
-					_shouldPrismaticDye = true;
-					return left_item;
-				}
-				if (DyeItems(left_item as Clothing, right_item))
-				{
-					return left_item;
-				}
-			}
-			TailorItemRecipe recipe = GetRecipeForItems(left_item, right_item);
-			if (recipe != null)
-			{
-				int crafted_item_id = recipe.CraftedItemID;
-				if (recipe != null && recipe.CraftedItemIDs != null && recipe.CraftedItemIDs.Count > 0)
-				{
-					crafted_item_id = int.Parse(Utility.GetRandom(recipe.CraftedItemIDs));
-				}
-				Item crafted_item2 = null;
-				crafted_item2 = ((crafted_item_id < 0) ? new Object(-crafted_item_id, 1) : ((crafted_item_id < 2000 || crafted_item_id >= 3000) ? ((Item)new Clothing(crafted_item_id)) : ((Item)new Hat(crafted_item_id - 2000))));
-				if (crafted_item2 != null && crafted_item2 is Clothing)
-				{
-					DyeItems(crafted_item2 as Clothing, right_item, 1f);
-				}
-				if (crafted_item2 is Object)
-				{
-					Object crafted_object = crafted_item2 as Object;
-					Object left_object = left_item as Object;
-					Object right_object = right_item as Object;
-					if ((left_item is Object && left_object.questItem.Value) || (right_item is Object && right_object.questItem.Value))
-					{
-						crafted_object.questItem.Value = true;
-					}
-				}
-				return crafted_item2;
-			}
-			return null;
-		}
-
-		public void SpendRightItem()
-		{
-			if (rightIngredientSpot.item != null)
-			{
-				rightIngredientSpot.item.Stack--;
-				if (rightIngredientSpot.item.Stack <= 0 || rightIngredientSpot.item.maximumStackSize() == 1)
-				{
-					rightIngredientSpot.item = null;
-				}
-			}
-		}
-
-		public void SpendLeftItem()
-		{
-			if (leftIngredientSpot.item != null)
-			{
-				leftIngredientSpot.item.Stack--;
-				if (leftIngredientSpot.item.Stack <= 0)
-				{
-					leftIngredientSpot.item = null;
-				}
-			}
-		}
-
-		public override void receiveRightClick(int x, int y, bool playSound = true)
-		{
-			if (!IsBusy())
-			{
-				base.receiveRightClick(x, y, playSound: true);
-			}
-		}
-
-		public override void performHoverAction(int x, int y)
-		{
-			if (IsBusy())
-			{
-				return;
-			}
-			hoveredItem = null;
-			base.performHoverAction(x, y);
-			hoverText = "";
-			for (int i = 0; i < equipmentIcons.Count; i++)
-			{
-				if (equipmentIcons[i].containsPoint(x, y))
-				{
-					if (equipmentIcons[i].name == "Shirt")
-					{
-						hoveredItem = Game1.player.shirtItem.Value;
-					}
-					else if (equipmentIcons[i].name == "Hat")
-					{
-						hoveredItem = Game1.player.hat.Value;
-					}
-					else if (equipmentIcons[i].name == "Pants")
-					{
-						hoveredItem = Game1.player.pantsItem.Value;
-					}
-				}
-			}
-			if (craftResultDisplay.visible && craftResultDisplay.containsPoint(x, y) && craftResultDisplay.item != null)
-			{
-				if (_isDyeCraft || Game1.player.HasTailoredThisItem(craftResultDisplay.item))
-				{
-					hoveredItem = craftResultDisplay.item;
-				}
-				else
-				{
-					hoverText = Game1.content.LoadString("Strings\\UI:Tailor_MakeResultUnknown");
-				}
-			}
-			if (leftIngredientSpot.containsPoint(x, y))
-			{
-				if (leftIngredientSpot.item != null)
-				{
-					hoveredItem = leftIngredientSpot.item;
-				}
-				else
-				{
-					hoverText = Game1.content.LoadString("Strings\\UI:Tailor_Feed");
-				}
-			}
-			if (rightIngredientSpot.containsPoint(x, y) && rightIngredientSpot.item == null)
-			{
-				hoverText = Game1.content.LoadString("Strings\\UI:Tailor_Spool");
-			}
-			rightIngredientSpot.tryHover(x, y);
-			leftIngredientSpot.tryHover(x, y);
-			if (_craftState == CraftState.Valid && CanFitCraftedItem())
-			{
-				startTailoringButton.tryHover(x, y, 0.33f);
-			}
-			else
-			{
-				startTailoringButton.tryHover(-999, -999);
-			}
-		}
-
-		public bool CanFitCraftedItem()
-		{
-			if (craftResultDisplay.item != null && !Utility.canItemBeAddedToThisInventoryList(craftResultDisplay.item, inventory.actualInventory))
-			{
-				return false;
-			}
-			return true;
-		}
-
-		public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
-		{
-			Console.WriteLine("meow:" + oldBounds + " " + newBounds + " " + width + " " + height + " " + yPositionOnScreen);
-			base.gameWindowSizeChanged(oldBounds, newBounds);
-			Console.WriteLine("meow2:" + yPositionOnScreen);
-			int yPositionForInventory = yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + IClickableMenu.borderWidth + 192 - 16 + 128 + 4;
-			inventory = new InventoryMenu(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 12, yPositionForInventory, playerInventory: false, null, inventory.highlightMethod);
-			_CreateButtons();
-		}
-
-		public override void emergencyShutDown()
-		{
-			_OnCloseMenu();
-			base.emergencyShutDown();
-		}
-
-		public override void update(GameTime time)
-		{
-			base.update(time);
-			descriptionText = displayedDescription;
-			questionMarkOffset.X = (float)Math.Sin(time.TotalGameTime.TotalSeconds * 2.5) * 4f;
-			questionMarkOffset.Y = (float)Math.Cos(time.TotalGameTime.TotalSeconds * 5.0) * -4f;
-			bool can_fit_crafted_item = CanFitCraftedItem();
-			if (_craftState == CraftState.Valid && can_fit_crafted_item)
-			{
-				startTailoringButton.sourceRect.Y = 104;
-			}
-			else
-			{
-				startTailoringButton.sourceRect.Y = 80;
-			}
-			if ((_craftState == CraftState.Valid && !IsBusy()) & can_fit_crafted_item)
-			{
-				craftResultDisplay.visible = true;
-			}
-			else
-			{
-				craftResultDisplay.visible = false;
-			}
-			if (_timeUntilCraft > 0)
-			{
-				startTailoringButton.tryHover(startTailoringButton.bounds.Center.X, startTailoringButton.bounds.Center.Y, 0.33f);
-				Vector2 lerped_position = new Vector2(0f, 0f);
-				lerped_position.X = Utility.Lerp(leftIngredientEndSpot.X, leftIngredientStartSpot.X, (float)_timeUntilCraft / 1500f);
-				lerped_position.Y = Utility.Lerp(leftIngredientEndSpot.Y, leftIngredientStartSpot.Y, (float)_timeUntilCraft / 1500f);
-				leftIngredientSpot.bounds.X = (int)lerped_position.X;
-				leftIngredientSpot.bounds.Y = (int)lerped_position.Y;
-				_timeUntilCraft -= time.ElapsedGameTime.Milliseconds;
-				needleSprite.bounds.Location = new Point((int)needlePosition.X, (int)(needlePosition.Y - 2f * ((float)_timeUntilCraft % 25f) / 25f * 4f));
-				presserSprite.bounds.Location = new Point((int)presserPosition.X, (int)(presserPosition.Y - 1f * ((float)_timeUntilCraft % 50f) / 50f * 4f));
-				_rightItemOffset = (float)Math.Sin(time.TotalGameTime.TotalMilliseconds * 2.0 * Math.PI / 180.0) * 2f;
-				if (_timeUntilCraft > 0)
-				{
-					return;
-				}
-				TailorItemRecipe recipe = GetRecipeForItems(leftIngredientSpot.item, rightIngredientSpot.item);
-				_shouldPrismaticDye = false;
-				Item crafted_item = CraftItem(leftIngredientSpot.item, rightIngredientSpot.item);
-				if (_sewingSound != null && _sewingSound.IsPlaying)
-				{
-					_sewingSound.Stop(AudioStopOptions.Immediate);
-				}
-				if (!Utility.canItemBeAddedToThisInventoryList(crafted_item, inventory.actualInventory))
-				{
-					Game1.playSound("cancel");
-					Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
-					_timeUntilCraft = 0;
-					return;
-				}
-				if (leftIngredientSpot.item == crafted_item)
-				{
-					leftIngredientSpot.item = null;
-				}
-				else
-				{
-					SpendLeftItem();
-				}
-				if ((recipe == null || recipe.SpendRightItem) && (readyToClose() || !_shouldPrismaticDye))
-				{
-					SpendRightItem();
-				}
-				if (recipe != null)
-				{
-					Game1.player.MarkItemAsTailored(crafted_item);
-				}
-				Game1.playSound("coin");
-				heldItem = crafted_item;
-				_timeUntilCraft = 0;
-				_ValidateCraft();
-				if (_shouldPrismaticDye)
-				{
-					Item old_held_item = heldItem;
-					heldItem = null;
-					if (readyToClose())
-					{
-						exitThisMenuNoSound();
-						Game1.activeClickableMenu = new CharacterCustomization(crafted_item as Clothing);
-						return;
-					}
-					heldItem = old_held_item;
-				}
-			}
-			_rightItemOffset = 0f;
-			leftIngredientSpot.bounds.X = (int)leftIngredientStartSpot.X;
-			leftIngredientSpot.bounds.Y = (int)leftIngredientStartSpot.Y;
-			needleSprite.bounds.Location = new Point((int)needlePosition.X, (int)needlePosition.Y);
-			presserSprite.bounds.Location = new Point((int)presserPosition.X, (int)presserPosition.Y);
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.6f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 96f, yPositionOnScreen - 64), new Rectangle(101, 80, 41, 36), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.FlipHorizontally, 0.87f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 352f, yPositionOnScreen - 64), new Rectangle(101, 80, 41, 36), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 608f, yPositionOnScreen - 64), new Rectangle(101, 80, 41, 36), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 256f, yPositionOnScreen), new Rectangle(79, 97, 22, 20), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 512f, yPositionOnScreen), new Rectangle(79, 97, 22, 20), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 32f, yPositionOnScreen + 44), new Rectangle(81, 81, 16, 9), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			b.Draw(tailoringTextures, new Vector2((float)xPositionOnScreen + 768f, yPositionOnScreen + 44), new Rectangle(81, 81, 16, 9), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			Game1.DrawBox(xPositionOnScreen - 64, yPositionOnScreen + 128, 128, 265, new Color(50, 160, 255));
-			Game1.player.FarmerRenderer.drawMiniPortrat(b, new Vector2((float)(xPositionOnScreen - 64) + 9.6f, yPositionOnScreen + 128), 0.87f, 4f, 2, Game1.player);
-			base.draw(b, drawUpperPortion: true, drawDescriptionArea: true, 50, 160, 255);
-			b.Draw(tailoringTextures, new Vector2(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 - 4, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder), new Rectangle(0, 0, 142, 80), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			startTailoringButton.draw(b, Color.White, 0.96f);
-			startTailoringButton.drawItem(b, 16, 16);
-			presserSprite.draw(b, Color.White, 0.99f);
-			needleSprite.draw(b, Color.White, 0.97f);
-			Point random_shaking = new Point(0, 0);
-			if (!IsBusy())
-			{
-				if (leftIngredientSpot.item != null)
-				{
-					blankLeftIngredientSpot.draw(b);
-				}
-				else
-				{
-					leftIngredientSpot.draw(b, Color.White, 0.87f, (int)Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000 / 200);
-				}
-			}
-			else
-			{
-				random_shaking.X = Game1.random.Next(-1, 2);
-				random_shaking.Y = Game1.random.Next(-1, 2);
-			}
-			leftIngredientSpot.drawItem(b, (4 + random_shaking.X) * 4, (4 + random_shaking.Y) * 4);
-			if (craftResultDisplay.visible)
-			{
-				string make_result_text = Game1.content.LoadString("Strings\\UI:Tailor_MakeResult");
-				Utility.drawTextWithColoredShadow(position: new Vector2((float)craftResultDisplay.bounds.Center.X - Game1.smallFont.MeasureString(make_result_text).X / 2f, (float)craftResultDisplay.bounds.Top - Game1.smallFont.MeasureString(make_result_text).Y), b: b, text: make_result_text, font: Game1.smallFont, color: Game1.textColor * 0.75f, shadowColor: Color.Black * 0.2f);
-				craftResultDisplay.draw(b);
-				if (craftResultDisplay.item != null)
-				{
-					if (_isMultipleResultCraft)
-					{
-						Rectangle question_mark_bounds = craftResultDisplay.bounds;
-						question_mark_bounds.X += 6;
-						question_mark_bounds.Y -= 8 + (int)questionMarkOffset.Y;
-						b.Draw(tailoringTextures, question_mark_bounds, new Rectangle(112, 208, 16, 16), Color.White);
-					}
-					else if (_isDyeCraft || Game1.player.HasTailoredThisItem(craftResultDisplay.item))
-					{
-						craftResultDisplay.drawItem(b);
-					}
-					else
-					{
-						Object crafted_object;
-						if (craftResultDisplay.item is Hat)
-						{
-							b.Draw(tailoringTextures, craftResultDisplay.bounds, new Rectangle(96, 208, 16, 16), Color.White);
-						}
-						else if (craftResultDisplay.item is Clothing)
-						{
-							if ((craftResultDisplay.item as Clothing).clothesType.Value == 1)
-							{
-								b.Draw(tailoringTextures, craftResultDisplay.bounds, new Rectangle(64, 208, 16, 16), Color.White);
-							}
-							else if ((craftResultDisplay.item as Clothing).clothesType.Value == 0)
-							{
-								b.Draw(tailoringTextures, craftResultDisplay.bounds, new Rectangle(80, 208, 16, 16), Color.White);
-							}
-						}
-						else if ((crafted_object = (craftResultDisplay.item as Object)) != null && Utility.IsNormalObjectAtParentSheetIndex(crafted_object, 71))
-						{
-							b.Draw(tailoringTextures, craftResultDisplay.bounds, new Rectangle(64, 208, 16, 16), Color.White);
-						}
-						Rectangle question_mark_bounds2 = craftResultDisplay.bounds;
-						question_mark_bounds2.X += 24;
-						question_mark_bounds2.Y += 12 + (int)questionMarkOffset.Y;
-						b.Draw(tailoringTextures, question_mark_bounds2, new Rectangle(112, 208, 16, 16), Color.White);
-					}
-				}
-			}
-			foreach (ClickableComponent c in equipmentIcons)
-			{
-				switch (c.name)
-				{
-				case "Hat":
-					if (Game1.player.hat.Value != null)
-					{
-						b.Draw(tailoringTextures, c.bounds, new Rectangle(0, 208, 16, 16), Color.White);
-						float transparency = 1f;
-						if (!HighlightItems((Hat)Game1.player.hat))
-						{
-							transparency = 0.5f;
-						}
-						if (Game1.player.hat.Value == heldItem)
-						{
-							transparency = 0.5f;
-						}
-						Game1.player.hat.Value.drawInMenu(b, new Vector2(c.bounds.X, c.bounds.Y), c.scale, transparency, 0.866f, StackDrawType.Hide);
-					}
-					else
-					{
-						b.Draw(tailoringTextures, c.bounds, new Rectangle(48, 208, 16, 16), Color.White);
-					}
-					break;
-				case "Shirt":
-					if (Game1.player.shirtItem.Value != null)
-					{
-						b.Draw(tailoringTextures, c.bounds, new Rectangle(0, 208, 16, 16), Color.White);
-						float transparency2 = 1f;
-						if (!HighlightItems((Clothing)Game1.player.shirtItem))
-						{
-							transparency2 = 0.5f;
-						}
-						if (Game1.player.shirtItem.Value == heldItem)
-						{
-							transparency2 = 0.5f;
-						}
-						Game1.player.shirtItem.Value.drawInMenu(b, new Vector2(c.bounds.X, c.bounds.Y), c.scale, transparency2, 0.866f);
-					}
-					else
-					{
-						b.Draw(tailoringTextures, c.bounds, new Rectangle(32, 208, 16, 16), Color.White);
-					}
-					break;
-				case "Pants":
-					if (Game1.player.pantsItem.Value != null)
-					{
-						b.Draw(tailoringTextures, c.bounds, new Rectangle(0, 208, 16, 16), Color.White);
-						float transparency3 = 1f;
-						if (!HighlightItems((Clothing)Game1.player.pantsItem))
-						{
-							transparency3 = 0.5f;
-						}
-						if (Game1.player.pantsItem.Value == heldItem)
-						{
-							transparency3 = 0.5f;
-						}
-						Game1.player.pantsItem.Value.drawInMenu(b, new Vector2(c.bounds.X, c.bounds.Y), c.scale, transparency3, 0.866f);
-					}
-					else
-					{
-						b.Draw(tailoringTextures, c.bounds, new Rectangle(16, 208, 16, 16), Color.White);
-					}
-					break;
-				}
-			}
-			if (!IsBusy())
-			{
-				if (rightIngredientSpot.item != null)
-				{
-					blankRightIngredientSpot.draw(b);
-				}
-				else
-				{
-					rightIngredientSpot.draw(b, Color.White, 0.87f, (int)Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000 / 200);
-				}
-			}
-			rightIngredientSpot.drawItem(b, 16, (4 + (int)_rightItemOffset) * 4);
-			if (!hoverText.Equals(""))
-			{
-				IClickableMenu.drawHoverText(b, hoverText, Game1.smallFont, (heldItem != null) ? 32 : 0, (heldItem != null) ? 32 : 0);
-			}
-			else if (hoveredItem != null)
-			{
-				IClickableMenu.drawToolTip(b, hoveredItem.getDescription(), hoveredItem.DisplayName, hoveredItem, heldItem != null);
-			}
-			if (heldItem != null)
-			{
-				heldItem.drawInMenu(b, new Vector2(Game1.getOldMouseX() + 8, Game1.getOldMouseY() + 8), 1f);
-			}
-			if (!Game1.options.hardwareCursor)
-			{
-				drawMouse(b);
-			}
-		}
-
-		protected override void cleanupBeforeExit()
-		{
-			_OnCloseMenu();
-		}
-
-		protected void _OnCloseMenu()
-		{
-			if (!Game1.player.IsEquippedItem(heldItem))
-			{
-				Utility.CollectOrDrop(heldItem);
-			}
-			if (!Game1.player.IsEquippedItem(leftIngredientSpot.item))
-			{
-				Utility.CollectOrDrop(leftIngredientSpot.item);
-			}
-			if (!Game1.player.IsEquippedItem(rightIngredientSpot.item))
-			{
-				Utility.CollectOrDrop(rightIngredientSpot.item);
-			}
-			if (!Game1.player.IsEquippedItem(startTailoringButton.item))
-			{
-				Utility.CollectOrDrop(startTailoringButton.item);
-			}
-			heldItem = null;
-			leftIngredientSpot.item = null;
-			rightIngredientSpot.item = null;
-			startTailoringButton.item = null;
-		}
-	}
+  public class TailoringMenu : MenuWithInventory
+  {
+    protected int _timeUntilCraft;
+    public const int region_leftIngredient = 998;
+    public const int region_rightIngredient = 997;
+    public const int region_startButton = 996;
+    public const int region_resultItem = 995;
+    public ClickableTextureComponent needleSprite;
+    public ClickableTextureComponent presserSprite;
+    public ClickableTextureComponent craftResultDisplay;
+    public Vector2 needlePosition;
+    public Vector2 presserPosition;
+    public Vector2 leftIngredientStartSpot;
+    public Vector2 leftIngredientEndSpot;
+    protected float _rightItemOffset;
+    public ClickableTextureComponent leftIngredientSpot;
+    public ClickableTextureComponent rightIngredientSpot;
+    public ClickableTextureComponent blankLeftIngredientSpot;
+    public ClickableTextureComponent blankRightIngredientSpot;
+    public ClickableTextureComponent startTailoringButton;
+    public const int region_shirt = 108;
+    public const int region_pants = 109;
+    public const int region_hat = 101;
+    public List<ClickableComponent> equipmentIcons = new List<ClickableComponent>();
+    public const int CRAFT_TIME = 1500;
+    public Texture2D tailoringTextures;
+    public List<TailorItemRecipe> _tailoringRecipes;
+    private ICue _sewingSound;
+    protected Dictionary<Item, bool> _highlightDictionary;
+    protected Dictionary<string, Item> _lastValidEquippedItems;
+    protected bool _shouldPrismaticDye;
+    protected bool _heldItemIsEquipped;
+    protected bool _isDyeCraft;
+    protected bool _isMultipleResultCraft;
+    protected string displayedDescription = "";
+    protected TailoringMenu.CraftState _craftState;
+    public Vector2 questionMarkOffset;
+
+    public TailoringMenu()
+      : base(okButton: true, trashCan: true, inventoryXOffset: 12, inventoryYOffset: 132)
+    {
+      Game1.playSound("bigSelect");
+      if (this.yPositionOnScreen == IClickableMenu.borderWidth + IClickableMenu.spaceToClearTopBorder)
+        this.movePosition(0, -IClickableMenu.spaceToClearTopBorder);
+      this.inventory.highlightMethod = new InventoryMenu.highlightThisItem(this.HighlightItems);
+      this.tailoringTextures = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\tailoring");
+      this._tailoringRecipes = Game1.temporaryContent.Load<List<TailorItemRecipe>>("Data\\TailoringRecipes");
+      this._CreateButtons();
+      if (this.trashCan != null)
+        this.trashCan.myID = 106;
+      if (this.okButton != null)
+        this.okButton.leftNeighborID = 11;
+      if (Game1.options.SnappyMenus)
+      {
+        this.populateClickableComponentList();
+        this.snapToDefaultClickableComponent();
+      }
+      this._ValidateCraft();
+    }
+
+    protected void _CreateButtons()
+    {
+      ClickableTextureComponent textureComponent1 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 192, 96, 96), this.tailoringTextures, new Rectangle(0, 156, 24, 24), 4f);
+      textureComponent1.myID = 998;
+      textureComponent1.downNeighborID = -99998;
+      textureComponent1.leftNeighborID = 109;
+      textureComponent1.rightNeighborID = 996;
+      textureComponent1.upNeighborID = 997;
+      textureComponent1.item = this.leftIngredientSpot != null ? this.leftIngredientSpot.item : (Item) null;
+      this.leftIngredientSpot = textureComponent1;
+      this.leftIngredientStartSpot = new Vector2((float) this.leftIngredientSpot.bounds.X, (float) this.leftIngredientSpot.bounds.Y);
+      this.leftIngredientEndSpot = this.leftIngredientStartSpot + new Vector2(256f, 0.0f);
+      this.needleSprite = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 116, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 128, 96, 96), this.tailoringTextures, new Rectangle(64, 80, 16, 32), 4f);
+      this.presserSprite = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 116, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 128, 96, 96), this.tailoringTextures, new Rectangle(48, 80, 16, 32), 4f);
+      this.needlePosition = new Vector2((float) this.needleSprite.bounds.X, (float) this.needleSprite.bounds.Y);
+      this.presserPosition = new Vector2((float) this.presserSprite.bounds.X, (float) this.presserSprite.bounds.Y);
+      ClickableTextureComponent textureComponent2 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 400, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8, 96, 96), this.tailoringTextures, new Rectangle(0, 180, 24, 24), 4f);
+      textureComponent2.myID = 997;
+      textureComponent2.downNeighborID = 996;
+      textureComponent2.leftNeighborID = 998;
+      textureComponent2.rightNeighborID = -99998;
+      textureComponent2.upNeighborID = -99998;
+      textureComponent2.item = this.rightIngredientSpot != null ? this.rightIngredientSpot.item : (Item) null;
+      textureComponent2.fullyImmutable = true;
+      this.rightIngredientSpot = textureComponent2;
+      this.blankRightIngredientSpot = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 400, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8, 96, 96), this.tailoringTextures, new Rectangle(0, 128, 24, 24), 4f);
+      this.blankLeftIngredientSpot = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 192, 96, 96), this.tailoringTextures, new Rectangle(0, 128, 24, 24), 4f);
+      ClickableTextureComponent textureComponent3 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 448, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 128, 96, 96), this.tailoringTextures, new Rectangle(24, 80, 24, 24), 4f);
+      textureComponent3.myID = 996;
+      textureComponent3.downNeighborID = -99998;
+      textureComponent3.leftNeighborID = 998;
+      textureComponent3.rightNeighborID = 995;
+      textureComponent3.upNeighborID = 997;
+      textureComponent3.item = this.startTailoringButton != null ? this.startTailoringButton.item : (Item) null;
+      textureComponent3.fullyImmutable = true;
+      this.startTailoringButton = textureComponent3;
+      if (this.inventory.inventory != null && this.inventory.inventory.Count >= 12)
+      {
+        for (int index = 0; index < 12; ++index)
+        {
+          if (this.inventory.inventory[index] != null)
+            this.inventory.inventory[index].upNeighborID = -99998;
+        }
+      }
+      this.equipmentIcons = new List<ClickableComponent>();
+      this.equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Hat")
+      {
+        myID = 101,
+        leftNeighborID = -99998,
+        downNeighborID = -99998,
+        upNeighborID = -99998,
+        rightNeighborID = -99998
+      });
+      this.equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Shirt")
+      {
+        myID = 108,
+        upNeighborID = -99998,
+        downNeighborID = -99998,
+        rightNeighborID = -99998,
+        leftNeighborID = -99998
+      });
+      this.equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Pants")
+      {
+        myID = 109,
+        upNeighborID = -99998,
+        rightNeighborID = -99998,
+        leftNeighborID = -99998,
+        downNeighborID = -99998
+      });
+      for (int index = 0; index < this.equipmentIcons.Count; ++index)
+      {
+        this.equipmentIcons[index].bounds.X = this.xPositionOnScreen - 64 + 9;
+        this.equipmentIcons[index].bounds.Y = this.yPositionOnScreen + 192 + index * 64;
+      }
+      ClickableTextureComponent textureComponent4 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 660, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 232, 64, 64), this.tailoringTextures, new Rectangle(0, 208, 16, 16), 4f);
+      textureComponent4.myID = 995;
+      textureComponent4.downNeighborID = -99998;
+      textureComponent4.leftNeighborID = 996;
+      textureComponent4.upNeighborID = 997;
+      textureComponent4.item = this.craftResultDisplay != null ? this.craftResultDisplay.item : (Item) null;
+      this.craftResultDisplay = textureComponent4;
+    }
+
+    public override void snapToDefaultClickableComponent()
+    {
+      this.currentlySnappedComponent = this.getComponentWithID(0);
+      this.snapCursorToCurrentSnappedComponent();
+    }
+
+    public bool IsBusy() => this._timeUntilCraft > 0;
+
+    public override bool readyToClose() => base.readyToClose() && this.heldItem == null && !this.IsBusy();
+
+    public bool HighlightItems(Item i)
+    {
+      if (i == null || i != null && !this.IsValidCraftIngredient(i))
+        return false;
+      if (this._highlightDictionary == null)
+        this.GenerateHighlightDictionary();
+      if (!this._highlightDictionary.ContainsKey(i))
+      {
+        this._highlightDictionary = (Dictionary<Item, bool>) null;
+        this.GenerateHighlightDictionary();
+      }
+      return this._highlightDictionary[i];
+    }
+
+    public void GenerateHighlightDictionary()
+    {
+      this._highlightDictionary = new Dictionary<Item, bool>();
+      List<Item> objList = new List<Item>((IEnumerable<Item>) this.inventory.actualInventory);
+      if (Game1.player.pantsItem.Value != null)
+        objList.Add((Item) Game1.player.pantsItem.Value);
+      if (Game1.player.shirtItem.Value != null)
+        objList.Add((Item) Game1.player.shirtItem.Value);
+      if (Game1.player.hat.Value != null)
+        objList.Add((Item) Game1.player.hat.Value);
+      foreach (Item obj in objList)
+      {
+        if (obj != null)
+          this._highlightDictionary[obj] = this.leftIngredientSpot.item == null && this.rightIngredientSpot.item == null || (this.leftIngredientSpot.item == null || this.rightIngredientSpot.item == null) && (this.leftIngredientSpot.item == null ? this.IsValidCraft(obj, this.rightIngredientSpot.item) : this.IsValidCraft(this.leftIngredientSpot.item, obj));
+      }
+    }
+
+    private void _leftIngredientSpotClicked()
+    {
+      Item obj = this.leftIngredientSpot.item;
+      if (this.heldItem != null && !this.IsValidCraftIngredient(this.heldItem))
+        return;
+      Game1.playSound("stoneStep");
+      this.leftIngredientSpot.item = this.heldItem;
+      this.heldItem = obj;
+      this._highlightDictionary = (Dictionary<Item, bool>) null;
+      this._ValidateCraft();
+    }
+
+    public bool IsValidCraftIngredient(Item item) => item.HasContextTag("item_lucky_purple_shorts") || item.canBeTrashed();
+
+    private void _rightIngredientSpotClicked()
+    {
+      Item obj = this.rightIngredientSpot.item;
+      if (this.heldItem != null && !this.IsValidCraftIngredient(this.heldItem))
+        return;
+      Game1.playSound("stoneStep");
+      this.rightIngredientSpot.item = this.heldItem;
+      this.heldItem = obj;
+      this._highlightDictionary = (Dictionary<Item, bool>) null;
+      this._ValidateCraft();
+    }
+
+    public override void receiveKeyPress(Keys key)
+    {
+      if (key == Keys.Delete)
+      {
+        if (this.heldItem == null || !this.IsValidCraftIngredient(this.heldItem))
+          return;
+        Utility.trashItem(this.heldItem);
+        this.heldItem = (Item) null;
+      }
+      else
+        base.receiveKeyPress(key);
+    }
+
+    public bool IsHoldingEquippedItem()
+    {
+      if (this.heldItem == null)
+        return false;
+      return Game1.player.IsEquippedItem(this.heldItem) || Game1.player.IsEquippedItem(Utility.PerformSpecialItemGrabReplacement(this.heldItem));
+    }
+
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+      Item heldItem = this.heldItem;
+      int num = Game1.player.IsEquippedItem(heldItem) ? 1 : 0;
+      base.receiveLeftClick(x, y, true);
+      if (num != 0 && this.heldItem != heldItem)
+      {
+        if (heldItem == Game1.player.hat.Value)
+        {
+          Game1.player.hat.Value = (Hat) null;
+          this._highlightDictionary = (Dictionary<Item, bool>) null;
+        }
+        else if (heldItem == Game1.player.shirtItem.Value)
+        {
+          Game1.player.shirtItem.Value = (Clothing) null;
+          this._highlightDictionary = (Dictionary<Item, bool>) null;
+        }
+        else if (heldItem == Game1.player.pantsItem.Value)
+        {
+          Game1.player.pantsItem.Value = (Clothing) null;
+          this._highlightDictionary = (Dictionary<Item, bool>) null;
+        }
+      }
+      foreach (ClickableComponent equipmentIcon in this.equipmentIcons)
+      {
+        if (equipmentIcon.containsPoint(x, y))
+        {
+          string name = equipmentIcon.name;
+          if (!(name == "Hat"))
+          {
+            if (!(name == "Shirt"))
+            {
+              if (!(name == "Pants"))
+                return;
+              Item obj1 = Utility.PerformSpecialItemPlaceReplacement(this.heldItem);
+              if (this.heldItem == null)
+              {
+                if (!this.HighlightItems((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.pantsItem))
+                  return;
+                this.heldItem = Utility.PerformSpecialItemGrabReplacement((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.pantsItem);
+                if (!(this.heldItem is Clothing))
+                  Game1.player.pantsItem.Value = (Clothing) null;
+                Game1.playSound("dwop");
+                this._highlightDictionary = (Dictionary<Item, bool>) null;
+                this._ValidateCraft();
+                return;
+              }
+              if (!(obj1 is Clothing) || (obj1 as Clothing).clothesType.Value != 1)
+                return;
+              Item obj2 = Utility.PerformSpecialItemGrabReplacement((Item) Game1.player.pantsItem.Value);
+              if (obj2 == this.heldItem)
+                obj2 = (Item) null;
+              Game1.player.pantsItem.Value = obj1 as Clothing;
+              this.heldItem = obj2;
+              Game1.playSound("sandyStep");
+              this._highlightDictionary = (Dictionary<Item, bool>) null;
+              this._ValidateCraft();
+              return;
+            }
+            Item obj3 = Utility.PerformSpecialItemPlaceReplacement(this.heldItem);
+            if (this.heldItem == null)
+            {
+              if (!this.HighlightItems((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.shirtItem))
+                return;
+              this.heldItem = Utility.PerformSpecialItemGrabReplacement((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.shirtItem);
+              Game1.playSound("dwop");
+              if (!(this.heldItem is Clothing))
+                Game1.player.shirtItem.Value = (Clothing) null;
+              this._highlightDictionary = (Dictionary<Item, bool>) null;
+              this._ValidateCraft();
+              return;
+            }
+            if (!(this.heldItem is Clothing) || (this.heldItem as Clothing).clothesType.Value != 0)
+              return;
+            Item obj4 = Utility.PerformSpecialItemGrabReplacement((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.shirtItem);
+            if (obj4 == this.heldItem)
+              obj4 = (Item) null;
+            Game1.player.shirtItem.Value = obj3 as Clothing;
+            this.heldItem = obj4;
+            Game1.playSound("sandyStep");
+            this._highlightDictionary = (Dictionary<Item, bool>) null;
+            this._ValidateCraft();
+            return;
+          }
+          Item obj5 = Utility.PerformSpecialItemPlaceReplacement(this.heldItem);
+          if (this.heldItem == null)
+          {
+            if (!this.HighlightItems((Item) (Hat) (NetFieldBase<Hat, NetRef<Hat>>) Game1.player.hat))
+              return;
+            this.heldItem = Utility.PerformSpecialItemGrabReplacement((Item) (Hat) (NetFieldBase<Hat, NetRef<Hat>>) Game1.player.hat);
+            Game1.playSound("dwop");
+            if (!(this.heldItem is Hat))
+              Game1.player.hat.Value = (Hat) null;
+            this._highlightDictionary = (Dictionary<Item, bool>) null;
+            this._ValidateCraft();
+            return;
+          }
+          if (!(obj5 is Hat))
+            return;
+          Item obj6 = Utility.PerformSpecialItemGrabReplacement((Item) Game1.player.hat.Value);
+          if (obj6 == this.heldItem)
+            obj6 = (Item) null;
+          Game1.player.hat.Value = obj5 as Hat;
+          this.heldItem = obj6;
+          Game1.playSound("grassyStep");
+          this._highlightDictionary = (Dictionary<Item, bool>) null;
+          this._ValidateCraft();
+          return;
+        }
+      }
+      KeyboardState keyboardState = Game1.GetKeyboardState();
+      if (keyboardState.IsKeyDown(Keys.LeftShift) && heldItem != this.heldItem && this.heldItem != null)
+      {
+        if (this.heldItem.Name == "Cloth" || this.heldItem is Clothing && (bool) (NetFieldBase<bool, NetBool>) (this.heldItem as Clothing).dyeable)
+          this._leftIngredientSpotClicked();
+        else
+          this._rightIngredientSpotClicked();
+      }
+      if (this.IsBusy())
+        return;
+      if (this.leftIngredientSpot.containsPoint(x, y))
+      {
+        this._leftIngredientSpotClicked();
+        keyboardState = Game1.GetKeyboardState();
+        if (keyboardState.IsKeyDown(Keys.LeftShift) && this.heldItem != null)
+        {
+          if (Game1.player.IsEquippedItem(this.heldItem))
+            this.heldItem = (Item) null;
+          else
+            this.heldItem = this.inventory.tryToAddItem(this.heldItem, "");
+        }
+      }
+      else if (this.rightIngredientSpot.containsPoint(x, y))
+      {
+        this._rightIngredientSpotClicked();
+        keyboardState = Game1.GetKeyboardState();
+        if (keyboardState.IsKeyDown(Keys.LeftShift) && this.heldItem != null)
+        {
+          if (Game1.player.IsEquippedItem(this.heldItem))
+            this.heldItem = (Item) null;
+          else
+            this.heldItem = this.inventory.tryToAddItem(this.heldItem, "");
+        }
+      }
+      else if (this.startTailoringButton.containsPoint(x, y))
+      {
+        if (this.heldItem == null)
+        {
+          bool flag = false;
+          if (!this.CanFitCraftedItem())
+          {
+            Game1.playSound("cancel");
+            Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
+            this._timeUntilCraft = 0;
+            flag = true;
+          }
+          if (!flag && this.IsValidCraft(this.leftIngredientSpot.item, this.rightIngredientSpot.item))
+          {
+            Game1.playSound("bigSelect");
+            this._sewingSound = Game1.soundBank.GetCue("sewing_loop");
+            this._sewingSound.Play();
+            this.startTailoringButton.scale = this.startTailoringButton.baseScale;
+            this._timeUntilCraft = 1500;
+            this._UpdateDescriptionText();
+          }
+          else
+            Game1.playSound("sell");
+        }
+        else
+          Game1.playSound("sell");
+      }
+      if (this.heldItem == null || this.isWithinBounds(x, y) || !this.heldItem.canBeTrashed())
+        return;
+      if (Game1.player.IsEquippedItem(this.heldItem))
+      {
+        if (this.heldItem == Game1.player.hat.Value)
+          Game1.player.hat.Value = (Hat) null;
+        else if (this.heldItem == Game1.player.shirtItem.Value)
+          Game1.player.shirtItem.Value = (Clothing) null;
+        else if (this.heldItem == Game1.player.pantsItem.Value)
+          Game1.player.pantsItem.Value = (Clothing) null;
+      }
+      Game1.playSound("throwDownITem");
+      Game1.createItemDebris(this.heldItem, Game1.player.getStandingPosition(), Game1.player.FacingDirection);
+      this.heldItem = (Item) null;
+    }
+
+    protected virtual bool CheckHeldItem(Func<Item, bool> f = null) => f == null ? this.heldItem != null : f(this.heldItem);
+
+    protected void _ValidateCraft()
+    {
+      Item left_item = this.leftIngredientSpot.item;
+      Item right_item = this.rightIngredientSpot.item;
+      if (left_item == null || right_item == null)
+        this._craftState = TailoringMenu.CraftState.MissingIngredients;
+      else if (left_item is Clothing && !(bool) (NetFieldBase<bool, NetBool>) (left_item as Clothing).dyeable)
+        this._craftState = TailoringMenu.CraftState.NotDyeable;
+      else if (this.IsValidCraft(left_item, right_item))
+      {
+        this._craftState = TailoringMenu.CraftState.Valid;
+        bool shouldPrismaticDye = this._shouldPrismaticDye;
+        Item one = left_item.getOne();
+        this._isMultipleResultCraft = this.IsMultipleResultCraft(left_item, right_item);
+        this.craftResultDisplay.item = this.CraftItem(one, right_item.getOne());
+        this._isDyeCraft = this.craftResultDisplay.item == one;
+        this._shouldPrismaticDye = shouldPrismaticDye;
+      }
+      else
+        this._craftState = TailoringMenu.CraftState.InvalidRecipe;
+      this._UpdateDescriptionText();
+    }
+
+    protected void _UpdateDescriptionText()
+    {
+      if (this.IsBusy())
+        this.displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_Busy");
+      else if (this._craftState == TailoringMenu.CraftState.NotDyeable)
+        this.displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_NotDyeable");
+      else if (this._craftState == TailoringMenu.CraftState.MissingIngredients)
+        this.displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_MissingIngredients");
+      else if (this._craftState == TailoringMenu.CraftState.Valid)
+      {
+        if (!this.CanFitCraftedItem())
+          this.displayedDescription = Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588");
+        else
+          this.displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_Valid");
+      }
+      else if (this._craftState == TailoringMenu.CraftState.InvalidRecipe)
+        this.displayedDescription = Game1.content.LoadString("Strings\\UI:Tailor_InvalidRecipe");
+      else
+        this.displayedDescription = "";
+    }
+
+    public static Color? GetDyeColor(Item dye_object)
+    {
+      if (dye_object != null)
+      {
+        if (dye_object.Name == "Prismatic Shard")
+          return new Color?(Color.White);
+        if (dye_object is ColoredObject)
+          return new Color?((Color) (NetFieldBase<Color, NetColor>) (dye_object as ColoredObject).color);
+        Dictionary<string, Color> dictionary = new Dictionary<string, Color>();
+        dictionary["black"] = new Color(45, 45, 45);
+        dictionary["gray"] = Color.Gray;
+        dictionary["white"] = Color.White;
+        dictionary["pink"] = new Color((int) byte.MaxValue, 163, 186);
+        dictionary["red"] = new Color(220, 0, 0);
+        dictionary["orange"] = new Color((int) byte.MaxValue, 128, 0);
+        dictionary["yellow"] = new Color((int) byte.MaxValue, 230, 0);
+        dictionary["green"] = new Color(10, 143, 0);
+        dictionary["blue"] = new Color(46, 85, 183);
+        dictionary["purple"] = new Color(115, 41, 181);
+        dictionary["brown"] = new Color(130, 73, 37);
+        dictionary["light_cyan"] = new Color(180, (int) byte.MaxValue, (int) byte.MaxValue);
+        dictionary["cyan"] = Color.Cyan;
+        dictionary["aquamarine"] = Color.Aquamarine;
+        dictionary["sea_green"] = Color.SeaGreen;
+        dictionary["lime"] = Color.Lime;
+        dictionary["yellow_green"] = Color.GreenYellow;
+        dictionary["pale_violet_red"] = Color.PaleVioletRed;
+        dictionary["salmon"] = new Color((int) byte.MaxValue, 85, 95);
+        dictionary["jade"] = new Color(130, 158, 93);
+        dictionary["sand"] = Color.NavajoWhite;
+        dictionary["poppyseed"] = new Color(82, 47, 153);
+        dictionary["dark_red"] = Color.DarkRed;
+        dictionary["dark_orange"] = Color.DarkOrange;
+        dictionary["dark_yellow"] = Color.DarkGoldenrod;
+        dictionary["dark_green"] = Color.DarkGreen;
+        dictionary["dark_blue"] = Color.DarkBlue;
+        dictionary["dark_purple"] = Color.DarkViolet;
+        dictionary["dark_pink"] = Color.DeepPink;
+        dictionary["dark_cyan"] = Color.DarkCyan;
+        dictionary["dark_gray"] = Color.DarkGray;
+        dictionary["dark_brown"] = Color.SaddleBrown;
+        dictionary["gold"] = Color.Gold;
+        dictionary["copper"] = new Color(179, 85, 0);
+        dictionary["iron"] = new Color(197, 213, 224);
+        dictionary["iridium"] = new Color(105, 15, (int) byte.MaxValue);
+        foreach (string key in dictionary.Keys)
+        {
+          if (dye_object.HasContextTag("color_" + key))
+            return new Color?(dictionary[key]);
+        }
+      }
+      return new Color?();
+    }
+
+    public bool DyeItems(Clothing clothing, Item dye_object, float dye_strength_override = -1f)
+    {
+      if (dye_object.Name == "Prismatic Shard")
+      {
+        clothing.Dye(Color.White, 1f);
+        clothing.isPrismatic.Set(true);
+        return true;
+      }
+      Color? dyeColor = TailoringMenu.GetDyeColor(dye_object);
+      if (!dyeColor.HasValue)
+        return false;
+      float strength = 0.25f;
+      if (dye_object.HasContextTag("dye_medium"))
+        strength = 0.5f;
+      if (dye_object.HasContextTag("dye_strong"))
+        strength = 1f;
+      if ((double) dye_strength_override >= 0.0)
+        strength = dye_strength_override;
+      clothing.Dye(dyeColor.Value, strength);
+      if (clothing == Game1.player.shirtItem.Value || clothing == Game1.player.pantsItem.Value)
+        Game1.player.FarmerRenderer.MarkSpriteDirty();
+      return true;
+    }
+
+    public TailorItemRecipe GetRecipeForItems(Item left_item, Item right_item)
+    {
+      foreach (TailorItemRecipe tailoringRecipe in this._tailoringRecipes)
+      {
+        bool flag = false;
+        if (tailoringRecipe.FirstItemTags != null && tailoringRecipe.FirstItemTags.Count > 0)
+        {
+          if (left_item != null)
+          {
+            foreach (string firstItemTag in tailoringRecipe.FirstItemTags)
+            {
+              if (!left_item.HasContextTag(firstItemTag))
+              {
+                flag = true;
+                break;
+              }
+            }
+          }
+          else
+            continue;
+        }
+        if (!flag)
+        {
+          if (tailoringRecipe.SecondItemTags != null && tailoringRecipe.SecondItemTags.Count > 0)
+          {
+            if (right_item != null)
+            {
+              foreach (string secondItemTag in tailoringRecipe.SecondItemTags)
+              {
+                if (!right_item.HasContextTag(secondItemTag))
+                {
+                  flag = true;
+                  break;
+                }
+              }
+            }
+            else
+              continue;
+          }
+          if (!flag)
+            return tailoringRecipe;
+        }
+      }
+      return (TailorItemRecipe) null;
+    }
+
+    public bool IsValidCraft(Item left_item, Item right_item) => left_item != null && right_item != null && (left_item is Boots && right_item is Boots || left_item is Clothing && (left_item as Clothing).dyeable.Value && (right_item.HasContextTag("color_prismatic") || TailoringMenu.GetDyeColor(right_item).HasValue) || this.GetRecipeForItems(left_item, right_item) != null);
+
+    public bool IsMultipleResultCraft(Item left_item, Item right_item)
+    {
+      TailorItemRecipe recipeForItems = this.GetRecipeForItems(left_item, right_item);
+      return recipeForItems != null && recipeForItems.CraftedItemIDs != null && recipeForItems.CraftedItemIDs.Count > 0;
+    }
+
+    public Item CraftItem(Item left_item, Item right_item)
+    {
+      if (left_item == null || right_item == null)
+        return (Item) null;
+      switch (left_item)
+      {
+        case Boots _ when left_item is Boots:
+          (left_item as Boots).applyStats(right_item as Boots);
+          return left_item;
+        case Clothing _ when (left_item as Clothing).dyeable.Value:
+          if (right_item.HasContextTag("color_prismatic"))
+          {
+            this._shouldPrismaticDye = true;
+            return left_item;
+          }
+          if (this.DyeItems(left_item as Clothing, right_item))
+            return left_item;
+          break;
+      }
+      TailorItemRecipe recipeForItems = this.GetRecipeForItems(left_item, right_item);
+      if (recipeForItems == null)
+        return (Item) null;
+      int craftedItemId = recipeForItems.CraftedItemID;
+      if (recipeForItems != null && recipeForItems.CraftedItemIDs != null && recipeForItems.CraftedItemIDs.Count > 0)
+        craftedItemId = int.Parse(Utility.GetRandom<string>(recipeForItems.CraftedItemIDs));
+      Item obj = craftedItemId >= 0 ? (craftedItemId < 2000 || craftedItemId >= 3000 ? (Item) new Clothing(craftedItemId) : (Item) new Hat(craftedItemId - 2000)) : (Item) new StardewValley.Object(-craftedItemId, 1);
+      if (obj != null && obj is Clothing)
+        this.DyeItems(obj as Clothing, right_item, 1f);
+      if (obj is StardewValley.Object)
+      {
+        StardewValley.Object object1 = obj as StardewValley.Object;
+        StardewValley.Object object2 = left_item as StardewValley.Object;
+        StardewValley.Object object3 = right_item as StardewValley.Object;
+        if (left_item is StardewValley.Object && object2.questItem.Value || right_item is StardewValley.Object && object3.questItem.Value)
+          object1.questItem.Value = true;
+      }
+      return obj;
+    }
+
+    public void SpendRightItem()
+    {
+      if (this.rightIngredientSpot.item == null)
+        return;
+      --this.rightIngredientSpot.item.Stack;
+      if (this.rightIngredientSpot.item.Stack > 0 && this.rightIngredientSpot.item.maximumStackSize() != 1)
+        return;
+      this.rightIngredientSpot.item = (Item) null;
+    }
+
+    public void SpendLeftItem()
+    {
+      if (this.leftIngredientSpot.item == null)
+        return;
+      --this.leftIngredientSpot.item.Stack;
+      if (this.leftIngredientSpot.item.Stack > 0)
+        return;
+      this.leftIngredientSpot.item = (Item) null;
+    }
+
+    public override void receiveRightClick(int x, int y, bool playSound = true)
+    {
+      if (this.IsBusy())
+        return;
+      base.receiveRightClick(x, y, true);
+    }
+
+    public override void performHoverAction(int x, int y)
+    {
+      if (this.IsBusy())
+        return;
+      this.hoveredItem = (Item) null;
+      base.performHoverAction(x, y);
+      this.hoverText = "";
+      for (int index = 0; index < this.equipmentIcons.Count; ++index)
+      {
+        if (this.equipmentIcons[index].containsPoint(x, y))
+        {
+          if (this.equipmentIcons[index].name == "Shirt")
+            this.hoveredItem = (Item) Game1.player.shirtItem.Value;
+          else if (this.equipmentIcons[index].name == "Hat")
+            this.hoveredItem = (Item) Game1.player.hat.Value;
+          else if (this.equipmentIcons[index].name == "Pants")
+            this.hoveredItem = (Item) Game1.player.pantsItem.Value;
+        }
+      }
+      if (this.craftResultDisplay.visible && this.craftResultDisplay.containsPoint(x, y) && this.craftResultDisplay.item != null)
+      {
+        if (this._isDyeCraft || Game1.player.HasTailoredThisItem(this.craftResultDisplay.item))
+          this.hoveredItem = this.craftResultDisplay.item;
+        else
+          this.hoverText = Game1.content.LoadString("Strings\\UI:Tailor_MakeResultUnknown");
+      }
+      if (this.leftIngredientSpot.containsPoint(x, y))
+      {
+        if (this.leftIngredientSpot.item != null)
+          this.hoveredItem = this.leftIngredientSpot.item;
+        else
+          this.hoverText = Game1.content.LoadString("Strings\\UI:Tailor_Feed");
+      }
+      if (this.rightIngredientSpot.containsPoint(x, y) && this.rightIngredientSpot.item == null)
+        this.hoverText = Game1.content.LoadString("Strings\\UI:Tailor_Spool");
+      this.rightIngredientSpot.tryHover(x, y);
+      this.leftIngredientSpot.tryHover(x, y);
+      if (this._craftState == TailoringMenu.CraftState.Valid && this.CanFitCraftedItem())
+        this.startTailoringButton.tryHover(x, y, 0.33f);
+      else
+        this.startTailoringButton.tryHover(-999, -999);
+    }
+
+    public bool CanFitCraftedItem() => this.craftResultDisplay.item == null || Utility.canItemBeAddedToThisInventoryList(this.craftResultDisplay.item, this.inventory.actualInventory);
+
+    public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
+    {
+      Console.WriteLine("meow:" + oldBounds.ToString() + " " + newBounds.ToString() + " " + this.width.ToString() + " " + this.height.ToString() + " " + this.yPositionOnScreen.ToString());
+      base.gameWindowSizeChanged(oldBounds, newBounds);
+      Console.WriteLine("meow2:" + this.yPositionOnScreen.ToString());
+      int yPosition = this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + IClickableMenu.borderWidth + 192 - 16 + 128 + 4;
+      this.inventory = new InventoryMenu(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 12, yPosition, false, highlightMethod: this.inventory.highlightMethod);
+      this._CreateButtons();
+    }
+
+    public override void emergencyShutDown()
+    {
+      this._OnCloseMenu();
+      base.emergencyShutDown();
+    }
+
+    public override void update(GameTime time)
+    {
+      base.update(time);
+      this.descriptionText = this.displayedDescription;
+      this.questionMarkOffset.X = (float) (Math.Sin(time.TotalGameTime.TotalSeconds * 2.5) * 4.0);
+      this.questionMarkOffset.Y = (float) (Math.Cos(time.TotalGameTime.TotalSeconds * 5.0) * -4.0);
+      bool flag = this.CanFitCraftedItem();
+      this.startTailoringButton.sourceRect.Y = !(this._craftState == TailoringMenu.CraftState.Valid & flag) ? 80 : 104;
+      if (((this._craftState != TailoringMenu.CraftState.Valid ? 0 : (!this.IsBusy() ? 1 : 0)) & (flag ? 1 : 0)) != 0)
+        this.craftResultDisplay.visible = true;
+      else
+        this.craftResultDisplay.visible = false;
+      if (this._timeUntilCraft > 0)
+      {
+        this.startTailoringButton.tryHover(this.startTailoringButton.bounds.Center.X, this.startTailoringButton.bounds.Center.Y, 0.33f);
+        Vector2 vector2 = new Vector2(0.0f, 0.0f);
+        vector2.X = Utility.Lerp(this.leftIngredientEndSpot.X, this.leftIngredientStartSpot.X, (float) this._timeUntilCraft / 1500f);
+        vector2.Y = Utility.Lerp(this.leftIngredientEndSpot.Y, this.leftIngredientStartSpot.Y, (float) this._timeUntilCraft / 1500f);
+        this.leftIngredientSpot.bounds.X = (int) vector2.X;
+        this.leftIngredientSpot.bounds.Y = (int) vector2.Y;
+        this._timeUntilCraft -= time.ElapsedGameTime.Milliseconds;
+        this.needleSprite.bounds.Location = new Point((int) this.needlePosition.X, (int) ((double) this.needlePosition.Y - 2.0 * ((double) this._timeUntilCraft % 25.0) / 25.0 * 4.0));
+        this.presserSprite.bounds.Location = new Point((int) this.presserPosition.X, (int) ((double) this.presserPosition.Y - 1.0 * ((double) this._timeUntilCraft % 50.0) / 50.0 * 4.0));
+        this._rightItemOffset = (float) Math.Sin(time.TotalGameTime.TotalMilliseconds * 2.0 * Math.PI / 180.0) * 2f;
+        if (this._timeUntilCraft > 0)
+          return;
+        TailorItemRecipe recipeForItems = this.GetRecipeForItems(this.leftIngredientSpot.item, this.rightIngredientSpot.item);
+        this._shouldPrismaticDye = false;
+        Item i = this.CraftItem(this.leftIngredientSpot.item, this.rightIngredientSpot.item);
+        if (this._sewingSound != null && this._sewingSound.IsPlaying)
+          this._sewingSound.Stop(AudioStopOptions.Immediate);
+        if (!Utility.canItemBeAddedToThisInventoryList(i, this.inventory.actualInventory))
+        {
+          Game1.playSound("cancel");
+          Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
+          this._timeUntilCraft = 0;
+          return;
+        }
+        if (this.leftIngredientSpot.item == i)
+          this.leftIngredientSpot.item = (Item) null;
+        else
+          this.SpendLeftItem();
+        if ((recipeForItems == null || recipeForItems.SpendRightItem) && (this.readyToClose() || !this._shouldPrismaticDye))
+          this.SpendRightItem();
+        if (recipeForItems != null)
+          Game1.player.MarkItemAsTailored(i);
+        Game1.playSound("coin");
+        this.heldItem = i;
+        this._timeUntilCraft = 0;
+        this._ValidateCraft();
+        if (this._shouldPrismaticDye)
+        {
+          Item heldItem = this.heldItem;
+          this.heldItem = (Item) null;
+          if (this.readyToClose())
+          {
+            this.exitThisMenuNoSound();
+            Game1.activeClickableMenu = (IClickableMenu) new CharacterCustomization(i as Clothing);
+            return;
+          }
+          this.heldItem = heldItem;
+        }
+      }
+      this._rightItemOffset = 0.0f;
+      this.leftIngredientSpot.bounds.X = (int) this.leftIngredientStartSpot.X;
+      this.leftIngredientSpot.bounds.Y = (int) this.leftIngredientStartSpot.Y;
+      this.needleSprite.bounds.Location = new Point((int) this.needlePosition.X, (int) this.needlePosition.Y);
+      this.presserSprite.bounds.Location = new Point((int) this.presserPosition.X, (int) this.presserPosition.Y);
+    }
+
+    public override void draw(SpriteBatch b)
+    {
+      b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.6f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 96f, (float) (this.yPositionOnScreen - 64)), new Rectangle?(new Rectangle(101, 80, 41, 36)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.FlipHorizontally, 0.87f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 352f, (float) (this.yPositionOnScreen - 64)), new Rectangle?(new Rectangle(101, 80, 41, 36)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 608f, (float) (this.yPositionOnScreen - 64)), new Rectangle?(new Rectangle(101, 80, 41, 36)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 256f, (float) this.yPositionOnScreen), new Rectangle?(new Rectangle(79, 97, 22, 20)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 512f, (float) this.yPositionOnScreen), new Rectangle?(new Rectangle(79, 97, 22, 20)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 32f, (float) (this.yPositionOnScreen + 44)), new Rectangle?(new Rectangle(81, 81, 16, 9)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      b.Draw(this.tailoringTextures, new Vector2((float) this.xPositionOnScreen + 768f, (float) (this.yPositionOnScreen + 44)), new Rectangle?(new Rectangle(81, 81, 16, 9)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      Game1.DrawBox(this.xPositionOnScreen - 64, this.yPositionOnScreen + 128, 128, 265, new Color?(new Color(50, 160, (int) byte.MaxValue)));
+      Game1.player.FarmerRenderer.drawMiniPortrat(b, new Vector2((float) (this.xPositionOnScreen - 64) + 9.6f, (float) (this.yPositionOnScreen + 128)), 0.87f, 4f, 2, Game1.player);
+      this.draw(b, true, true, 50, 160, (int) byte.MaxValue);
+      b.Draw(this.tailoringTextures, new Vector2((float) (this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 - 4), (float) (this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder)), new Rectangle?(new Rectangle(0, 0, 142, 80)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      this.startTailoringButton.draw(b, Color.White, 0.96f);
+      this.startTailoringButton.drawItem(b, 16, 16);
+      this.presserSprite.draw(b, Color.White, 0.99f);
+      this.needleSprite.draw(b, Color.White, 0.97f);
+      Point point = new Point(0, 0);
+      if (!this.IsBusy())
+      {
+        if (this.leftIngredientSpot.item != null)
+          this.blankLeftIngredientSpot.draw(b);
+        else
+          this.leftIngredientSpot.draw(b, Color.White, 0.87f, (int) Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000 / 200);
+      }
+      else
+      {
+        point.X = Game1.random.Next(-1, 2);
+        point.Y = Game1.random.Next(-1, 2);
+      }
+      this.leftIngredientSpot.drawItem(b, (4 + point.X) * 4, (4 + point.Y) * 4);
+      if (this.craftResultDisplay.visible)
+      {
+        string text = Game1.content.LoadString("Strings\\UI:Tailor_MakeResult");
+        Vector2 position = new Vector2((float) this.craftResultDisplay.bounds.Center.X - Game1.smallFont.MeasureString(text).X / 2f, (float) this.craftResultDisplay.bounds.Top - Game1.smallFont.MeasureString(text).Y);
+        Utility.drawTextWithColoredShadow(b, text, Game1.smallFont, position, Game1.textColor * 0.75f, Color.Black * 0.2f);
+        this.craftResultDisplay.draw(b);
+        if (this.craftResultDisplay.item != null)
+        {
+          if (this._isMultipleResultCraft)
+          {
+            Rectangle bounds = this.craftResultDisplay.bounds;
+            bounds.X += 6;
+            bounds.Y -= 8 + (int) this.questionMarkOffset.Y;
+            b.Draw(this.tailoringTextures, bounds, new Rectangle?(new Rectangle(112, 208, 16, 16)), Color.White);
+          }
+          else if (this._isDyeCraft || Game1.player.HasTailoredThisItem(this.craftResultDisplay.item))
+          {
+            this.craftResultDisplay.drawItem(b);
+          }
+          else
+          {
+            if (this.craftResultDisplay.item is Hat)
+              b.Draw(this.tailoringTextures, this.craftResultDisplay.bounds, new Rectangle?(new Rectangle(96, 208, 16, 16)), Color.White);
+            else if (this.craftResultDisplay.item is Clothing)
+            {
+              if ((this.craftResultDisplay.item as Clothing).clothesType.Value == 1)
+                b.Draw(this.tailoringTextures, this.craftResultDisplay.bounds, new Rectangle?(new Rectangle(64, 208, 16, 16)), Color.White);
+              else if ((this.craftResultDisplay.item as Clothing).clothesType.Value == 0)
+                b.Draw(this.tailoringTextures, this.craftResultDisplay.bounds, new Rectangle?(new Rectangle(80, 208, 16, 16)), Color.White);
+            }
+            else if (this.craftResultDisplay.item is StardewValley.Object @object && Utility.IsNormalObjectAtParentSheetIndex((Item) @object, 71))
+              b.Draw(this.tailoringTextures, this.craftResultDisplay.bounds, new Rectangle?(new Rectangle(64, 208, 16, 16)), Color.White);
+            Rectangle bounds = this.craftResultDisplay.bounds;
+            bounds.X += 24;
+            bounds.Y += 12 + (int) this.questionMarkOffset.Y;
+            b.Draw(this.tailoringTextures, bounds, new Rectangle?(new Rectangle(112, 208, 16, 16)), Color.White);
+          }
+        }
+      }
+      foreach (ClickableComponent equipmentIcon in this.equipmentIcons)
+      {
+        string name = equipmentIcon.name;
+        if (!(name == "Hat"))
+        {
+          if (!(name == "Shirt"))
+          {
+            if (name == "Pants")
+            {
+              if (Game1.player.pantsItem.Value != null)
+              {
+                b.Draw(this.tailoringTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(0, 208, 16, 16)), Color.White);
+                float transparency = 1f;
+                if (!this.HighlightItems((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.pantsItem))
+                  transparency = 0.5f;
+                if (Game1.player.pantsItem.Value == this.heldItem)
+                  transparency = 0.5f;
+                Game1.player.pantsItem.Value.drawInMenu(b, new Vector2((float) equipmentIcon.bounds.X, (float) equipmentIcon.bounds.Y), equipmentIcon.scale, transparency, 0.866f);
+              }
+              else
+                b.Draw(this.tailoringTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(16, 208, 16, 16)), Color.White);
+            }
+          }
+          else if (Game1.player.shirtItem.Value != null)
+          {
+            b.Draw(this.tailoringTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(0, 208, 16, 16)), Color.White);
+            float transparency = 1f;
+            if (!this.HighlightItems((Item) (Clothing) (NetFieldBase<Clothing, NetRef<Clothing>>) Game1.player.shirtItem))
+              transparency = 0.5f;
+            if (Game1.player.shirtItem.Value == this.heldItem)
+              transparency = 0.5f;
+            Game1.player.shirtItem.Value.drawInMenu(b, new Vector2((float) equipmentIcon.bounds.X, (float) equipmentIcon.bounds.Y), equipmentIcon.scale, transparency, 0.866f);
+          }
+          else
+            b.Draw(this.tailoringTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(32, 208, 16, 16)), Color.White);
+        }
+        else if (Game1.player.hat.Value != null)
+        {
+          b.Draw(this.tailoringTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(0, 208, 16, 16)), Color.White);
+          float transparency = 1f;
+          if (!this.HighlightItems((Item) (Hat) (NetFieldBase<Hat, NetRef<Hat>>) Game1.player.hat))
+            transparency = 0.5f;
+          if (Game1.player.hat.Value == this.heldItem)
+            transparency = 0.5f;
+          Game1.player.hat.Value.drawInMenu(b, new Vector2((float) equipmentIcon.bounds.X, (float) equipmentIcon.bounds.Y), equipmentIcon.scale, transparency, 0.866f, StackDrawType.Hide);
+        }
+        else
+          b.Draw(this.tailoringTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(48, 208, 16, 16)), Color.White);
+      }
+      if (!this.IsBusy())
+      {
+        if (this.rightIngredientSpot.item != null)
+          this.blankRightIngredientSpot.draw(b);
+        else
+          this.rightIngredientSpot.draw(b, Color.White, 0.87f, (int) Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000 / 200);
+      }
+      this.rightIngredientSpot.drawItem(b, 16, (4 + (int) this._rightItemOffset) * 4);
+      if (!this.hoverText.Equals(""))
+        IClickableMenu.drawHoverText(b, this.hoverText, Game1.smallFont, this.heldItem != null ? 32 : 0, this.heldItem != null ? 32 : 0);
+      else if (this.hoveredItem != null)
+        IClickableMenu.drawToolTip(b, this.hoveredItem.getDescription(), this.hoveredItem.DisplayName, this.hoveredItem, this.heldItem != null);
+      if (this.heldItem != null)
+        this.heldItem.drawInMenu(b, new Vector2((float) (Game1.getOldMouseX() + 8), (float) (Game1.getOldMouseY() + 8)), 1f);
+      if (Game1.options.hardwareCursor)
+        return;
+      this.drawMouse(b);
+    }
+
+    protected override void cleanupBeforeExit() => this._OnCloseMenu();
+
+    protected void _OnCloseMenu()
+    {
+      if (!Game1.player.IsEquippedItem(this.heldItem))
+        Utility.CollectOrDrop(this.heldItem);
+      if (!Game1.player.IsEquippedItem(this.leftIngredientSpot.item))
+        Utility.CollectOrDrop(this.leftIngredientSpot.item);
+      if (!Game1.player.IsEquippedItem(this.rightIngredientSpot.item))
+        Utility.CollectOrDrop(this.rightIngredientSpot.item);
+      if (!Game1.player.IsEquippedItem(this.startTailoringButton.item))
+        Utility.CollectOrDrop(this.startTailoringButton.item);
+      this.heldItem = (Item) null;
+      this.leftIngredientSpot.item = (Item) null;
+      this.rightIngredientSpot.item = (Item) null;
+      this.startTailoringButton.item = (Item) null;
+    }
+
+    protected enum CraftState
+    {
+      MissingIngredients,
+      Valid,
+      InvalidRecipe,
+      NotDyeable,
+    }
+  }
 }

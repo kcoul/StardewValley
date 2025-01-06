@@ -1,68 +1,72 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.BellsAndWhistles.Rabbit
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
+using Netcode;
 using StardewValley.TerrainFeatures;
 using System.Collections.Generic;
 
 namespace StardewValley.BellsAndWhistles
 {
-	public class Rabbit : Critter
-	{
-		private int characterCheckTimer = 200;
+  public class Rabbit : Critter
+  {
+    private int characterCheckTimer = 200;
+    private bool running;
 
-		private bool running;
+    public Rabbit(Vector2 position, bool flip)
+    {
+      this.position = position * 64f;
+      position.Y += 48f;
+      this.flip = flip;
+      this.baseFrame = Game1.currentSeason.Equals("winter") ? 74 : 54;
+      this.sprite = new AnimatedSprite(Critter.critterTexture, Game1.currentSeason.Equals("winter") ? 69 : 68, 32, 32);
+      this.sprite.loop = true;
+      this.startingPosition = position;
+    }
 
-		public Rabbit(Vector2 position, bool flip)
-		{
-			base.position = position * 64f;
-			position.Y += 48f;
-			base.flip = flip;
-			baseFrame = (Game1.currentSeason.Equals("winter") ? 74 : 54);
-			sprite = new AnimatedSprite(Critter.critterTexture, Game1.currentSeason.Equals("winter") ? 69 : 68, 32, 32);
-			sprite.loop = true;
-			startingPosition = position;
-		}
-
-		public override bool update(GameTime time, GameLocation environment)
-		{
-			characterCheckTimer -= time.ElapsedGameTime.Milliseconds;
-			if (characterCheckTimer <= 0 && !running)
-			{
-				if (Utility.isOnScreen(position, -32))
-				{
-					running = true;
-					sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>
-					{
-						new FarmerSprite.AnimationFrame(baseFrame, 40),
-						new FarmerSprite.AnimationFrame(baseFrame + 1, 40),
-						new FarmerSprite.AnimationFrame(baseFrame + 2, 40),
-						new FarmerSprite.AnimationFrame(baseFrame + 3, 100),
-						new FarmerSprite.AnimationFrame(baseFrame + 5, 70),
-						new FarmerSprite.AnimationFrame(baseFrame + 5, 40)
-					});
-					sprite.loop = true;
-				}
-				characterCheckTimer = 200;
-			}
-			if (running)
-			{
-				position.X += (flip ? (-6) : 6);
-			}
-			if (running && characterCheckTimer <= 0)
-			{
-				characterCheckTimer = 200;
-				if (environment.largeTerrainFeatures != null)
-				{
-					Rectangle tileRect = new Rectangle((int)position.X + 32, (int)position.Y - 32, 4, 192);
-					foreach (LargeTerrainFeature f in environment.largeTerrainFeatures)
-					{
-						if (f is Bush && f.getBoundingBox().Intersects(tileRect))
-						{
-							(f as Bush).performUseAction(f.tilePosition, environment);
-							return true;
-						}
-					}
-				}
-			}
-			return base.update(time, environment);
-		}
-	}
+    public override bool update(GameTime time, GameLocation environment)
+    {
+      this.characterCheckTimer -= time.ElapsedGameTime.Milliseconds;
+      if (this.characterCheckTimer <= 0 && !this.running)
+      {
+        if (Utility.isOnScreen(this.position, -32))
+        {
+          this.running = true;
+          this.sprite.setCurrentAnimation(new List<FarmerSprite.AnimationFrame>()
+          {
+            new FarmerSprite.AnimationFrame(this.baseFrame, 40),
+            new FarmerSprite.AnimationFrame(this.baseFrame + 1, 40),
+            new FarmerSprite.AnimationFrame(this.baseFrame + 2, 40),
+            new FarmerSprite.AnimationFrame(this.baseFrame + 3, 100),
+            new FarmerSprite.AnimationFrame(this.baseFrame + 5, 70),
+            new FarmerSprite.AnimationFrame(this.baseFrame + 5, 40)
+          });
+          this.sprite.loop = true;
+        }
+        this.characterCheckTimer = 200;
+      }
+      if (this.running)
+        this.position.X += this.flip ? -6f : 6f;
+      if (this.running && this.characterCheckTimer <= 0)
+      {
+        this.characterCheckTimer = 200;
+        if (environment.largeTerrainFeatures != null)
+        {
+          Rectangle rectangle = new Rectangle((int) this.position.X + 32, (int) this.position.Y - 32, 4, 192);
+          foreach (LargeTerrainFeature largeTerrainFeature in environment.largeTerrainFeatures)
+          {
+            if (largeTerrainFeature is Bush && largeTerrainFeature.getBoundingBox().Intersects(rectangle))
+            {
+              (largeTerrainFeature as Bush).performUseAction((Vector2) (NetFieldBase<Vector2, NetVector2>) largeTerrainFeature.tilePosition, environment);
+              return true;
+            }
+          }
+        }
+      }
+      return base.update(time, environment);
+    }
+  }
 }

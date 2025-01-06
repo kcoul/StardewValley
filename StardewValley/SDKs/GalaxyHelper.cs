@@ -1,198 +1,174 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.SDKs.GalaxyHelper
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Galaxy.Api;
 using System;
 
 namespace StardewValley.SDKs
 {
-	public class GalaxyHelper : SDKHelper
-	{
-		public class AuthListener : IAuthListener
-		{
-			public Action OnSuccess;
+  public class GalaxyHelper : SDKHelper
+  {
+    public const string ClientID = "48767653913349277";
+    public const string ClientSecret = "58be5c2e55d7f535cf8c4b6bbc09d185de90b152c8c42703cc13502465f0d04a";
+    public bool active;
+    private GalaxyHelper.AuthListener authListener;
+    private GalaxyHelper.OperationalStateChangeListener stateChangeListener;
+    private GalaxyNetHelper networking;
 
-			public Action<FailureReason> OnFailure;
+    public string Name { get; } = "Galaxy";
 
-			public Action OnLost;
+    public bool ConnectionFinished { get; private set; }
 
-			public AuthListener(Action success, Action<FailureReason> failure, Action lost)
-			{
-				OnSuccess = success;
-				OnFailure = failure;
-				OnLost = lost;
-				GalaxyInstance.ListenerRegistrar().Register(GalaxyTypeAwareListenerAuth.GetListenerType(), this);
-			}
+    public int ConnectionProgress { get; private set; }
 
-			public override void OnAuthSuccess()
-			{
-				if (OnSuccess != null)
-				{
-					OnSuccess();
-				}
-			}
+    public SDKNetHelper Networking => (SDKNetHelper) this.networking;
 
-			public override void OnAuthFailure(FailureReason reason)
-			{
-				if (OnFailure != null)
-				{
-					OnFailure(reason);
-				}
-			}
+    public bool HasOverlay => false;
 
-			public override void OnAuthLost()
-			{
-				if (OnLost != null)
-				{
-					OnLost();
-				}
-			}
-		}
+    public void EarlyInitialize()
+    {
+    }
 
-		public class OperationalStateChangeListener : IOperationalStateChangeListener
-		{
-			public Action<uint> OnStateChanged;
+    public void Initialize()
+    {
+      try
+      {
+        GalaxyInstance.Init(new InitParams("48767653913349277", "58be5c2e55d7f535cf8c4b6bbc09d185de90b152c8c42703cc13502465f0d04a"));
+        this.authListener = new GalaxyHelper.AuthListener(new Action(this.onGalaxyAuthSuccess), new Action<IAuthListener.FailureReason>(this.onGalaxyAuthFailure), new Action(this.onGalaxyAuthLost));
+        this.stateChangeListener = new GalaxyHelper.OperationalStateChangeListener(new Action<uint>(this.onGalaxyStateChange));
+        GalaxyInstance.User().SignInGalaxy(true);
+        this.active = true;
+        ++this.ConnectionProgress;
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine((object) ex);
+        this.ConnectionFinished = true;
+      }
+    }
 
-			public OperationalStateChangeListener(Action<uint> stateChanged)
-			{
-				OnStateChanged = stateChanged;
-				GalaxyInstance.ListenerRegistrar().Register(GalaxyTypeAwareListenerOperationalStateChange.GetListenerType(), this);
-			}
+    private void onGalaxyStateChange(uint operationalState)
+    {
+      if (this.networking != null)
+        return;
+      if (((int) operationalState & 1) != 0)
+      {
+        Console.WriteLine("Galaxy signed in");
+        ++this.ConnectionProgress;
+      }
+      if (((int) operationalState & 2) == 0)
+        return;
+      Console.WriteLine("Galaxy logged on");
+      this.networking = new GalaxyNetHelper();
+      ++this.ConnectionProgress;
+      this.ConnectionFinished = true;
+    }
 
-			public override void OnOperationalStateChanged(uint operationalState)
-			{
-				if (OnStateChanged != null)
-				{
-					OnStateChanged(operationalState);
-				}
-			}
-		}
+    private void onGalaxyAuthSuccess()
+    {
+      Console.WriteLine("Galaxy auth success");
+      ++this.ConnectionProgress;
+    }
 
-		public const string ClientID = "48767653913349277";
+    private void onGalaxyAuthFailure(IAuthListener.FailureReason reason)
+    {
+      Console.WriteLine("Galaxy auth failure: " + reason.ToString());
+      this.ConnectionFinished = true;
+    }
 
-		public const string ClientSecret = "58be5c2e55d7f535cf8c4b6bbc09d185de90b152c8c42703cc13502465f0d04a";
+    private void onGalaxyAuthLost()
+    {
+      Console.WriteLine("Galaxy auth lost");
+      this.ConnectionFinished = true;
+    }
 
-		public bool active;
+    public void GetAchievement(string achieve)
+    {
+    }
 
-		private AuthListener authListener;
+    public void ResetAchievements()
+    {
+      if (!this.active)
+        return;
+      GalaxyInstance.Stats().ResetStatsAndAchievements();
+    }
 
-		private OperationalStateChangeListener stateChangeListener;
+    public void Update()
+    {
+      if (!this.active)
+        return;
+      GalaxyInstance.ProcessData();
+    }
 
-		private GalaxyNetHelper networking;
+    public void Shutdown()
+    {
+    }
 
-		public string Name
-		{
-			get;
-		} = "Galaxy";
+    public void DebugInfo()
+    {
+    }
 
+    public string FilterDirtyWords(string words) => words;
 
-		public bool ConnectionFinished
-		{
-			get;
-			private set;
-		}
+    public bool IsJapaneseRegionRelease => false;
 
-		public int ConnectionProgress
-		{
-			get;
-			private set;
-		}
+    public bool IsEnterButtonAssignmentFlipped => false;
 
-		public SDKNetHelper Networking => networking;
+    public class AuthListener : IAuthListener
+    {
+      public Action OnSuccess;
+      public Action<IAuthListener.FailureReason> OnFailure;
+      public Action OnLost;
 
-		public bool HasOverlay => false;
+      public AuthListener(Action success, Action<IAuthListener.FailureReason> failure, Action lost)
+      {
+        this.OnSuccess = success;
+        this.OnFailure = failure;
+        this.OnLost = lost;
+        GalaxyInstance.ListenerRegistrar().Register(GalaxyTypeAwareListenerAuth.GetListenerType(), (IGalaxyListener) this);
+      }
 
-		public bool IsJapaneseRegionRelease => false;
+      public override void OnAuthSuccess()
+      {
+        if (this.OnSuccess == null)
+          return;
+        this.OnSuccess();
+      }
 
-		public bool IsEnterButtonAssignmentFlipped => false;
+      public override void OnAuthFailure(IAuthListener.FailureReason reason)
+      {
+        if (this.OnFailure == null)
+          return;
+        this.OnFailure(reason);
+      }
 
-		public void EarlyInitialize()
-		{
-		}
+      public override void OnAuthLost()
+      {
+        if (this.OnLost == null)
+          return;
+        this.OnLost();
+      }
+    }
 
-		public void Initialize()
-		{
-			try
-			{
-				GalaxyInstance.Init(new InitParams("48767653913349277", "58be5c2e55d7f535cf8c4b6bbc09d185de90b152c8c42703cc13502465f0d04a"));
-				authListener = new AuthListener(onGalaxyAuthSuccess, onGalaxyAuthFailure, onGalaxyAuthLost);
-				stateChangeListener = new OperationalStateChangeListener(onGalaxyStateChange);
-				GalaxyInstance.User().SignInGalaxy(requireOnline: true);
-				active = true;
-				ConnectionProgress++;
-			}
-			catch (Exception value)
-			{
-				Console.WriteLine(value);
-				ConnectionFinished = true;
-			}
-		}
+    public class OperationalStateChangeListener : IOperationalStateChangeListener
+    {
+      public Action<uint> OnStateChanged;
 
-		private void onGalaxyStateChange(uint operationalState)
-		{
-			if (networking == null)
-			{
-				if ((operationalState & 1) != 0)
-				{
-					Console.WriteLine("Galaxy signed in");
-					ConnectionProgress++;
-				}
-				if ((operationalState & 2) != 0)
-				{
-					Console.WriteLine("Galaxy logged on");
-					networking = new GalaxyNetHelper();
-					ConnectionProgress++;
-					ConnectionFinished = true;
-				}
-			}
-		}
+      public OperationalStateChangeListener(Action<uint> stateChanged)
+      {
+        this.OnStateChanged = stateChanged;
+        GalaxyInstance.ListenerRegistrar().Register(GalaxyTypeAwareListenerOperationalStateChange.GetListenerType(), (IGalaxyListener) this);
+      }
 
-		private void onGalaxyAuthSuccess()
-		{
-			Console.WriteLine("Galaxy auth success");
-			ConnectionProgress++;
-		}
-
-		private void onGalaxyAuthFailure(IAuthListener.FailureReason reason)
-		{
-			Console.WriteLine("Galaxy auth failure: " + reason);
-			ConnectionFinished = true;
-		}
-
-		private void onGalaxyAuthLost()
-		{
-			Console.WriteLine("Galaxy auth lost");
-			ConnectionFinished = true;
-		}
-
-		public void GetAchievement(string achieve)
-		{
-		}
-
-		public void ResetAchievements()
-		{
-			if (active)
-			{
-				GalaxyInstance.Stats().ResetStatsAndAchievements();
-			}
-		}
-
-		public void Update()
-		{
-			if (active)
-			{
-				GalaxyInstance.ProcessData();
-			}
-		}
-
-		public void Shutdown()
-		{
-		}
-
-		public void DebugInfo()
-		{
-		}
-
-		public string FilterDirtyWords(string words)
-		{
-			return words;
-		}
-	}
+      public override void OnOperationalStateChanged(uint operationalState)
+      {
+        if (this.OnStateChanged == null)
+          return;
+        this.OnStateChanged(operationalState);
+      }
+    }
+  }
 }

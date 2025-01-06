@@ -1,123 +1,106 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Locations.BathHousePool
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Netcode;
 
 namespace StardewValley.Locations
 {
-	public class BathHousePool : GameLocation
-	{
-		public const float steamZoom = 4f;
+  public class BathHousePool : GameLocation
+  {
+    public const float steamZoom = 4f;
+    public const float steamYMotionPerMillisecond = 0.1f;
+    public const float millisecondsPerSteamFrame = 50f;
+    private Texture2D steamAnimation;
+    private Texture2D swimShadow;
+    private Vector2 steamPosition;
+    private float steamYOffset;
+    private int swimShadowTimer;
+    private int swimShadowFrame;
 
-		public const float steamYMotionPerMillisecond = 0.1f;
+    public BathHousePool()
+    {
+    }
 
-		public const float millisecondsPerSteamFrame = 50f;
+    public BathHousePool(string mapPath, string name)
+      : base(mapPath, name)
+    {
+    }
 
-		private Texture2D steamAnimation;
+    protected override void resetLocalState()
+    {
+      base.resetLocalState();
+      Game1.changeMusicTrack("pool_ambient");
+      this.steamPosition = new Vector2((float) -Game1.viewport.X, (float) -Game1.viewport.Y);
+      this.steamAnimation = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\steamAnimation");
+      this.swimShadow = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\swimShadow");
+    }
 
-		private Texture2D swimShadow;
+    public override void cleanupBeforePlayerExit()
+    {
+      base.cleanupBeforePlayerExit();
+      if (Game1.player.swimming.Value)
+        Game1.player.swimming.Value = false;
+      if (Game1.locationRequest != null && !Game1.locationRequest.Name.Contains("BathHouse"))
+        Game1.player.bathingClothes.Value = false;
+      Game1.changeMusicTrack("none");
+    }
 
-		private Vector2 steamPosition;
+    public override void draw(SpriteBatch b)
+    {
+      base.draw(b);
+      if (this.currentEvent != null)
+      {
+        foreach (NPC actor in this.currentEvent.actors)
+        {
+          if ((bool) (NetFieldBase<bool, NetBool>) actor.swimming)
+            b.Draw(this.swimShadow, Game1.GlobalToLocal(Game1.viewport, actor.Position + new Vector2(0.0f, (float) (actor.Sprite.SpriteHeight / 3 * 4 + 4))), new Rectangle?(new Rectangle(this.swimShadowFrame * 16, 0, 16, 16)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.0f);
+        }
+      }
+      else
+      {
+        foreach (NPC character in this.characters)
+        {
+          if ((bool) (NetFieldBase<bool, NetBool>) character.swimming)
+            b.Draw(this.swimShadow, Game1.GlobalToLocal(Game1.viewport, character.Position + new Vector2(0.0f, (float) (character.Sprite.SpriteHeight / 3 * 4 + 4))), new Rectangle?(new Rectangle(this.swimShadowFrame * 16, 0, 16, 16)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.0f);
+        }
+        foreach (Farmer farmer in this.farmers)
+        {
+          if ((bool) (NetFieldBase<bool, NetBool>) farmer.swimming)
+            b.Draw(this.swimShadow, Game1.GlobalToLocal(Game1.viewport, farmer.Position + new Vector2(0.0f, (float) (farmer.Sprite.SpriteHeight / 4 * 4))), new Rectangle?(new Rectangle(this.swimShadowFrame * 16, 0, 16, 16)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.0f);
+        }
+      }
+      int num = (bool) (NetFieldBase<bool, NetBool>) Game1.player.swimming ? 1 : 0;
+    }
 
-		private float steamYOffset;
+    public override void checkForMusic(GameTime time) => base.checkForMusic(time);
 
-		private int swimShadowTimer;
+    public override void drawAboveAlwaysFrontLayer(SpriteBatch b)
+    {
+      base.drawAboveAlwaysFrontLayer(b);
+      for (float x = this.steamPosition.X; (double) x < (double) Game1.graphics.GraphicsDevice.Viewport.Width + 256.0; x += 256f)
+      {
+        for (float y = this.steamPosition.Y + this.steamYOffset; (double) y < (double) (Game1.graphics.GraphicsDevice.Viewport.Height + 128); y += 256f)
+          b.Draw(this.steamAnimation, new Vector2(x, y), new Rectangle?(new Rectangle(0, 0, 64, 64)), Color.White * 0.8f, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 1f);
+      }
+    }
 
-		private int swimShadowFrame;
-
-		public BathHousePool()
-		{
-		}
-
-		public BathHousePool(string mapPath, string name)
-			: base(mapPath, name)
-		{
-		}
-
-		protected override void resetLocalState()
-		{
-			base.resetLocalState();
-			Game1.changeMusicTrack("pool_ambient");
-			steamPosition = new Vector2(-Game1.viewport.X, -Game1.viewport.Y);
-			steamAnimation = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\steamAnimation");
-			swimShadow = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\swimShadow");
-		}
-
-		public override void cleanupBeforePlayerExit()
-		{
-			base.cleanupBeforePlayerExit();
-			if (Game1.player.swimming.Value)
-			{
-				Game1.player.swimming.Value = false;
-			}
-			if (Game1.locationRequest != null && !Game1.locationRequest.Name.Contains("BathHouse"))
-			{
-				Game1.player.bathingClothes.Value = false;
-			}
-			Game1.changeMusicTrack("none");
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			base.draw(b);
-			if (currentEvent != null)
-			{
-				foreach (NPC j in currentEvent.actors)
-				{
-					if ((bool)j.swimming)
-					{
-						b.Draw(swimShadow, Game1.GlobalToLocal(Game1.viewport, j.Position + new Vector2(0f, j.Sprite.SpriteHeight / 3 * 4 + 4)), new Rectangle(swimShadowFrame * 16, 0, 16, 16), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
-					}
-				}
-			}
-			else
-			{
-				foreach (NPC i in characters)
-				{
-					if ((bool)i.swimming)
-					{
-						b.Draw(swimShadow, Game1.GlobalToLocal(Game1.viewport, i.Position + new Vector2(0f, i.Sprite.SpriteHeight / 3 * 4 + 4)), new Rectangle(swimShadowFrame * 16, 0, 16, 16), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
-					}
-				}
-				foreach (Farmer f in farmers)
-				{
-					if ((bool)f.swimming)
-					{
-						b.Draw(swimShadow, Game1.GlobalToLocal(Game1.viewport, f.Position + new Vector2(0f, f.Sprite.SpriteHeight / 4 * 4)), new Rectangle(swimShadowFrame * 16, 0, 16, 16), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0f);
-					}
-				}
-			}
-			_ = (bool)Game1.player.swimming;
-		}
-
-		public override void checkForMusic(GameTime time)
-		{
-			base.checkForMusic(time);
-		}
-
-		public override void drawAboveAlwaysFrontLayer(SpriteBatch b)
-		{
-			base.drawAboveAlwaysFrontLayer(b);
-			for (float x = steamPosition.X; x < (float)Game1.graphics.GraphicsDevice.Viewport.Width + 256f; x += 256f)
-			{
-				for (float y = steamPosition.Y + steamYOffset; y < (float)(Game1.graphics.GraphicsDevice.Viewport.Height + 128); y += 256f)
-				{
-					b.Draw(steamAnimation, new Vector2(x, y), new Rectangle(0, 0, 64, 64), Color.White * 0.8f, 0f, Vector2.Zero, 4f, SpriteEffects.None, 1f);
-				}
-			}
-		}
-
-		public override void UpdateWhenCurrentLocation(GameTime time)
-		{
-			base.UpdateWhenCurrentLocation(time);
-			steamYOffset -= (float)time.ElapsedGameTime.Milliseconds * 0.1f;
-			steamYOffset %= -256f;
-			steamPosition -= Game1.getMostRecentViewportMotion();
-			swimShadowTimer -= time.ElapsedGameTime.Milliseconds;
-			if (swimShadowTimer <= 0)
-			{
-				swimShadowTimer = 70;
-				swimShadowFrame++;
-				swimShadowFrame %= 10;
-			}
-		}
-	}
+    public override void UpdateWhenCurrentLocation(GameTime time)
+    {
+      base.UpdateWhenCurrentLocation(time);
+      this.steamYOffset -= (float) time.ElapsedGameTime.Milliseconds * 0.1f;
+      this.steamYOffset %= -256f;
+      this.steamPosition -= Game1.getMostRecentViewportMotion();
+      this.swimShadowTimer -= time.ElapsedGameTime.Milliseconds;
+      if (this.swimShadowTimer > 0)
+        return;
+      this.swimShadowTimer = 70;
+      ++this.swimShadowFrame;
+      this.swimShadowFrame %= 10;
+    }
+  }
 }

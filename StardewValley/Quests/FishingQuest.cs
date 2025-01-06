@@ -1,325 +1,309 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Quests.FishingQuest
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Serialization;
 
 namespace StardewValley.Quests
 {
-	public class FishingQuest : Quest
-	{
-		[XmlElement("target")]
-		public readonly NetString target = new NetString();
+  public class FishingQuest : Quest
+  {
+    [XmlElement("target")]
+    public readonly NetString target = new NetString();
+    public string targetMessage;
+    [XmlElement("numberToFish")]
+    public readonly NetInt numberToFish = new NetInt();
+    [XmlElement("reward")]
+    public readonly NetInt reward = new NetInt();
+    [XmlElement("numberFished")]
+    public readonly NetInt numberFished = new NetInt();
+    [XmlElement("whichFish")]
+    public readonly NetInt whichFish = new NetInt();
+    [XmlElement("fish")]
+    public readonly NetRef<StardewValley.Object> fish = new NetRef<StardewValley.Object>();
+    public readonly NetDescriptionElementList parts = new NetDescriptionElementList();
+    public readonly NetDescriptionElementList dialogueparts = new NetDescriptionElementList();
+    [XmlElement("objective")]
+    public readonly NetDescriptionElementRef objective = new NetDescriptionElementRef();
 
-		public string targetMessage;
+    public FishingQuest() => this.questType.Value = 7;
 
-		[XmlElement("numberToFish")]
-		public readonly NetInt numberToFish = new NetInt();
+    protected override void initNetFields() => this.NetFields.AddFields((INetSerializable) this.parts, (INetSerializable) this.dialogueparts, (INetSerializable) this.objective, (INetSerializable) this.target, (INetSerializable) this.numberToFish, (INetSerializable) this.reward, (INetSerializable) this.numberFished, (INetSerializable) this.whichFish, (INetSerializable) this.fish);
 
-		[XmlElement("reward")]
-		public readonly NetInt reward = new NetInt();
+    public void loadQuestInfo()
+    {
+      if (this.target.Value != null && this.fish.Value != null)
+        return;
+      this.questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:FishingQuest.cs.13227");
+      if (this.random.NextDouble() < 0.5)
+      {
+        string currentSeason = Game1.currentSeason;
+        if (!(currentSeason == "spring"))
+        {
+          if (!(currentSeason == "summer"))
+          {
+            if (!(currentSeason == "fall"))
+            {
+              if (currentSeason == "winter")
+              {
+                int[] numArray = new int[9]
+                {
+                  130,
+                  131,
+                  136,
+                  141,
+                  144,
+                  146,
+                  147,
+                  150,
+                  151
+                };
+                this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+              }
+            }
+            else
+            {
+              int[] numArray = new int[8]
+              {
+                129,
+                131,
+                136,
+                137,
+                139,
+                142,
+                143,
+                150
+              };
+              this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+            }
+          }
+          else
+          {
+            int[] numArray = new int[10]
+            {
+              130,
+              131,
+              136,
+              138,
+              142,
+              144,
+              145,
+              146,
+              149,
+              150
+            };
+            this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+          }
+        }
+        else
+        {
+          int[] numArray = new int[8]
+          {
+            129,
+            131,
+            136,
+            137,
+            142,
+            143,
+            145,
+            147
+          };
+          this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+        }
+        this.fish.Value = new StardewValley.Object(Vector2.Zero, (int) (NetFieldBase<int, NetInt>) this.whichFish, 1);
+        this.numberToFish.Value = (int) Math.Ceiling(90.0 / (double) Math.Max(1, (int) (NetFieldBase<int, NetInt>) this.fish.Value.price)) + Game1.player.FishingLevel / 5;
+        this.reward.Value = this.numberToFish.Value * (int) (NetFieldBase<int, NetInt>) this.fish.Value.price;
+        this.target.Value = "Demetrius";
+        this.parts.Clear();
+        this.parts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13228", (object) this.fish.Value, (object) this.numberToFish.Value));
+        this.dialogueparts.Clear();
+        this.dialogueparts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13231", (object) this.fish.Value, (object) ((IEnumerable<DescriptionElement>) new DescriptionElement[4]
+        {
+          (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13233",
+          (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13234",
+          (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13235",
+          new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13236", (object) this.fish.Value)
+        }).ElementAt<DescriptionElement>(this.random.Next(4))));
+        this.objective.Value = this.fish.Value.name.Equals("Octopus") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13243", (object) 0, (object) this.numberToFish.Value) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13244", (object) 0, (object) this.numberToFish.Value, (object) this.fish.Value);
+      }
+      else
+      {
+        string currentSeason = Game1.currentSeason;
+        if (!(currentSeason == "spring"))
+        {
+          if (!(currentSeason == "summer"))
+          {
+            if (!(currentSeason == "fall"))
+            {
+              if (currentSeason == "winter")
+              {
+                int[] numArray = new int[13]
+                {
+                  130,
+                  131,
+                  136,
+                  141,
+                  143,
+                  144,
+                  146,
+                  147,
+                  150,
+                  151,
+                  699,
+                  702,
+                  705
+                };
+                this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+              }
+            }
+            else
+            {
+              int[] numArray = new int[11]
+              {
+                129,
+                131,
+                136,
+                137,
+                139,
+                142,
+                143,
+                150,
+                699,
+                702,
+                705
+              };
+              this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+            }
+          }
+          else
+          {
+            int[] numArray = new int[12]
+            {
+              128,
+              130,
+              131,
+              136,
+              138,
+              142,
+              144,
+              145,
+              146,
+              149,
+              150,
+              702
+            };
+            this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+          }
+        }
+        else
+        {
+          int[] numArray = new int[9]
+          {
+            129,
+            131,
+            136,
+            137,
+            142,
+            143,
+            145,
+            147,
+            702
+          };
+          this.whichFish.Value = numArray[this.random.Next(numArray.Length)];
+        }
+        this.target.Value = "Willy";
+        this.fish.Value = new StardewValley.Object(Vector2.Zero, (int) (NetFieldBase<int, NetInt>) this.whichFish, 1);
+        this.numberToFish.Value = (int) Math.Ceiling(90.0 / (double) Math.Max(1, (int) (NetFieldBase<int, NetInt>) this.fish.Value.price)) + Game1.player.FishingLevel / 5;
+        this.reward.Value = this.numberToFish.Value * (int) (NetFieldBase<int, NetInt>) this.fish.Value.price;
+        this.parts.Clear();
+        if ((bool) (NetFieldBase<bool, NetBool>) Game1.player.isMale)
+          this.parts.Add(this.fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13248", (object) this.reward.Value, (object) this.numberToFish.Value, (object) new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13253")) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13248", (object) this.reward.Value, (object) this.numberToFish.Value, (object) this.fish.Value));
+        else
+          this.parts.Add(this.fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13251", (object) this.reward.Value, (object) this.numberToFish.Value, (object) new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13253")) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13251", (object) this.reward.Value, (object) this.numberToFish.Value, (object) this.fish.Value));
+        this.dialogueparts.Clear();
+        this.dialogueparts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13256", (object) this.fish.Value));
+        this.dialogueparts.Add(((IEnumerable<DescriptionElement>) new DescriptionElement[4]
+        {
+          (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13258",
+          (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13259",
+          new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13260", (object) ((IEnumerable<DescriptionElement>) new DescriptionElement[6]
+          {
+            (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13261",
+            (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13262",
+            (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13263",
+            (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13264",
+            (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13265",
+            (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13266"
+          }).ElementAt<DescriptionElement>(this.random.Next(6))),
+          (DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13267"
+        }).ElementAt<DescriptionElement>(this.random.Next(4)));
+        this.dialogueparts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13268"));
+        this.objective.Value = this.fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13255", (object) 0, (object) this.numberToFish.Value) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13244", (object) 0, (object) this.numberToFish.Value, (object) this.fish.Value);
+      }
+      this.parts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13274", (object) this.reward.Value));
+      this.parts.Add((DescriptionElement) "Strings\\StringsFromCSFiles:FishingQuest.cs.13275");
+    }
 
-		[XmlElement("numberFished")]
-		public readonly NetInt numberFished = new NetInt();
+    public override void reloadDescription()
+    {
+      if (this._questDescription == "")
+        this.loadQuestInfo();
+      if (this.parts.Count == 0 || this.parts == null || this.dialogueparts.Count == 0 || this.dialogueparts == null)
+        return;
+      string str1 = "";
+      string str2 = "";
+      foreach (DescriptionElement part in (NetList<DescriptionElement, NetDescriptionElementRef>) this.parts)
+        str1 += part.loadDescriptionElement();
+      foreach (DescriptionElement dialoguepart in (NetList<DescriptionElement, NetDescriptionElementRef>) this.dialogueparts)
+        str2 += dialoguepart.loadDescriptionElement();
+      this.questDescription = str1;
+      this.targetMessage = str2;
+    }
 
-		[XmlElement("whichFish")]
-		public readonly NetInt whichFish = new NetInt();
+    public override void reloadObjective()
+    {
+      if ((int) (NetFieldBase<int, NetInt>) this.numberFished < (int) (NetFieldBase<int, NetInt>) this.numberToFish)
+        this.objective.Value = this.fish.Value.name.Equals("Octopus") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13243", (object) this.numberFished.Value, (object) this.numberToFish.Value) : (this.fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13255", (object) this.numberFished.Value, (object) this.numberToFish.Value) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13244", (object) this.numberFished.Value, (object) this.numberToFish.Value, (object) this.fish.Value));
+      if (this.objective.Value == null)
+        return;
+      this.currentObjective = this.objective.Value.loadDescriptionElement();
+    }
 
-		[XmlElement("fish")]
-		public readonly NetRef<Object> fish = new NetRef<Object>();
-
-		public readonly NetDescriptionElementList parts = new NetDescriptionElementList();
-
-		public readonly NetDescriptionElementList dialogueparts = new NetDescriptionElementList();
-
-		[XmlElement("objective")]
-		public readonly NetDescriptionElementRef objective = new NetDescriptionElementRef();
-
-		public FishingQuest()
-		{
-			questType.Value = 7;
-		}
-
-		protected override void initNetFields()
-		{
-			base.NetFields.AddFields(parts, dialogueparts, objective, target, numberToFish, reward, numberFished, whichFish, fish);
-		}
-
-		public void loadQuestInfo()
-		{
-			if (target.Value != null && fish.Value != null)
-			{
-				return;
-			}
-			base.questTitle = Game1.content.LoadString("Strings\\StringsFromCSFiles:FishingQuest.cs.13227");
-			if (random.NextDouble() < 0.5)
-			{
-				switch (Game1.currentSeason)
-				{
-				case "spring":
-				{
-					int[] possiblefish8 = new int[8]
-					{
-						129,
-						131,
-						136,
-						137,
-						142,
-						143,
-						145,
-						147
-					};
-					whichFish.Value = possiblefish8[random.Next(possiblefish8.Length)];
-					break;
-				}
-				case "summer":
-				{
-					int[] possiblefish8 = new int[10]
-					{
-						130,
-						131,
-						136,
-						138,
-						142,
-						144,
-						145,
-						146,
-						149,
-						150
-					};
-					whichFish.Value = possiblefish8[random.Next(possiblefish8.Length)];
-					break;
-				}
-				case "fall":
-				{
-					int[] possiblefish8 = new int[8]
-					{
-						129,
-						131,
-						136,
-						137,
-						139,
-						142,
-						143,
-						150
-					};
-					whichFish.Value = possiblefish8[random.Next(possiblefish8.Length)];
-					break;
-				}
-				case "winter":
-				{
-					int[] possiblefish8 = new int[9]
-					{
-						130,
-						131,
-						136,
-						141,
-						144,
-						146,
-						147,
-						150,
-						151
-					};
-					whichFish.Value = possiblefish8[random.Next(possiblefish8.Length)];
-					break;
-				}
-				}
-				fish.Value = new Object(Vector2.Zero, whichFish, 1);
-				numberToFish.Value = (int)Math.Ceiling(90.0 / (double)Math.Max(1, fish.Value.price)) + Game1.player.FishingLevel / 5;
-				reward.Value = numberToFish.Value * (int)fish.Value.price;
-				target.Value = "Demetrius";
-				parts.Clear();
-				parts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13228", fish.Value, numberToFish.Value));
-				dialogueparts.Clear();
-				dialogueparts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13231", fish.Value, new DescriptionElement[4]
-				{
-					"Strings\\StringsFromCSFiles:FishingQuest.cs.13233",
-					"Strings\\StringsFromCSFiles:FishingQuest.cs.13234",
-					"Strings\\StringsFromCSFiles:FishingQuest.cs.13235",
-					new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13236", fish.Value)
-				}.ElementAt(random.Next(4))));
-				objective.Value = (fish.Value.name.Equals("Octopus") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13243", 0, numberToFish.Value) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13244", 0, numberToFish.Value, fish.Value));
-			}
-			else
-			{
-				switch (Game1.currentSeason)
-				{
-				case "spring":
-				{
-					int[] possiblefish4 = new int[9]
-					{
-						129,
-						131,
-						136,
-						137,
-						142,
-						143,
-						145,
-						147,
-						702
-					};
-					whichFish.Value = possiblefish4[random.Next(possiblefish4.Length)];
-					break;
-				}
-				case "summer":
-				{
-					int[] possiblefish4 = new int[12]
-					{
-						128,
-						130,
-						131,
-						136,
-						138,
-						142,
-						144,
-						145,
-						146,
-						149,
-						150,
-						702
-					};
-					whichFish.Value = possiblefish4[random.Next(possiblefish4.Length)];
-					break;
-				}
-				case "fall":
-				{
-					int[] possiblefish4 = new int[11]
-					{
-						129,
-						131,
-						136,
-						137,
-						139,
-						142,
-						143,
-						150,
-						699,
-						702,
-						705
-					};
-					whichFish.Value = possiblefish4[random.Next(possiblefish4.Length)];
-					break;
-				}
-				case "winter":
-				{
-					int[] possiblefish4 = new int[13]
-					{
-						130,
-						131,
-						136,
-						141,
-						143,
-						144,
-						146,
-						147,
-						150,
-						151,
-						699,
-						702,
-						705
-					};
-					whichFish.Value = possiblefish4[random.Next(possiblefish4.Length)];
-					break;
-				}
-				}
-				target.Value = "Willy";
-				fish.Value = new Object(Vector2.Zero, whichFish, 1);
-				numberToFish.Value = (int)Math.Ceiling(90.0 / (double)Math.Max(1, fish.Value.price)) + Game1.player.FishingLevel / 5;
-				reward.Value = numberToFish.Value * (int)fish.Value.price;
-				parts.Clear();
-				if ((bool)Game1.player.isMale)
-				{
-					parts.Add(fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13248", reward.Value, numberToFish.Value, new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13253")) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13248", reward.Value, numberToFish.Value, fish.Value));
-				}
-				else
-				{
-					parts.Add(fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13251", reward.Value, numberToFish.Value, new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13253")) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13251", reward.Value, numberToFish.Value, fish.Value));
-				}
-				dialogueparts.Clear();
-				dialogueparts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13256", fish.Value));
-				dialogueparts.Add(new DescriptionElement[4]
-				{
-					"Strings\\StringsFromCSFiles:FishingQuest.cs.13258",
-					"Strings\\StringsFromCSFiles:FishingQuest.cs.13259",
-					new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13260", new DescriptionElement[6]
-					{
-						"Strings\\StringsFromCSFiles:FishingQuest.cs.13261",
-						"Strings\\StringsFromCSFiles:FishingQuest.cs.13262",
-						"Strings\\StringsFromCSFiles:FishingQuest.cs.13263",
-						"Strings\\StringsFromCSFiles:FishingQuest.cs.13264",
-						"Strings\\StringsFromCSFiles:FishingQuest.cs.13265",
-						"Strings\\StringsFromCSFiles:FishingQuest.cs.13266"
-					}.ElementAt(random.Next(6))),
-					"Strings\\StringsFromCSFiles:FishingQuest.cs.13267"
-				}.ElementAt(random.Next(4)));
-				dialogueparts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13268"));
-				objective.Value = (fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13255", 0, numberToFish.Value) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13244", 0, numberToFish.Value, fish.Value));
-			}
-			parts.Add(new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13274", reward.Value));
-			parts.Add("Strings\\StringsFromCSFiles:FishingQuest.cs.13275");
-		}
-
-		public override void reloadDescription()
-		{
-			if (_questDescription == "")
-			{
-				loadQuestInfo();
-			}
-			if (parts.Count != 0 && parts != null && dialogueparts.Count != 0 && dialogueparts != null)
-			{
-				string descriptionBuilder = "";
-				string messageBuilder = "";
-				foreach (DescriptionElement a in parts)
-				{
-					descriptionBuilder += a.loadDescriptionElement();
-				}
-				foreach (DescriptionElement b in dialogueparts)
-				{
-					messageBuilder += b.loadDescriptionElement();
-				}
-				base.questDescription = descriptionBuilder;
-				targetMessage = messageBuilder;
-			}
-		}
-
-		public override void reloadObjective()
-		{
-			if ((int)numberFished < (int)numberToFish)
-			{
-				objective.Value = (fish.Value.name.Equals("Octopus") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13243", numberFished.Value, numberToFish.Value) : (fish.Value.name.Equals("Squid") ? new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13255", numberFished.Value, numberToFish.Value) : new DescriptionElement("Strings\\StringsFromCSFiles:FishingQuest.cs.13244", numberFished.Value, numberToFish.Value, fish.Value)));
-			}
-			if (objective.Value != null)
-			{
-				base.currentObjective = objective.Value.loadDescriptionElement();
-			}
-		}
-
-		public override bool checkIfComplete(NPC n = null, int fishid = -1, int number2 = 1, Item item = null, string monsterName = null)
-		{
-			loadQuestInfo();
-			if (n == null && fishid != -1 && fishid == (int)whichFish && (int)numberFished < (int)numberToFish)
-			{
-				numberFished.Value = Math.Min(numberToFish, (int)numberFished + number2);
-				if ((int)numberFished >= (int)numberToFish)
-				{
-					if (target.Value == null)
-					{
-						target.Value = "Willy";
-					}
-					NPC actualTarget = Game1.getCharacterFromName(target);
-					objective.Value = new DescriptionElement("Strings\\Quests:ObjectiveReturnToNPC", actualTarget);
-					Game1.playSound("jingle1");
-				}
-			}
-			else if (n != null && (int)numberFished >= (int)numberToFish && target.Value != null && n.Name.Equals(target.Value) && n.isVillager() && !completed)
-			{
-				n.CurrentDialogue.Push(new Dialogue(targetMessage, n));
-				moneyReward.Value = reward;
-				questComplete();
-				Game1.drawDialogue(n);
-				return true;
-			}
-			return false;
-		}
-	}
+    public override bool checkIfComplete(
+      NPC n = null,
+      int fishid = -1,
+      int number2 = 1,
+      Item item = null,
+      string monsterName = null)
+    {
+      this.loadQuestInfo();
+      if (n == null && fishid != -1 && fishid == (int) (NetFieldBase<int, NetInt>) this.whichFish && (int) (NetFieldBase<int, NetInt>) this.numberFished < (int) (NetFieldBase<int, NetInt>) this.numberToFish)
+      {
+        this.numberFished.Value = Math.Min((int) (NetFieldBase<int, NetInt>) this.numberToFish, (int) (NetFieldBase<int, NetInt>) this.numberFished + number2);
+        if ((int) (NetFieldBase<int, NetInt>) this.numberFished >= (int) (NetFieldBase<int, NetInt>) this.numberToFish)
+        {
+          if (this.target.Value == null)
+            this.target.Value = "Willy";
+          this.objective.Value = new DescriptionElement("Strings\\Quests:ObjectiveReturnToNPC", (object) Game1.getCharacterFromName((string) (NetFieldBase<string, NetString>) this.target));
+          Game1.playSound("jingle1");
+        }
+      }
+      else if (n != null && (int) (NetFieldBase<int, NetInt>) this.numberFished >= (int) (NetFieldBase<int, NetInt>) this.numberToFish && this.target.Value != null && n.Name.Equals(this.target.Value) && n.isVillager() && !(bool) (NetFieldBase<bool, NetBool>) this.completed)
+      {
+        n.CurrentDialogue.Push(new Dialogue(this.targetMessage, n));
+        this.moneyReward.Value = (int) (NetFieldBase<int, NetInt>) this.reward;
+        this.questComplete();
+        Game1.drawDialogue(n);
+        return true;
+      }
+      return false;
+    }
+  }
 }

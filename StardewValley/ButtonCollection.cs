@@ -1,258 +1,253 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.ButtonCollection
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework.Input;
 using System;
 
 namespace StardewValley
 {
-	public struct ButtonCollection
-	{
-		public struct ButtonEnumerator
-		{
-			private readonly Buttons _pressed;
+  /// <summary>An effiecent way to iterate over active button state.</summary>
+  public struct ButtonCollection
+  {
+    private readonly Buttons _pressed;
+    private readonly int _count;
 
-			private int _current;
+    /// <summary>Constructs a collection of the new pressed buttons.</summary>
+    public ButtonCollection(ref GamePadState padState, ref GamePadState oldPadState)
+    {
+      this._count = 0;
+      this._pressed = (Buttons) 0;
+      if (padState.IsButtonDown(Buttons.A) && !oldPadState.IsButtonDown(Buttons.A))
+      {
+        this._pressed |= Buttons.A;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.B) && !oldPadState.IsButtonDown(Buttons.B))
+      {
+        this._pressed |= Buttons.B;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.X) && !oldPadState.IsButtonDown(Buttons.X))
+      {
+        this._pressed |= Buttons.X;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.Y) && !oldPadState.IsButtonDown(Buttons.Y))
+      {
+        this._pressed |= Buttons.Y;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.Start) && !oldPadState.IsButtonDown(Buttons.Start))
+      {
+        this._pressed |= Buttons.Start;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.Back) && !oldPadState.IsButtonDown(Buttons.Back))
+      {
+        this._pressed |= Buttons.Back;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.RightTrigger) && !oldPadState.IsButtonDown(Buttons.RightTrigger))
+      {
+        this._pressed |= Buttons.RightTrigger;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftTrigger) && !oldPadState.IsButtonDown(Buttons.LeftTrigger))
+      {
+        this._pressed |= Buttons.LeftTrigger;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.RightShoulder) && !oldPadState.IsButtonDown(Buttons.RightShoulder))
+      {
+        this._pressed |= Buttons.RightShoulder;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftShoulder) && !oldPadState.IsButtonDown(Buttons.LeftShoulder))
+      {
+        this._pressed |= Buttons.LeftShoulder;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadUp) && !oldPadState.IsButtonDown(Buttons.DPadUp))
+      {
+        this._pressed |= Buttons.DPadUp;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadRight) && !oldPadState.IsButtonDown(Buttons.DPadRight))
+      {
+        this._pressed |= Buttons.DPadRight;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadDown) && !oldPadState.IsButtonDown(Buttons.DPadDown))
+      {
+        this._pressed |= Buttons.DPadDown;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadLeft) && !oldPadState.IsButtonDown(Buttons.DPadLeft))
+      {
+        this._pressed |= Buttons.DPadLeft;
+        ++this._count;
+      }
+      if ((double) padState.ThumbSticks.Left.Y > 0.2 && (double) oldPadState.ThumbSticks.Left.Y <= 0.2 && Utility.thumbstickIsInDirection(0, padState))
+      {
+        this._pressed |= Buttons.LeftThumbstickUp;
+        ++this._count;
+      }
+      if ((double) padState.ThumbSticks.Left.X > 0.2 && (double) oldPadState.ThumbSticks.Left.X <= 0.2 && Utility.thumbstickIsInDirection(1, padState))
+      {
+        this._pressed |= Buttons.LeftThumbstickRight;
+        ++this._count;
+      }
+      if ((double) padState.ThumbSticks.Left.Y < -0.2 && (double) oldPadState.ThumbSticks.Left.Y >= -0.2 && Utility.thumbstickIsInDirection(2, padState))
+      {
+        this._pressed |= Buttons.LeftThumbstickDown;
+        ++this._count;
+      }
+      if ((double) padState.ThumbSticks.Left.X >= -0.2 || (double) oldPadState.ThumbSticks.Left.X < -0.2 || !Utility.thumbstickIsInDirection(3, padState))
+        return;
+      this._pressed |= Buttons.LeftThumbstickLeft;
+      ++this._count;
+    }
 
-			public Buttons Current
-			{
-				get
-				{
-					if (_current < 0 || _current > 32)
-					{
-						throw new InvalidOperationException();
-					}
-					return (Buttons)(1 << _current);
-				}
-			}
+    /// <summary>Constructs a collection of held buttons.</summary>
+    /// <param name="padState"></param>
+    public ButtonCollection(ref GamePadState padState)
+    {
+      this._count = 0;
+      this._pressed = (Buttons) 0;
+      if (padState.IsButtonDown(Buttons.A))
+      {
+        this._pressed |= Buttons.A;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.B))
+      {
+        this._pressed |= Buttons.B;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.X))
+      {
+        this._pressed |= Buttons.X;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.Y))
+      {
+        this._pressed |= Buttons.Y;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.Start))
+      {
+        this._pressed |= Buttons.Start;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.Back))
+      {
+        this._pressed |= Buttons.Back;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.RightTrigger))
+      {
+        this._pressed |= Buttons.RightTrigger;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftTrigger))
+      {
+        this._pressed |= Buttons.LeftTrigger;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.RightShoulder))
+      {
+        this._pressed |= Buttons.RightShoulder;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftShoulder))
+      {
+        this._pressed |= Buttons.LeftShoulder;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadUp))
+      {
+        this._pressed |= Buttons.DPadUp;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadRight))
+      {
+        this._pressed |= Buttons.DPadRight;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadDown))
+      {
+        this._pressed |= Buttons.DPadDown;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.DPadLeft))
+      {
+        this._pressed |= Buttons.DPadLeft;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftThumbstickUp))
+      {
+        this._pressed |= Buttons.LeftThumbstickUp;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftThumbstickRight))
+      {
+        this._pressed |= Buttons.LeftThumbstickRight;
+        ++this._count;
+      }
+      if (padState.IsButtonDown(Buttons.LeftThumbstickDown))
+      {
+        this._pressed |= Buttons.LeftThumbstickDown;
+        ++this._count;
+      }
+      if (!padState.IsButtonDown(Buttons.LeftThumbstickLeft))
+        return;
+      this._pressed |= Buttons.LeftThumbstickLeft;
+      ++this._count;
+    }
 
-			public ButtonEnumerator(Buttons pressed)
-			{
-				_pressed = pressed;
-				_current = -1;
-			}
+    /// <summary>The number of pressed buttons.</summary>
+    public int Count => this._count;
 
-			public bool MoveNext()
-			{
-				if (_pressed == (Buttons)0)
-				{
-					return false;
-				}
-				while (_current < 31)
-				{
-					_current++;
-					if (((int)_pressed & (1 << _current)) != 0)
-					{
-						return true;
-					}
-				}
-				return false;
-			}
+    public ButtonCollection.ButtonEnumerator GetEnumerator() => new ButtonCollection.ButtonEnumerator(this._pressed);
 
-			public void Reset()
-			{
-				_current = -1;
-			}
-		}
+    public struct ButtonEnumerator
+    {
+      private readonly Buttons _pressed;
+      private int _current;
 
-		private readonly Buttons _pressed;
+      public ButtonEnumerator(Buttons pressed)
+      {
+        this._pressed = pressed;
+        this._current = -1;
+      }
 
-		private readonly int _count;
+      public Buttons Current
+      {
+        get
+        {
+          if (this._current < 0 || this._current > 32)
+            throw new InvalidOperationException();
+          return (Buttons) (1 << this._current);
+        }
+      }
 
-		public int Count => _count;
+      public bool MoveNext()
+      {
+        if (this._pressed == (Buttons) 0)
+          return false;
+        while (this._current < 31)
+        {
+          ++this._current;
+          if ((this._pressed & (Buttons) (1 << this._current)) != (Buttons) 0)
+            return true;
+        }
+        return false;
+      }
 
-		public ButtonCollection(ref GamePadState padState, ref GamePadState oldPadState)
-		{
-			_count = 0;
-			_pressed = (Buttons)0;
-			if (padState.IsButtonDown(Buttons.A) && !oldPadState.IsButtonDown(Buttons.A))
-			{
-				_pressed |= Buttons.A;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.B) && !oldPadState.IsButtonDown(Buttons.B))
-			{
-				_pressed |= Buttons.B;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.X) && !oldPadState.IsButtonDown(Buttons.X))
-			{
-				_pressed |= Buttons.X;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.Y) && !oldPadState.IsButtonDown(Buttons.Y))
-			{
-				_pressed |= Buttons.Y;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.Start) && !oldPadState.IsButtonDown(Buttons.Start))
-			{
-				_pressed |= Buttons.Start;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.Back) && !oldPadState.IsButtonDown(Buttons.Back))
-			{
-				_pressed |= Buttons.Back;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.RightTrigger) && !oldPadState.IsButtonDown(Buttons.RightTrigger))
-			{
-				_pressed |= Buttons.RightTrigger;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftTrigger) && !oldPadState.IsButtonDown(Buttons.LeftTrigger))
-			{
-				_pressed |= Buttons.LeftTrigger;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.RightShoulder) && !oldPadState.IsButtonDown(Buttons.RightShoulder))
-			{
-				_pressed |= Buttons.RightShoulder;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftShoulder) && !oldPadState.IsButtonDown(Buttons.LeftShoulder))
-			{
-				_pressed |= Buttons.LeftShoulder;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadUp) && !oldPadState.IsButtonDown(Buttons.DPadUp))
-			{
-				_pressed |= Buttons.DPadUp;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadRight) && !oldPadState.IsButtonDown(Buttons.DPadRight))
-			{
-				_pressed |= Buttons.DPadRight;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadDown) && !oldPadState.IsButtonDown(Buttons.DPadDown))
-			{
-				_pressed |= Buttons.DPadDown;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadLeft) && !oldPadState.IsButtonDown(Buttons.DPadLeft))
-			{
-				_pressed |= Buttons.DPadLeft;
-				_count++;
-			}
-			if ((double)padState.ThumbSticks.Left.Y > 0.2 && (double)oldPadState.ThumbSticks.Left.Y <= 0.2 && Utility.thumbstickIsInDirection(0, padState))
-			{
-				_pressed |= Buttons.LeftThumbstickUp;
-				_count++;
-			}
-			if ((double)padState.ThumbSticks.Left.X > 0.2 && (double)oldPadState.ThumbSticks.Left.X <= 0.2 && Utility.thumbstickIsInDirection(1, padState))
-			{
-				_pressed |= Buttons.LeftThumbstickRight;
-				_count++;
-			}
-			if ((double)padState.ThumbSticks.Left.Y < -0.2 && (double)oldPadState.ThumbSticks.Left.Y >= -0.2 && Utility.thumbstickIsInDirection(2, padState))
-			{
-				_pressed |= Buttons.LeftThumbstickDown;
-				_count++;
-			}
-			if ((double)padState.ThumbSticks.Left.X < -0.2 && (double)oldPadState.ThumbSticks.Left.X >= -0.2 && Utility.thumbstickIsInDirection(3, padState))
-			{
-				_pressed |= Buttons.LeftThumbstickLeft;
-				_count++;
-			}
-		}
-
-		public ButtonCollection(ref GamePadState padState)
-		{
-			_count = 0;
-			_pressed = (Buttons)0;
-			if (padState.IsButtonDown(Buttons.A))
-			{
-				_pressed |= Buttons.A;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.B))
-			{
-				_pressed |= Buttons.B;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.X))
-			{
-				_pressed |= Buttons.X;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.Y))
-			{
-				_pressed |= Buttons.Y;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.Start))
-			{
-				_pressed |= Buttons.Start;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.Back))
-			{
-				_pressed |= Buttons.Back;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.RightTrigger))
-			{
-				_pressed |= Buttons.RightTrigger;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftTrigger))
-			{
-				_pressed |= Buttons.LeftTrigger;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.RightShoulder))
-			{
-				_pressed |= Buttons.RightShoulder;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftShoulder))
-			{
-				_pressed |= Buttons.LeftShoulder;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadUp))
-			{
-				_pressed |= Buttons.DPadUp;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadRight))
-			{
-				_pressed |= Buttons.DPadRight;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadDown))
-			{
-				_pressed |= Buttons.DPadDown;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.DPadLeft))
-			{
-				_pressed |= Buttons.DPadLeft;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftThumbstickUp))
-			{
-				_pressed |= Buttons.LeftThumbstickUp;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftThumbstickRight))
-			{
-				_pressed |= Buttons.LeftThumbstickRight;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftThumbstickDown))
-			{
-				_pressed |= Buttons.LeftThumbstickDown;
-				_count++;
-			}
-			if (padState.IsButtonDown(Buttons.LeftThumbstickLeft))
-			{
-				_pressed |= Buttons.LeftThumbstickLeft;
-				_count++;
-			}
-		}
-
-		public ButtonEnumerator GetEnumerator()
-		{
-			return new ButtonEnumerator(_pressed);
-		}
-	}
+      public void Reset() => this._current = -1;
+    }
+  }
 }

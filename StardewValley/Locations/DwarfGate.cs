@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Locations.DwarfGate
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -7,221 +13,176 @@ using System.Collections.Generic;
 
 namespace StardewValley.Locations
 {
-	public class DwarfGate : INetObject<NetFields>
-	{
-		public NetPoint tilePosition = new NetPoint();
+  public class DwarfGate : INetObject<NetFields>
+  {
+    public NetPoint tilePosition = new NetPoint();
+    public NetLocationRef locationRef = new NetLocationRef();
+    public bool triggeredOpen;
+    public NetPointDictionary<bool, NetBool> switches = new NetPointDictionary<bool, NetBool>();
+    public Dictionary<Point, bool> localSwitches = new Dictionary<Point, bool>();
+    public NetBool opened = new NetBool(false);
+    public bool localOpened;
+    public NetInt pressedSwitches = new NetInt(0);
+    public int localPressedSwitches;
+    public NetInt gateIndex = new NetInt(0);
+    public NetEvent0 openEvent = new NetEvent0();
+    public NetEvent1Field<Point, NetPoint> pressEvent = new NetEvent1Field<Point, NetPoint>();
 
-		public NetLocationRef locationRef = new NetLocationRef();
+    public NetFields NetFields { get; } = new NetFields();
 
-		public bool triggeredOpen;
+    public DwarfGate() => this.InitNetFields();
 
-		public NetPointDictionary<bool, NetBool> switches = new NetPointDictionary<bool, NetBool>();
+    public DwarfGate(VolcanoDungeon location, int gate_index, int x, int y, int seed)
+      : this()
+    {
+      this.locationRef.Value = (GameLocation) location;
+      this.tilePosition.X = x;
+      this.tilePosition.Y = y;
+      this.gateIndex.Value = gate_index;
+      Random rng = new Random(seed);
+      if (location.possibleSwitchPositions.ContainsKey(gate_index))
+      {
+        int val2 = Math.Min(location.possibleSwitchPositions[gate_index].Count, 3);
+        if (gate_index > 0)
+          val2 = 1;
+        List<Point> list = new List<Point>((IEnumerable<Point>) location.possibleSwitchPositions[gate_index]);
+        Utility.Shuffle<Point>(rng, list);
+        int num = Math.Min(rng.Next(1, Math.Max(1, val2)), val2);
+        if (location.isMonsterLevel())
+          num = val2;
+        for (int index = 0; index < num; ++index)
+          this.switches[list[index]] = false;
+      }
+      this.UpdateLocalStates();
+      this.ApplyTiles();
+    }
 
-		public Dictionary<Point, bool> localSwitches = new Dictionary<Point, bool>();
+    public virtual void InitNetFields()
+    {
+      this.NetFields.AddFields((INetSerializable) this.tilePosition, (INetSerializable) this.locationRef.NetFields, (INetSerializable) this.switches, (INetSerializable) this.pressedSwitches, this.openEvent.NetFields, (INetSerializable) this.opened, this.pressEvent.NetFields, (INetSerializable) this.gateIndex);
+      this.pressEvent.onEvent += new AbstractNetEvent1<Point>.Event(this.OnPress);
+      this.openEvent.onEvent += new NetEvent0.Event(this.OpenGate);
+      this.switches.InterpolationWait = false;
+      this.pressedSwitches.InterpolationWait = false;
+      this.pressEvent.InterpolationWait = false;
+    }
 
-		public NetBool opened = new NetBool(value: false);
+    public virtual void OnPress(Point point)
+    {
+      if (Game1.IsMasterGame && this.switches.ContainsKey(point) && !this.switches[point])
+      {
+        this.switches[point] = true;
+        ++this.pressedSwitches.Value;
+      }
+      if (Game1.currentLocation == this.locationRef.Value)
+        Game1.playSound("openBox");
+      this.localSwitches[point] = true;
+      this.ApplyTiles();
+    }
 
-		public bool localOpened;
+    public virtual void OpenGate()
+    {
+      if (Game1.currentLocation == this.locationRef.Value)
+        Game1.playSound("cowboy_gunload");
+      if (Game1.IsMasterGame)
+      {
+        if (this.gateIndex.Value == -1 && !Game1.MasterPlayer.hasOrWillReceiveMail("volcanoShortcutUnlocked"))
+          Game1.addMailForTomorrow("volcanoShortcutUnlocked", true);
+        this.opened.Value = true;
+      }
+      this.localOpened = true;
+      this.ApplyTiles();
+    }
 
-		public NetInt pressedSwitches = new NetInt(0);
+    public virtual void ResetLocalState()
+    {
+      this.UpdateLocalStates();
+      this.ApplyTiles();
+    }
 
-		public int localPressedSwitches;
+    public virtual void UpdateLocalStates()
+    {
+      this.localOpened = this.opened.Value;
+      this.localPressedSwitches = this.pressedSwitches.Value;
+      foreach (Point key in this.switches.Keys)
+        this.localSwitches[key] = this.switches[key];
+    }
 
-		public NetInt gateIndex = new NetInt(0);
+    public virtual void Draw(SpriteBatch b)
+    {
+      if (this.localOpened)
+        return;
+      b.Draw(Game1.mouseCursors2, Game1.GlobalToLocal(Game1.viewport, new Vector2((float) this.tilePosition.X, (float) this.tilePosition.Y) * 64f + new Vector2(1f, -5f) * 4f), new Rectangle?(new Rectangle(178, 189, 14, 34)), Color.White, 0.0f, new Vector2(0.0f, 0.0f), 4f, SpriteEffects.None, (float) ((this.tilePosition.Y + 2) * 64) / 10000f);
+    }
 
-		public NetEvent0 openEvent = new NetEvent0();
+    public virtual void UpdateWhenCurrentLocation(GameTime time, GameLocation location)
+    {
+      this.openEvent.Poll();
+      this.pressEvent.Poll();
+      if (this.localPressedSwitches != this.pressedSwitches.Value)
+      {
+        this.localPressedSwitches = this.pressedSwitches.Value;
+        this.ApplyTiles();
+      }
+      if (!this.localOpened && this.opened.Value)
+      {
+        this.localOpened = true;
+        this.ApplyTiles();
+      }
+      foreach (Point key in this.switches.Keys)
+      {
+        if (this.switches[key] && !this.localSwitches[key])
+        {
+          this.localSwitches[key] = true;
+          this.ApplyTiles();
+        }
+      }
+    }
 
-		public NetEvent1Field<Point, NetPoint> pressEvent = new NetEvent1Field<Point, NetPoint>();
-
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
-
-
-		public DwarfGate()
-		{
-			InitNetFields();
-		}
-
-		public DwarfGate(VolcanoDungeon location, int gate_index, int x, int y, int seed)
-			: this()
-		{
-			locationRef.Value = location;
-			tilePosition.X = x;
-			tilePosition.Y = y;
-			gateIndex.Value = gate_index;
-			Random r = new Random(seed);
-			if (location.possibleSwitchPositions.ContainsKey(gate_index))
-			{
-				int max_points = Math.Min(location.possibleSwitchPositions[gate_index].Count, 3);
-				if (gate_index > 0)
-				{
-					max_points = 1;
-				}
-				List<Point> points = new List<Point>(location.possibleSwitchPositions[gate_index]);
-				Utility.Shuffle(r, points);
-				int points_to_choose2 = r.Next(1, Math.Max(1, max_points));
-				points_to_choose2 = Math.Min(points_to_choose2, max_points);
-				if (location.isMonsterLevel())
-				{
-					points_to_choose2 = max_points;
-				}
-				for (int i = 0; i < points_to_choose2; i++)
-				{
-					switches[points[i]] = false;
-				}
-			}
-			UpdateLocalStates();
-			ApplyTiles();
-		}
-
-		public virtual void InitNetFields()
-		{
-			NetFields.AddFields(tilePosition, locationRef.NetFields, switches, pressedSwitches, openEvent.NetFields, opened, pressEvent.NetFields, gateIndex);
-			pressEvent.onEvent += OnPress;
-			openEvent.onEvent += OpenGate;
-			switches.InterpolationWait = false;
-			pressedSwitches.InterpolationWait = false;
-			pressEvent.InterpolationWait = false;
-		}
-
-		public virtual void OnPress(Point point)
-		{
-			if (Game1.IsMasterGame && switches.ContainsKey(point) && !switches[point])
-			{
-				switches[point] = true;
-				pressedSwitches.Value++;
-			}
-			if (Game1.currentLocation == locationRef.Value)
-			{
-				Game1.playSound("openBox");
-			}
-			localSwitches[point] = true;
-			ApplyTiles();
-		}
-
-		public virtual void OpenGate()
-		{
-			if (Game1.currentLocation == locationRef.Value)
-			{
-				Game1.playSound("cowboy_gunload");
-			}
-			if (Game1.IsMasterGame)
-			{
-				if (gateIndex.Value == -1 && !Game1.MasterPlayer.hasOrWillReceiveMail("volcanoShortcutUnlocked"))
-				{
-					Game1.addMailForTomorrow("volcanoShortcutUnlocked", noLetter: true);
-				}
-				opened.Value = true;
-			}
-			localOpened = true;
-			ApplyTiles();
-		}
-
-		public virtual void ResetLocalState()
-		{
-			UpdateLocalStates();
-			ApplyTiles();
-		}
-
-		public virtual void UpdateLocalStates()
-		{
-			localOpened = opened.Value;
-			localPressedSwitches = pressedSwitches.Value;
-			foreach (Point key in switches.Keys)
-			{
-				localSwitches[key] = switches[key];
-			}
-		}
-
-		public virtual void Draw(SpriteBatch b)
-		{
-			if (!localOpened)
-			{
-				b.Draw(Game1.mouseCursors2, Game1.GlobalToLocal(Game1.viewport, new Vector2(tilePosition.X, tilePosition.Y) * 64f + new Vector2(1f, -5f) * 4f), new Rectangle(178, 189, 14, 34), Color.White, 0f, new Vector2(0f, 0f), 4f, SpriteEffects.None, (float)((tilePosition.Y + 2) * 64) / 10000f);
-			}
-		}
-
-		public virtual void UpdateWhenCurrentLocation(GameTime time, GameLocation location)
-		{
-			openEvent.Poll();
-			pressEvent.Poll();
-			if (localPressedSwitches != pressedSwitches.Value)
-			{
-				localPressedSwitches = pressedSwitches.Value;
-				ApplyTiles();
-			}
-			if (!localOpened && opened.Value)
-			{
-				localOpened = true;
-				ApplyTiles();
-			}
-			foreach (Point key in switches.Keys)
-			{
-				if (switches[key] && !localSwitches[key])
-				{
-					localSwitches[key] = true;
-					ApplyTiles();
-				}
-			}
-		}
-
-		public virtual void ApplyTiles()
-		{
-			int total_switches = 0;
-			int local_pressed_switches = 0;
-			int pressed_switches = 0;
-			foreach (Point point in localSwitches.Keys)
-			{
-				total_switches++;
-				if (switches[point])
-				{
-					pressed_switches++;
-				}
-				if (localSwitches[point])
-				{
-					local_pressed_switches++;
-					locationRef.Value.setMapTileIndex(point.X, point.Y, VolcanoDungeon.GetTileIndex(1, 31), "Back");
-					locationRef.Value.removeTileProperty(point.X, point.Y, "Back", "TouchAction");
-				}
-				else
-				{
-					locationRef.Value.setMapTileIndex(point.X, point.Y, VolcanoDungeon.GetTileIndex(0, 31), "Back");
-					locationRef.Value.setTileProperty(point.X, point.Y, "Back", "TouchAction", "DwarfSwitch");
-				}
-			}
-			switch (total_switches)
-			{
-			case 1:
-				locationRef.Value.setMapTileIndex(tilePosition.X - 1, tilePosition.Y, VolcanoDungeon.GetTileIndex(10 + local_pressed_switches, 23), "Buildings");
-				break;
-			case 2:
-				locationRef.Value.setMapTileIndex(tilePosition.X - 1, tilePosition.Y, VolcanoDungeon.GetTileIndex(12 + local_pressed_switches, 23), "Buildings");
-				break;
-			case 3:
-				locationRef.Value.setMapTileIndex(tilePosition.X - 1, tilePosition.Y, VolcanoDungeon.GetTileIndex(10 + local_pressed_switches, 22), "Buildings");
-				break;
-			}
-			if (!triggeredOpen && pressed_switches >= total_switches)
-			{
-				triggeredOpen = true;
-				if (Game1.IsMasterGame)
-				{
-					DelayedAction.functionAfterDelay(delegate
-					{
-						openEvent.Fire();
-					}, 500);
-				}
-			}
-			if (localOpened)
-			{
-				locationRef.Value.removeTile(tilePosition.X, tilePosition.Y + 1, "Buildings");
-			}
-			else
-			{
-				locationRef.Value.setMapTileIndex(tilePosition.X, tilePosition.Y + 1, 0, "Buildings");
-			}
-		}
-	}
+    public virtual void ApplyTiles()
+    {
+      int num1 = 0;
+      int num2 = 0;
+      int num3 = 0;
+      foreach (Point key in this.localSwitches.Keys)
+      {
+        ++num1;
+        if (this.switches[key])
+          ++num3;
+        if (this.localSwitches[key])
+        {
+          ++num2;
+          this.locationRef.Value.setMapTileIndex(key.X, key.Y, VolcanoDungeon.GetTileIndex(1, 31), "Back");
+          this.locationRef.Value.removeTileProperty(key.X, key.Y, "Back", "TouchAction");
+        }
+        else
+        {
+          this.locationRef.Value.setMapTileIndex(key.X, key.Y, VolcanoDungeon.GetTileIndex(0, 31), "Back");
+          this.locationRef.Value.setTileProperty(key.X, key.Y, "Back", "TouchAction", "DwarfSwitch");
+        }
+      }
+      switch (num1)
+      {
+        case 1:
+          this.locationRef.Value.setMapTileIndex(this.tilePosition.X - 1, this.tilePosition.Y, VolcanoDungeon.GetTileIndex(10 + num2, 23), "Buildings");
+          break;
+        case 2:
+          this.locationRef.Value.setMapTileIndex(this.tilePosition.X - 1, this.tilePosition.Y, VolcanoDungeon.GetTileIndex(12 + num2, 23), "Buildings");
+          break;
+        case 3:
+          this.locationRef.Value.setMapTileIndex(this.tilePosition.X - 1, this.tilePosition.Y, VolcanoDungeon.GetTileIndex(10 + num2, 22), "Buildings");
+          break;
+      }
+      if (!this.triggeredOpen && num3 >= num1)
+      {
+        this.triggeredOpen = true;
+        if (Game1.IsMasterGame)
+          DelayedAction.functionAfterDelay((DelayedAction.delayedBehavior) (() => this.openEvent.Fire()), 500);
+      }
+      if (this.localOpened)
+        this.locationRef.Value.removeTile(this.tilePosition.X, this.tilePosition.Y + 1, "Buildings");
+      else
+        this.locationRef.Value.setMapTileIndex(this.tilePosition.X, this.tilePosition.Y + 1, 0, "Buildings");
+    }
+  }
 }

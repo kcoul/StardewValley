@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Monsters.LavaLurk
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using StardewValley.Projectiles;
@@ -8,420 +14,364 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Monsters
 {
-	public class LavaLurk : Monster
-	{
-		public enum State
-		{
-			Submerged,
-			Lurking,
-			Emerged,
-			Firing,
-			Diving
-		}
+  public class LavaLurk : Monster
+  {
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> submergedAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> lurkAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> emergeAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> diveAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> resubmergeAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> idleAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> fireAnimation = new List<FarmerSprite.AnimationFrame>();
+    [XmlIgnore]
+    public List<FarmerSprite.AnimationFrame> locallyPlayingAnimation;
+    [XmlIgnore]
+    public bool approachFarmer;
+    [XmlIgnore]
+    public Vector2 velocity = Vector2.Zero;
+    [XmlIgnore]
+    public int swimSpeed;
+    [XmlIgnore]
+    public Farmer targettedFarmer;
+    [XmlIgnore]
+    public NetEnum<LavaLurk.State> currentState = new NetEnum<LavaLurk.State>();
+    [XmlIgnore]
+    public float stateTimer;
+    [XmlIgnore]
+    public float fireTimer;
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> submergedAnimation = new List<FarmerSprite.AnimationFrame>();
+    public LavaLurk() => this.Initialize();
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> lurkAnimation = new List<FarmerSprite.AnimationFrame>();
+    public LavaLurk(Vector2 position)
+      : base("Lava Lurk", position)
+    {
+      this.Sprite.SpriteWidth = 16;
+      this.Sprite.SpriteHeight = 16;
+      this.Sprite.UpdateSourceRect();
+      this.Initialize();
+      this.ignoreDamageLOS.Value = true;
+      this.SetRandomMovement();
+      this.stateTimer = Utility.RandomFloat(3f, 5f);
+    }
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> emergeAnimation = new List<FarmerSprite.AnimationFrame>();
+    public override void reloadSprite()
+    {
+      base.reloadSprite();
+      this.Sprite.SpriteWidth = 16;
+      this.Sprite.SpriteHeight = 16;
+      this.Sprite.UpdateSourceRect();
+    }
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> diveAnimation = new List<FarmerSprite.AnimationFrame>();
+    public virtual void Initialize()
+    {
+      this.HideShadow = true;
+      this.submergedAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[2]
+      {
+        new FarmerSprite.AnimationFrame(0, 750),
+        new FarmerSprite.AnimationFrame(1, 1000)
+      });
+      this.lurkAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[2]
+      {
+        new FarmerSprite.AnimationFrame(2, 250),
+        new FarmerSprite.AnimationFrame(3, 250)
+      });
+      this.resubmergeAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[3]
+      {
+        new FarmerSprite.AnimationFrame(3, 250),
+        new FarmerSprite.AnimationFrame(2, 250),
+        new FarmerSprite.AnimationFrame(1, 250, false, false, new AnimatedSprite.endOfAnimationBehavior(this.OnDiveAnimationEnd))
+      });
+      this.emergeAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[4]
+      {
+        new FarmerSprite.AnimationFrame(2, 150),
+        new FarmerSprite.AnimationFrame(3, 150),
+        new FarmerSprite.AnimationFrame(4, 150),
+        new FarmerSprite.AnimationFrame(5, 150, false, false, new AnimatedSprite.endOfAnimationBehavior(this.OnEmergeAnimationEnd), true)
+      });
+      this.diveAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[4]
+      {
+        new FarmerSprite.AnimationFrame(5, 150),
+        new FarmerSprite.AnimationFrame(4, 150),
+        new FarmerSprite.AnimationFrame(3, 150),
+        new FarmerSprite.AnimationFrame(2, 150, false, false, new AnimatedSprite.endOfAnimationBehavior(this.OnDiveAnimationEnd), true)
+      });
+      this.idleAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[2]
+      {
+        new FarmerSprite.AnimationFrame(5, 500),
+        new FarmerSprite.AnimationFrame(6, 500)
+      });
+      this.fireAnimation.AddRange((IEnumerable<FarmerSprite.AnimationFrame>) new FarmerSprite.AnimationFrame[1]
+      {
+        new FarmerSprite.AnimationFrame(7, 500)
+      });
+    }
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> resubmergeAnimation = new List<FarmerSprite.AnimationFrame>();
+    public virtual void OnEmergeAnimationEnd(Farmer who) => this.PlayAnimation(this.idleAnimation, true);
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> idleAnimation = new List<FarmerSprite.AnimationFrame>();
+    public virtual void OnDiveAnimationEnd(Farmer who) => this.PlayAnimation(this.submergedAnimation, true);
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> fireAnimation = new List<FarmerSprite.AnimationFrame>();
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.currentState);
+    }
 
-		[XmlIgnore]
-		public List<FarmerSprite.AnimationFrame> locallyPlayingAnimation;
+    protected override void sharedDeathAnimation()
+    {
+      this.currentLocation.playSound("skeletonDie");
+      this.currentLocation.playSound("grunt");
+      for (int index = 0; index < 16; ++index)
+      {
+        GameLocation currentLocation = this.currentLocation;
+        Rectangle sourcerectangle = new Rectangle(64, 128, 16, 16);
+        Rectangle boundingBox = this.GetBoundingBox();
+        double left = (double) boundingBox.Left;
+        boundingBox = this.GetBoundingBox();
+        double right = (double) boundingBox.Right;
+        double t1 = Game1.random.NextDouble();
+        int xPosition = (int) Utility.Lerp((float) left, (float) right, (float) t1);
+        boundingBox = this.GetBoundingBox();
+        double bottom = (double) boundingBox.Bottom;
+        boundingBox = this.GetBoundingBox();
+        double top = (double) boundingBox.Top;
+        double t2 = Game1.random.NextDouble();
+        int yPosition = (int) Utility.Lerp((float) bottom, (float) top, (float) t2);
+        int y = (int) this.getTileLocation().Y;
+        Color white = Color.White;
+        Game1.createRadialDebris(currentLocation, "Characters\\Monsters\\Pepper Rex", sourcerectangle, 16, xPosition, yPosition, 1, y, white, 4f);
+      }
+    }
 
-		[XmlIgnore]
-		public bool approachFarmer;
+    protected override void updateAnimation(GameTime time)
+    {
+      base.updateAnimation(time);
+      if (this.currentState.Value == LavaLurk.State.Submerged)
+        this.PlayAnimation(this.submergedAnimation, true);
+      else if (this.currentState.Value == LavaLurk.State.Lurking)
+      {
+        if (this.PlayAnimation(this.lurkAnimation, false) && this.currentLocation == Game1.currentLocation && Utility.isOnScreen(this.Position, 64))
+          Game1.playSound("waterSlosh");
+      }
+      else if (this.currentState.Value == LavaLurk.State.Emerged)
+      {
+        if (this.locallyPlayingAnimation != this.emergeAnimation && this.locallyPlayingAnimation != this.idleAnimation)
+        {
+          if (this.currentLocation == Game1.currentLocation && Utility.isOnScreen(this.Position, 64))
+            Game1.playSound("waterSlosh");
+          this.PlayAnimation(this.emergeAnimation, false);
+        }
+      }
+      else if (this.currentState.Value == LavaLurk.State.Firing)
+        this.PlayAnimation(this.fireAnimation, true);
+      else if (this.currentState.Value == LavaLurk.State.Diving && this.locallyPlayingAnimation != this.diveAnimation && this.locallyPlayingAnimation != this.submergedAnimation && this.locallyPlayingAnimation != this.resubmergeAnimation)
+      {
+        if (this.currentLocation == Game1.currentLocation && Utility.isOnScreen(this.Position, 64))
+          Game1.playSound("waterSlosh");
+        if (this.locallyPlayingAnimation == this.lurkAnimation)
+          this.PlayAnimation(this.resubmergeAnimation, false);
+        else
+          this.PlayAnimation(this.diveAnimation, false);
+      }
+      this.Sprite.animateOnce(time);
+    }
 
-		[XmlIgnore]
-		public Vector2 velocity = Vector2.Zero;
+    public virtual bool PlayAnimation(
+      List<FarmerSprite.AnimationFrame> animation_to_play,
+      bool loop)
+    {
+      if (this.locallyPlayingAnimation == animation_to_play)
+        return false;
+      this.locallyPlayingAnimation = animation_to_play;
+      this.Sprite.setCurrentAnimation(animation_to_play);
+      this.Sprite.loop = loop;
+      if (!loop)
+        this.Sprite.oldFrame = animation_to_play.Last<FarmerSprite.AnimationFrame>().frame;
+      return true;
+    }
 
-		[XmlIgnore]
-		public int swimSpeed;
+    public virtual bool TargetInRange() => this.targettedFarmer != null && (double) Math.Abs(this.targettedFarmer.Position.X - this.Position.X) <= 640.0 && (double) Math.Abs(this.targettedFarmer.Position.Y - this.Position.Y) <= 640.0;
 
-		[XmlIgnore]
-		public Farmer targettedFarmer;
+    public virtual void SetRandomMovement() => this.velocity = new Vector2(Game1.random.Next(2) == 1 ? -1f : 1f, Game1.random.Next(2) == 1 ? -1f : 1f);
 
-		[XmlIgnore]
-		public NetEnum<State> currentState = new NetEnum<State>();
+    protected override void updateMonsterSlaveAnimation(GameTime time)
+    {
+    }
 
-		[XmlIgnore]
-		public float stateTimer;
+    public override int takeDamage(
+      int damage,
+      int xTrajectory,
+      int yTrajectory,
+      bool isBomb,
+      double addedPrecision,
+      Farmer who)
+    {
+      return this.currentState.Value == LavaLurk.State.Submerged ? -1 : base.takeDamage(damage, xTrajectory, yTrajectory, isBomb, addedPrecision, who);
+    }
 
-		[XmlIgnore]
-		public float fireTimer;
+    public override void behaviorAtGameTick(GameTime time)
+    {
+      if (this.targettedFarmer == null || this.targettedFarmer.currentLocation != this.currentLocation)
+      {
+        this.targettedFarmer = (Farmer) null;
+        this.targettedFarmer = this.findPlayer();
+      }
+      if ((double) this.stateTimer > 0.0)
+      {
+        this.stateTimer -= (float) time.ElapsedGameTime.TotalSeconds;
+        if ((double) this.stateTimer <= 0.0)
+          this.stateTimer = 0.0f;
+      }
+      if (this.currentState.Value == LavaLurk.State.Submerged)
+      {
+        this.swimSpeed = 2;
+        if ((double) this.stateTimer == 0.0)
+        {
+          this.currentState.Value = LavaLurk.State.Lurking;
+          this.stateTimer = 1f;
+        }
+      }
+      else if (this.currentState.Value == LavaLurk.State.Lurking)
+      {
+        this.swimSpeed = 1;
+        if ((double) this.stateTimer == 0.0)
+        {
+          if (this.TargetInRange())
+          {
+            this.currentState.Value = LavaLurk.State.Emerged;
+            this.stateTimer = 1f;
+            this.swimSpeed = 0;
+          }
+          else
+          {
+            this.currentState.Value = LavaLurk.State.Diving;
+            this.stateTimer = 1f;
+          }
+        }
+      }
+      else if (this.currentState.Value == LavaLurk.State.Emerged)
+      {
+        if ((double) this.stateTimer == 0.0)
+        {
+          this.currentState.Value = LavaLurk.State.Firing;
+          this.stateTimer = 1f;
+          this.fireTimer = 0.25f;
+        }
+      }
+      else if (this.currentState.Value == LavaLurk.State.Firing)
+      {
+        if ((double) this.stateTimer == 0.0)
+        {
+          this.currentState.Value = LavaLurk.State.Diving;
+          this.stateTimer = 1f;
+        }
+        if ((double) this.fireTimer > 0.0)
+        {
+          this.fireTimer -= (float) time.ElapsedGameTime.TotalSeconds;
+          if ((double) this.fireTimer <= 0.0)
+          {
+            this.fireTimer = 0.25f;
+            if (this.targettedFarmer != null)
+            {
+              Vector2 startingPosition = this.Position + new Vector2(0.0f, -32f);
+              Vector2 vector2_1 = this.targettedFarmer.Position - startingPosition;
+              vector2_1.Normalize();
+              Vector2 vector2_2 = vector2_1 * 7f;
+              this.currentLocation.playSound("fireball");
+              BasicProjectile basicProjectile = new BasicProjectile(25, 10, 0, 3, 0.1963495f, vector2_2.X, vector2_2.Y, startingPosition, "", "", false, location: this.currentLocation, firer: ((Character) this));
+              basicProjectile.ignoreLocationCollision.Value = true;
+              basicProjectile.ignoreTravelGracePeriod.Value = true;
+              basicProjectile.maxTravelDistance.Value = 640;
+              this.currentLocation.projectiles.Add((Projectile) basicProjectile);
+            }
+          }
+        }
+      }
+      else if (this.currentState.Value == LavaLurk.State.Diving && (double) this.stateTimer == 0.0)
+      {
+        this.currentState.Value = LavaLurk.State.Submerged;
+        this.stateTimer = Utility.RandomFloat(3f, 5f);
+        this.approachFarmer = !this.approachFarmer;
+        if (this.approachFarmer)
+          this.targettedFarmer = this.findPlayer();
+        this.SetRandomMovement();
+      }
+      if (this.targettedFarmer != null && this.approachFarmer)
+      {
+        if (this.getTileX() > this.targettedFarmer.getTileX())
+          this.velocity.X = -1f;
+        else if (this.getTileX() < this.targettedFarmer.getTileX())
+          this.velocity.X = 1f;
+        if (this.getTileY() > this.targettedFarmer.getTileY())
+          this.velocity.Y = -1f;
+        else if (this.getTileY() < this.targettedFarmer.getTileY())
+          this.velocity.Y = 1f;
+      }
+      if ((double) this.velocity.X == 0.0 && (double) this.velocity.Y == 0.0)
+        return;
+      Rectangle boundingBox = this.GetBoundingBox();
+      Vector2 position = this.Position;
+      boundingBox.Inflate(48, 48);
+      boundingBox.X += (int) this.velocity.X * this.swimSpeed;
+      position.X += (float) ((int) this.velocity.X * this.swimSpeed);
+      if (!this.CheckInWater(boundingBox))
+      {
+        this.velocity.X *= -1f;
+        boundingBox.X += (int) this.velocity.X * this.swimSpeed;
+        position.X += (float) ((int) this.velocity.X * this.swimSpeed);
+      }
+      boundingBox.Y += (int) this.velocity.Y * this.swimSpeed;
+      position.Y += (float) ((int) this.velocity.Y * this.swimSpeed);
+      if (!this.CheckInWater(boundingBox))
+      {
+        this.velocity.Y *= -1f;
+        boundingBox.Y += (int) this.velocity.Y * this.swimSpeed;
+        position.Y += (float) ((int) this.velocity.Y * this.swimSpeed);
+      }
+      if (!(this.Position != position))
+        return;
+      this.Position = position;
+    }
 
-		public LavaLurk()
-		{
-			Initialize();
-		}
+    public static bool IsLavaTile(GameLocation location, int x, int y) => location.doesTileHaveProperty(x, y, "Water", "Back") != null;
 
-		public LavaLurk(Vector2 position)
-			: base("Lava Lurk", position)
-		{
-			Sprite.SpriteWidth = 16;
-			Sprite.SpriteHeight = 16;
-			Sprite.UpdateSourceRect();
-			Initialize();
-			ignoreDamageLOS.Value = true;
-			SetRandomMovement();
-			stateTimer = Utility.RandomFloat(3f, 5f);
-		}
+    public bool CheckInWater(Rectangle position)
+    {
+      for (int x = position.Left / 64; x <= position.Right / 64; ++x)
+      {
+        for (int y = position.Top / 64; y <= position.Bottom / 64; ++y)
+        {
+          if (!LavaLurk.IsLavaTile(this.currentLocation, x, y))
+            return false;
+        }
+      }
+      return true;
+    }
 
-		public override void reloadSprite()
-		{
-			base.reloadSprite();
-			Sprite.SpriteWidth = 16;
-			Sprite.SpriteHeight = 16;
-			Sprite.UpdateSourceRect();
-		}
+    public override void updateMovement(GameLocation location, GameTime time)
+    {
+    }
 
-		public virtual void Initialize()
-		{
-			base.HideShadow = true;
-			submergedAnimation.AddRange(new FarmerSprite.AnimationFrame[2]
-			{
-				new FarmerSprite.AnimationFrame(0, 750),
-				new FarmerSprite.AnimationFrame(1, 1000)
-			});
-			lurkAnimation.AddRange(new FarmerSprite.AnimationFrame[2]
-			{
-				new FarmerSprite.AnimationFrame(2, 250),
-				new FarmerSprite.AnimationFrame(3, 250)
-			});
-			resubmergeAnimation.AddRange(new FarmerSprite.AnimationFrame[3]
-			{
-				new FarmerSprite.AnimationFrame(3, 250),
-				new FarmerSprite.AnimationFrame(2, 250),
-				new FarmerSprite.AnimationFrame(1, 250, secondaryArm: false, flip: false, OnDiveAnimationEnd)
-			});
-			emergeAnimation.AddRange(new FarmerSprite.AnimationFrame[4]
-			{
-				new FarmerSprite.AnimationFrame(2, 150),
-				new FarmerSprite.AnimationFrame(3, 150),
-				new FarmerSprite.AnimationFrame(4, 150),
-				new FarmerSprite.AnimationFrame(5, 150, secondaryArm: false, flip: false, OnEmergeAnimationEnd, behaviorAtEndOfFrame: true)
-			});
-			diveAnimation.AddRange(new FarmerSprite.AnimationFrame[4]
-			{
-				new FarmerSprite.AnimationFrame(5, 150),
-				new FarmerSprite.AnimationFrame(4, 150),
-				new FarmerSprite.AnimationFrame(3, 150),
-				new FarmerSprite.AnimationFrame(2, 150, secondaryArm: false, flip: false, OnDiveAnimationEnd, behaviorAtEndOfFrame: true)
-			});
-			idleAnimation.AddRange(new FarmerSprite.AnimationFrame[2]
-			{
-				new FarmerSprite.AnimationFrame(5, 500),
-				new FarmerSprite.AnimationFrame(6, 500)
-			});
-			fireAnimation.AddRange(new FarmerSprite.AnimationFrame[1]
-			{
-				new FarmerSprite.AnimationFrame(7, 500)
-			});
-		}
+    public override Debris ModifyMonsterLoot(Debris debris)
+    {
+      if (debris != null)
+        debris.chunksMoveTowardPlayer = true;
+      return debris;
+    }
 
-		public virtual void OnEmergeAnimationEnd(Farmer who)
-		{
-			PlayAnimation(idleAnimation, loop: true);
-		}
-
-		public virtual void OnDiveAnimationEnd(Farmer who)
-		{
-			PlayAnimation(submergedAnimation, loop: true);
-		}
-
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(currentState);
-		}
-
-		protected override void sharedDeathAnimation()
-		{
-			base.currentLocation.playSound("skeletonDie");
-			base.currentLocation.playSound("grunt");
-			for (int i = 0; i < 16; i++)
-			{
-				Game1.createRadialDebris(base.currentLocation, "Characters\\Monsters\\Pepper Rex", new Rectangle(64, 128, 16, 16), 16, (int)Utility.Lerp(GetBoundingBox().Left, GetBoundingBox().Right, (float)Game1.random.NextDouble()), (int)Utility.Lerp(GetBoundingBox().Bottom, GetBoundingBox().Top, (float)Game1.random.NextDouble()), 1, (int)getTileLocation().Y, Color.White, 4f);
-			}
-		}
-
-		protected override void updateAnimation(GameTime time)
-		{
-			base.updateAnimation(time);
-			if (currentState.Value == State.Submerged)
-			{
-				PlayAnimation(submergedAnimation, loop: true);
-			}
-			else if (currentState.Value == State.Lurking)
-			{
-				if (PlayAnimation(lurkAnimation, loop: false) && base.currentLocation == Game1.currentLocation && Utility.isOnScreen(base.Position, 64))
-				{
-					Game1.playSound("waterSlosh");
-				}
-			}
-			else if (currentState.Value == State.Emerged)
-			{
-				if (locallyPlayingAnimation != emergeAnimation && locallyPlayingAnimation != idleAnimation)
-				{
-					if (base.currentLocation == Game1.currentLocation && Utility.isOnScreen(base.Position, 64))
-					{
-						Game1.playSound("waterSlosh");
-					}
-					PlayAnimation(emergeAnimation, loop: false);
-				}
-			}
-			else if (currentState.Value == State.Firing)
-			{
-				PlayAnimation(fireAnimation, loop: true);
-			}
-			else if (currentState.Value == State.Diving && locallyPlayingAnimation != diveAnimation && locallyPlayingAnimation != submergedAnimation && locallyPlayingAnimation != resubmergeAnimation)
-			{
-				if (base.currentLocation == Game1.currentLocation && Utility.isOnScreen(base.Position, 64))
-				{
-					Game1.playSound("waterSlosh");
-				}
-				if (locallyPlayingAnimation == lurkAnimation)
-				{
-					PlayAnimation(resubmergeAnimation, loop: false);
-				}
-				else
-				{
-					PlayAnimation(diveAnimation, loop: false);
-				}
-			}
-			Sprite.animateOnce(time);
-		}
-
-		public virtual bool PlayAnimation(List<FarmerSprite.AnimationFrame> animation_to_play, bool loop)
-		{
-			if (locallyPlayingAnimation != animation_to_play)
-			{
-				locallyPlayingAnimation = animation_to_play;
-				Sprite.setCurrentAnimation(animation_to_play);
-				Sprite.loop = loop;
-				if (!loop)
-				{
-					Sprite.oldFrame = animation_to_play.Last().frame;
-				}
-				return true;
-			}
-			return false;
-		}
-
-		public virtual bool TargetInRange()
-		{
-			if (targettedFarmer == null)
-			{
-				return false;
-			}
-			if (Math.Abs(targettedFarmer.Position.X - base.Position.X) <= 640f && Math.Abs(targettedFarmer.Position.Y - base.Position.Y) <= 640f)
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public virtual void SetRandomMovement()
-		{
-			velocity = new Vector2((Game1.random.Next(2) != 1) ? 1 : (-1), (Game1.random.Next(2) != 1) ? 1 : (-1));
-		}
-
-		protected override void updateMonsterSlaveAnimation(GameTime time)
-		{
-		}
-
-		public override int takeDamage(int damage, int xTrajectory, int yTrajectory, bool isBomb, double addedPrecision, Farmer who)
-		{
-			if (currentState.Value == State.Submerged)
-			{
-				return -1;
-			}
-			return base.takeDamage(damage, xTrajectory, yTrajectory, isBomb, addedPrecision, who);
-		}
-
-		public override void behaviorAtGameTick(GameTime time)
-		{
-			if (targettedFarmer == null || targettedFarmer.currentLocation != base.currentLocation)
-			{
-				targettedFarmer = null;
-				targettedFarmer = findPlayer();
-			}
-			if (stateTimer > 0f)
-			{
-				stateTimer -= (float)time.ElapsedGameTime.TotalSeconds;
-				if (stateTimer <= 0f)
-				{
-					stateTimer = 0f;
-				}
-			}
-			if (currentState.Value == State.Submerged)
-			{
-				swimSpeed = 2;
-				if (stateTimer == 0f)
-				{
-					currentState.Value = State.Lurking;
-					stateTimer = 1f;
-				}
-			}
-			else if (currentState.Value == State.Lurking)
-			{
-				swimSpeed = 1;
-				if (stateTimer == 0f)
-				{
-					if (TargetInRange())
-					{
-						currentState.Value = State.Emerged;
-						stateTimer = 1f;
-						swimSpeed = 0;
-					}
-					else
-					{
-						currentState.Value = State.Diving;
-						stateTimer = 1f;
-					}
-				}
-			}
-			else if (currentState.Value == State.Emerged)
-			{
-				if (stateTimer == 0f)
-				{
-					currentState.Value = State.Firing;
-					stateTimer = 1f;
-					fireTimer = 0.25f;
-				}
-			}
-			else if (currentState.Value == State.Firing)
-			{
-				if (stateTimer == 0f)
-				{
-					currentState.Value = State.Diving;
-					stateTimer = 1f;
-				}
-				if (fireTimer > 0f)
-				{
-					fireTimer -= (float)time.ElapsedGameTime.TotalSeconds;
-					if (fireTimer <= 0f)
-					{
-						fireTimer = 0.25f;
-						if (targettedFarmer != null)
-						{
-							Vector2 shot_origin = base.Position + new Vector2(0f, -32f);
-							Vector2 shot_velocity = targettedFarmer.Position - shot_origin;
-							shot_velocity.Normalize();
-							shot_velocity *= 7f;
-							base.currentLocation.playSound("fireball");
-							BasicProjectile projectile = new BasicProjectile(25, 10, 0, 3, (float)Math.PI / 16f, shot_velocity.X, shot_velocity.Y, shot_origin, "", "", explode: false, damagesMonsters: false, base.currentLocation, this);
-							projectile.ignoreLocationCollision.Value = true;
-							projectile.ignoreTravelGracePeriod.Value = true;
-							projectile.maxTravelDistance.Value = 640;
-							base.currentLocation.projectiles.Add(projectile);
-						}
-					}
-				}
-			}
-			else if (currentState.Value == State.Diving && stateTimer == 0f)
-			{
-				currentState.Value = State.Submerged;
-				stateTimer = Utility.RandomFloat(3f, 5f);
-				approachFarmer = !approachFarmer;
-				if (approachFarmer)
-				{
-					targettedFarmer = findPlayer();
-				}
-				SetRandomMovement();
-			}
-			if (targettedFarmer != null && approachFarmer)
-			{
-				if (getTileX() > targettedFarmer.getTileX())
-				{
-					velocity.X = -1f;
-				}
-				else if (getTileX() < targettedFarmer.getTileX())
-				{
-					velocity.X = 1f;
-				}
-				if (getTileY() > targettedFarmer.getTileY())
-				{
-					velocity.Y = -1f;
-				}
-				else if (getTileY() < targettedFarmer.getTileY())
-				{
-					velocity.Y = 1f;
-				}
-			}
-			if (velocity.X != 0f || velocity.Y != 0f)
-			{
-				Rectangle next_bounds = GetBoundingBox();
-				Vector2 next_position = base.Position;
-				next_bounds.Inflate(48, 48);
-				next_bounds.X += (int)velocity.X * swimSpeed;
-				next_position.X += (int)velocity.X * swimSpeed;
-				if (!CheckInWater(next_bounds))
-				{
-					velocity.X *= -1f;
-					next_bounds.X += (int)velocity.X * swimSpeed;
-					next_position.X += (int)velocity.X * swimSpeed;
-				}
-				next_bounds.Y += (int)velocity.Y * swimSpeed;
-				next_position.Y += (int)velocity.Y * swimSpeed;
-				if (!CheckInWater(next_bounds))
-				{
-					velocity.Y *= -1f;
-					next_bounds.Y += (int)velocity.Y * swimSpeed;
-					next_position.Y += (int)velocity.Y * swimSpeed;
-				}
-				if (base.Position != next_position)
-				{
-					base.Position = next_position;
-				}
-			}
-		}
-
-		public static bool IsLavaTile(GameLocation location, int x, int y)
-		{
-			return location.doesTileHaveProperty(x, y, "Water", "Back") != null;
-		}
-
-		public bool CheckInWater(Rectangle position)
-		{
-			for (int x = position.Left / 64; x <= position.Right / 64; x++)
-			{
-				for (int y = position.Top / 64; y <= position.Bottom / 64; y++)
-				{
-					if (!IsLavaTile(base.currentLocation, x, y))
-					{
-						return false;
-					}
-				}
-			}
-			return true;
-		}
-
-		public override void updateMovement(GameLocation location, GameTime time)
-		{
-		}
-
-		public override Debris ModifyMonsterLoot(Debris debris)
-		{
-			if (debris != null)
-			{
-				debris.chunksMoveTowardPlayer = true;
-			}
-			return debris;
-		}
-	}
+    public enum State
+    {
+      Submerged,
+      Lurking,
+      Emerged,
+      Firing,
+      Diving,
+    }
+  }
 }

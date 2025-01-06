@@ -1,310 +1,239 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.SDKs.GalaxyNetServer
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Galaxy.Api;
 using StardewValley.Network;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace StardewValley.SDKs
 {
-	public class GalaxyNetServer : Server
-	{
-		private class GalaxyPersonaDataChangedListener : IPersonaDataChangedListener
-		{
-			private Action<GalaxyID, uint> callback;
+  public class GalaxyNetServer : Server
+  {
+    private GalaxyID host;
+    protected GalaxySocket server;
+    private GalaxyNetServer.GalaxyPersonaDataChangedListener galaxyPersonaDataChangedListener;
+    protected Bimap<long, ulong> peers = new Bimap<long, ulong>();
 
-			public GalaxyPersonaDataChangedListener(Action<GalaxyID, uint> callback)
-			{
-				this.callback = callback;
-				GalaxyInstance.ListenerRegistrar().Register(GalaxyTypeAwareListenerPersonaDataChanged.GetListenerType(), this);
-			}
+    public GalaxyNetServer(IGameServer gameServer)
+      : base(gameServer)
+    {
+    }
 
-			public override void OnPersonaDataChanged(GalaxyID userID, uint avatarCriteria)
-			{
-				callback(userID, avatarCriteria);
-			}
+    public override int connectionsCount => this.server == null ? 0 : this.server.ConnectionCount;
 
-			public override void Dispose()
-			{
-				GalaxyInstance.ListenerRegistrar().Unregister(GalaxyTypeAwareListenerPersonaDataChanged.GetListenerType(), this);
-				base.Dispose();
-			}
-		}
+    public override string getUserId(long farmerId) => !this.peers.ContainsLeft(farmerId) ? (string) null : this.peers[farmerId].ToString();
 
-		private GalaxyID host;
+    public override bool hasUserId(string userId)
+    {
+      foreach (ulong rightValue in (IEnumerable<ulong>) this.peers.RightValues)
+      {
+        if (rightValue.ToString().Equals(userId))
+          return true;
+      }
+      return false;
+    }
 
-		protected GalaxySocket server;
+    public override bool isConnectionActive(string connection_id)
+    {
+      foreach (GalaxyID connection in this.server.Connections)
+      {
+        if (this.getConnectionId(connection) == connection_id && connection.IsValid())
+          return true;
+      }
+      return false;
+    }
 
-		private GalaxyPersonaDataChangedListener galaxyPersonaDataChangedListener;
+    public override string getUserName(long farmerId)
+    {
+      if (!this.peers.ContainsLeft(farmerId))
+        return (string) null;
+      GalaxyID userID = new GalaxyID(this.peers[farmerId]);
+      return GalaxyInstance.Friends().GetFriendPersonaName(userID);
+    }
 
-		protected Bimap<long, ulong> peers = new Bimap<long, ulong>();
+    public override float getPingToClient(long farmerId) => !this.peers.ContainsLeft(farmerId) ? -1f : (float) this.server.GetPingWith(new GalaxyID(this.peers[farmerId]));
 
-		public override int connectionsCount
-		{
-			get
-			{
-				if (server == null)
-				{
-					return 0;
-				}
-				return server.ConnectionCount;
-			}
-		}
+    public override void setPrivacy(ServerPrivacy privacy) => this.server.SetPrivacy(privacy);
 
-		public GalaxyNetServer(IGameServer gameServer)
-			: base(gameServer)
-		{
-		}
+    public override bool connected() => this.server.Connected;
 
-		public override string getUserId(long farmerId)
-		{
-			if (!peers.ContainsLeft(farmerId))
-			{
-				return null;
-			}
-			return peers[farmerId].ToString();
-		}
+    public override bool canOfferInvite() => this.server.Connected;
 
-		public override bool hasUserId(string userId)
-		{
-			foreach (ulong rightValue in peers.RightValues)
-			{
-				if (rightValue.ToString().Equals(userId))
-				{
-					return true;
-				}
-			}
-			return false;
-		}
+    public override void offerInvite()
+    {
+      if (!this.server.Connected || Program.sdk.Networking == null)
+        return;
+      ulong? inviteDialogLobby = this.server.InviteDialogLobby;
+      if (!inviteDialogLobby.HasValue)
+        return;
+      SDKNetHelper networking = Program.sdk.Networking;
+      inviteDialogLobby = this.server.InviteDialogLobby;
+      // ISSUE: variable of a boxed type
+      __Boxed<ulong> lobby = (ValueType) inviteDialogLobby.Value;
+      networking.ShowInviteDialog((object) lobby);
+    }
 
-		public override bool isConnectionActive(string connection_id)
-		{
-			foreach (GalaxyID connection in server.Connections)
-			{
-				if (getConnectionId(connection) == connection_id && connection.IsValid())
-				{
-					return true;
-				}
-			}
-			return false;
-		}
+    public override string getInviteCode() => this.server.GetInviteCode();
 
-		public override string getUserName(long farmerId)
-		{
-			if (!peers.ContainsLeft(farmerId))
-			{
-				return null;
-			}
-			GalaxyID user = new GalaxyID(peers[farmerId]);
-			return GalaxyInstance.Friends().GetFriendPersonaName(user);
-		}
+    public override void initialize()
+    {
+      Console.WriteLine("Starting Galaxy server");
+      this.host = GalaxyInstance.User().GetGalaxyID();
+      this.galaxyPersonaDataChangedListener = new GalaxyNetServer.GalaxyPersonaDataChangedListener(new Action<GalaxyID, uint>(this.onPersonaDataChanged));
+      this.server = new GalaxySocket("1.5.5");
+      this.server.CreateLobby(Game1.options.serverPrivacy, (uint) (Game1.multiplayer.playerLimit * 2));
+    }
 
-		public override float getPingToClient(long farmerId)
-		{
-			if (!peers.ContainsLeft(farmerId))
-			{
-				return -1f;
-			}
-			GalaxyID user = new GalaxyID(peers[farmerId]);
-			return server.GetPingWith(user);
-		}
+    public override void stopServer()
+    {
+      Console.WriteLine("Stopping Galaxy server");
+      this.server.Close();
+      if (this.galaxyPersonaDataChangedListener == null)
+        return;
+      this.galaxyPersonaDataChangedListener.Dispose();
+      this.galaxyPersonaDataChangedListener = (GalaxyNetServer.GalaxyPersonaDataChangedListener) null;
+    }
 
-		public override void setPrivacy(ServerPrivacy privacy)
-		{
-			server.SetPrivacy(privacy);
-		}
+    private void onPersonaDataChanged(GalaxyID userID, uint avatarCriteria)
+    {
+      if (!this.peers.ContainsRight(userID.ToUint64()))
+        return;
+      long left = this.peers.GetLeft(userID.ToUint64());
+      Game1.multiplayer.broadcastUserName(left, GalaxyInstance.Friends().GetFriendPersonaName(userID));
+    }
 
-		public override bool connected()
-		{
-			return server.Connected;
-		}
+    public override void receiveMessages()
+    {
+      if (this.server == null)
+        return;
+      this.server.Receive(new Action<GalaxyID>(this.onReceiveConnection), new Action<GalaxyID, Stream>(this.onReceiveMessage), new Action<GalaxyID>(this.onReceiveDisconnect), new Action<string>(this.onReceiveError));
+      this.server.Heartbeat(this.server.LobbyMembers());
+      foreach (GalaxyID connection in this.server.Connections)
+      {
+        if (this.server.GetPingWith(connection) > 30000L)
+          this.server.Kick(connection);
+      }
+      if (this.bandwidthLogger == null)
+        return;
+      this.bandwidthLogger.Update();
+    }
 
-		public override bool canOfferInvite()
-		{
-			return server.Connected;
-		}
+    public override void kick(long disconnectee)
+    {
+      base.kick(disconnectee);
+      if (!this.peers.ContainsLeft(disconnectee))
+        return;
+      GalaxyID galaxyId = new GalaxyID(this.peers[disconnectee]);
+      this.server.Kick(galaxyId);
+      this.sendMessage(galaxyId, new OutgoingMessage((byte) 23, Game1.player, (object[]) new StardewValley.Object[0]));
+    }
 
-		public override void offerInvite()
-		{
-			if (server.Connected && Program.sdk.Networking != null && server.InviteDialogLobby.HasValue)
-			{
-				Program.sdk.Networking.ShowInviteDialog(server.InviteDialogLobby.Value);
-			}
-		}
+    public string getConnectionId(GalaxyID peer) => "GN_" + Convert.ToString(peer.ToUint64());
 
-		public override string getInviteCode()
-		{
-			return server.GetInviteCode();
-		}
+    private string createUserID(GalaxyID peer) => Convert.ToString(peer.ToUint64());
 
-		public override void initialize()
-		{
-			Console.WriteLine("Starting Galaxy server");
-			host = GalaxyInstance.User().GetGalaxyID();
-			galaxyPersonaDataChangedListener = new GalaxyPersonaDataChangedListener(onPersonaDataChanged);
-			server = new GalaxySocket("1.5.4");
-			server.CreateLobby(Game1.options.serverPrivacy, (uint)(Game1.multiplayer.playerLimit * 2));
-		}
+    protected virtual void onReceiveConnection(GalaxyID peer)
+    {
+      if (this.gameServer.isUserBanned(((object) peer).ToString()))
+        return;
+      Console.WriteLine("{0} connected", (object) peer);
+      this.onConnect(this.getConnectionId(peer));
+      this.gameServer.sendAvailableFarmhands(this.createUserID(peer), (Action<OutgoingMessage>) (msg => this.sendMessage(peer, msg)));
+    }
 
-		public override void stopServer()
-		{
-			Console.WriteLine("Stopping Galaxy server");
-			server.Close();
-			if (galaxyPersonaDataChangedListener != null)
-			{
-				galaxyPersonaDataChangedListener.Dispose();
-				galaxyPersonaDataChangedListener = null;
-			}
-		}
+    protected virtual void onReceiveMessage(GalaxyID peer, Stream messageStream)
+    {
+      if (this.bandwidthLogger != null)
+        this.bandwidthLogger.RecordBytesDown(messageStream.Length);
+      using (IncomingMessage message = new IncomingMessage())
+      {
+        using (BinaryReader reader = new BinaryReader(messageStream))
+        {
+          message.Read(reader);
+          if (this.peers.ContainsLeft(message.FarmerID) && (long) this.peers[message.FarmerID] == (long) peer.ToUint64())
+          {
+            this.gameServer.processIncomingMessage(message);
+          }
+          else
+          {
+            if (message.MessageType != (byte) 2)
+              return;
+            NetFarmerRoot farmer = Game1.multiplayer.readFarmer(message.Reader);
+            GalaxyID capturedPeer = new GalaxyID(peer.ToUint64());
+            this.gameServer.checkFarmhandRequest(this.createUserID(peer), this.getConnectionId(peer), farmer, (Action<OutgoingMessage>) (msg => this.sendMessage(capturedPeer, msg)), (Action) (() => this.peers[farmer.Value.UniqueMultiplayerID] = capturedPeer.ToUint64()));
+          }
+        }
+      }
+    }
 
-		private void onPersonaDataChanged(GalaxyID userID, uint avatarCriteria)
-		{
-			if (peers.ContainsRight(userID.ToUint64()))
-			{
-				long farmerID = peers.GetLeft(userID.ToUint64());
-				Game1.multiplayer.broadcastUserName(farmerID, GalaxyInstance.Friends().GetFriendPersonaName(userID));
-			}
-		}
+    public virtual void onReceiveDisconnect(GalaxyID peer)
+    {
+      Console.WriteLine("{0} disconnected", (object) peer);
+      this.onDisconnect(this.getConnectionId(peer));
+      if (!this.peers.ContainsRight(peer.ToUint64()))
+        return;
+      this.playerDisconnected(this.peers[peer.ToUint64()]);
+    }
 
-		public override void receiveMessages()
-		{
-			if (server != null)
-			{
-				server.Receive(onReceiveConnection, onReceiveMessage, onReceiveDisconnect, onReceiveError);
-				server.Heartbeat(server.LobbyMembers());
-				foreach (GalaxyID client in server.Connections)
-				{
-					if (server.GetPingWith(client) > 30000)
-					{
-						server.Kick(client);
-					}
-				}
-				if (bandwidthLogger != null)
-				{
-					bandwidthLogger.Update();
-				}
-			}
-		}
+    protected virtual void onReceiveError(string messageKey) => Console.WriteLine("Server error: " + Game1.content.LoadString(messageKey));
 
-		public override void kick(long disconnectee)
-		{
-			base.kick(disconnectee);
-			if (peers.ContainsLeft(disconnectee))
-			{
-				GalaxyID user = new GalaxyID(peers[disconnectee]);
-				server.Kick(user);
-				Farmer player = Game1.player;
-				object[] data = new Object[0];
-				sendMessage(user, new OutgoingMessage(23, player, data));
-			}
-		}
+    public override void playerDisconnected(long disconnectee)
+    {
+      base.playerDisconnected(disconnectee);
+      this.peers.RemoveLeft(disconnectee);
+    }
 
-		public string getConnectionId(GalaxyID peer)
-		{
-			return "GN_" + Convert.ToString(peer.ToUint64());
-		}
+    public override void sendMessage(long peerId, OutgoingMessage message)
+    {
+      if (!this.peers.ContainsLeft(peerId))
+        return;
+      this.sendMessage(new GalaxyID(this.peers[peerId]), message);
+    }
 
-		private string createUserID(GalaxyID peer)
-		{
-			return Convert.ToString(peer.ToUint64());
-		}
+    protected virtual void sendMessage(GalaxyID peer, OutgoingMessage message)
+    {
+      if (this.bandwidthLogger != null)
+      {
+        using (MemoryStream output = new MemoryStream())
+        {
+          using (BinaryWriter writer = new BinaryWriter((Stream) output))
+          {
+            message.Write(writer);
+            output.Seek(0L, SeekOrigin.Begin);
+            byte[] array = output.ToArray();
+            this.server.Send(peer, array);
+            this.bandwidthLogger.RecordBytesUp((long) array.Length);
+          }
+        }
+      }
+      else
+        this.server.Send(peer, message);
+    }
 
-		protected virtual void onReceiveConnection(GalaxyID peer)
-		{
-			if (!gameServer.isUserBanned(peer.ToString()))
-			{
-				Console.WriteLine("{0} connected", peer);
-				onConnect(getConnectionId(peer));
-				gameServer.sendAvailableFarmhands(createUserID(peer), delegate(OutgoingMessage msg)
-				{
-					sendMessage(peer, msg);
-				});
-			}
-		}
+    public override void setLobbyData(string key, string value) => this.server.SetLobbyData(key, value);
 
-		protected virtual void onReceiveMessage(GalaxyID peer, Stream messageStream)
-		{
-			if (bandwidthLogger != null)
-			{
-				bandwidthLogger.RecordBytesDown(messageStream.Length);
-			}
-			using (IncomingMessage message = new IncomingMessage())
-			{
-				using (BinaryReader reader = new BinaryReader(messageStream))
-				{
-					message.Read(reader);
-					if (peers.ContainsLeft(message.FarmerID) && peers[message.FarmerID] == peer.ToUint64())
-					{
-						gameServer.processIncomingMessage(message);
-					}
-					else if (message.MessageType == 2)
-					{
-						NetFarmerRoot farmer = Game1.multiplayer.readFarmer(message.Reader);
-						GalaxyID capturedPeer = new GalaxyID(peer.ToUint64());
-						gameServer.checkFarmhandRequest(createUserID(peer), getConnectionId(peer), farmer, delegate(OutgoingMessage msg)
-						{
-							sendMessage(capturedPeer, msg);
-						}, delegate
-						{
-							peers[farmer.Value.UniqueMultiplayerID] = capturedPeer.ToUint64();
-						});
-					}
-				}
-			}
-		}
+    private class GalaxyPersonaDataChangedListener : IPersonaDataChangedListener
+    {
+      private Action<GalaxyID, uint> callback;
 
-		public virtual void onReceiveDisconnect(GalaxyID peer)
-		{
-			Console.WriteLine("{0} disconnected", peer);
-			onDisconnect(getConnectionId(peer));
-			if (peers.ContainsRight(peer.ToUint64()))
-			{
-				playerDisconnected(peers[peer.ToUint64()]);
-			}
-		}
+      public GalaxyPersonaDataChangedListener(Action<GalaxyID, uint> callback)
+      {
+        this.callback = callback;
+        GalaxyInstance.ListenerRegistrar().Register(GalaxyTypeAwareListenerPersonaDataChanged.GetListenerType(), (IGalaxyListener) this);
+      }
 
-		protected virtual void onReceiveError(string messageKey)
-		{
-			Console.WriteLine("Server error: " + Game1.content.LoadString(messageKey));
-		}
+      public override void OnPersonaDataChanged(GalaxyID userID, uint avatarCriteria) => this.callback(userID, avatarCriteria);
 
-		public override void playerDisconnected(long disconnectee)
-		{
-			base.playerDisconnected(disconnectee);
-			peers.RemoveLeft(disconnectee);
-		}
-
-		public override void sendMessage(long peerId, OutgoingMessage message)
-		{
-			if (peers.ContainsLeft(peerId))
-			{
-				sendMessage(new GalaxyID(peers[peerId]), message);
-			}
-		}
-
-		protected virtual void sendMessage(GalaxyID peer, OutgoingMessage message)
-		{
-			if (bandwidthLogger != null)
-			{
-				using (MemoryStream stream = new MemoryStream())
-				{
-					using (BinaryWriter writer = new BinaryWriter(stream))
-					{
-						message.Write(writer);
-						stream.Seek(0L, SeekOrigin.Begin);
-						byte[] bytes = stream.ToArray();
-						server.Send(peer, bytes);
-						bandwidthLogger.RecordBytesUp(bytes.Length);
-					}
-				}
-			}
-			else
-			{
-				server.Send(peer, message);
-			}
-		}
-
-		public override void setLobbyData(string key, string value)
-		{
-			server.SetLobbyData(key, value);
-		}
-	}
+      public override void Dispose()
+      {
+        GalaxyInstance.ListenerRegistrar().Unregister(GalaxyTypeAwareListenerPersonaDataChanged.GetListenerType(), (IGalaxyListener) this);
+        base.Dispose();
+      }
+    }
+  }
 }

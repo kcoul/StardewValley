@@ -1,6 +1,13 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.ForgeMenu
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Netcode;
 using StardewValley.Objects;
 using StardewValley.Tools;
 using System;
@@ -9,1285 +16,992 @@ using System.Linq;
 
 namespace StardewValley.Menus
 {
-	public class ForgeMenu : MenuWithInventory
-	{
-		public enum CraftState
-		{
-			MissingIngredients,
-			MissingShards,
-			Valid,
-			InvalidRecipe
-		}
+  public class ForgeMenu : MenuWithInventory
+  {
+    protected int _timeUntilCraft;
+    protected int _clankEffectTimer;
+    protected int _sparklingTimer;
+    public const int region_leftIngredient = 998;
+    public const int region_rightIngredient = 997;
+    public const int region_startButton = 996;
+    public const int region_resultItem = 995;
+    public const int region_unforgeButton = 994;
+    public ClickableTextureComponent craftResultDisplay;
+    public ClickableTextureComponent leftIngredientSpot;
+    public ClickableTextureComponent rightIngredientSpot;
+    public ClickableTextureComponent startTailoringButton;
+    public ClickableComponent unforgeButton;
+    public List<ClickableComponent> equipmentIcons = new List<ClickableComponent>();
+    public const int region_ring_1 = 110;
+    public const int region_ring_2 = 111;
+    public const int CRAFT_TIME = 1600;
+    public Texture2D forgeTextures;
+    protected Dictionary<Item, bool> _highlightDictionary;
+    protected Dictionary<string, Item> _lastValidEquippedItems;
+    protected List<TemporaryAnimatedSprite> tempSprites = new List<TemporaryAnimatedSprite>();
+    private bool unforging;
+    protected string displayedDescription = "";
+    protected ForgeMenu.CraftState _craftState;
+    public Vector2 questionMarkOffset;
 
-		protected int _timeUntilCraft;
+    public ForgeMenu()
+      : base(okButton: true, trashCan: true, inventoryXOffset: 12, inventoryYOffset: 132)
+    {
+      Game1.playSound("bigSelect");
+      if (this.yPositionOnScreen == IClickableMenu.borderWidth + IClickableMenu.spaceToClearTopBorder)
+        this.movePosition(0, -IClickableMenu.spaceToClearTopBorder);
+      this.inventory.highlightMethod = new InventoryMenu.highlightThisItem(this.HighlightItems);
+      this.forgeTextures = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\ForgeMenu");
+      this._CreateButtons();
+      if (this.trashCan != null)
+        this.trashCan.myID = 106;
+      if (this.okButton != null)
+        this.okButton.leftNeighborID = 11;
+      if (Game1.options.SnappyMenus)
+      {
+        this.populateClickableComponentList();
+        this.snapToDefaultClickableComponent();
+      }
+      this._ValidateCraft();
+    }
 
-		protected int _clankEffectTimer;
+    protected void _CreateButtons()
+    {
+      ClickableTextureComponent textureComponent1 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + 204, this.yPositionOnScreen + 212, 64, 64), this.forgeTextures, new Rectangle(142, 0, 16, 16), 4f);
+      textureComponent1.myID = 998;
+      textureComponent1.downNeighborID = -99998;
+      textureComponent1.leftNeighborID = 110;
+      textureComponent1.rightNeighborID = 997;
+      textureComponent1.item = this.leftIngredientSpot != null ? this.leftIngredientSpot.item : (Item) null;
+      textureComponent1.fullyImmutable = true;
+      this.leftIngredientSpot = textureComponent1;
+      ClickableTextureComponent textureComponent2 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + 348, this.yPositionOnScreen + 212, 64, 64), this.forgeTextures, new Rectangle(142, 0, 16, 16), 4f);
+      textureComponent2.myID = 997;
+      textureComponent2.downNeighborID = 996;
+      textureComponent2.leftNeighborID = 998;
+      textureComponent2.rightNeighborID = 994;
+      textureComponent2.item = this.rightIngredientSpot != null ? this.rightIngredientSpot.item : (Item) null;
+      textureComponent2.fullyImmutable = true;
+      this.rightIngredientSpot = textureComponent2;
+      ClickableTextureComponent textureComponent3 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + 204, this.yPositionOnScreen + 308, 52, 56), this.forgeTextures, new Rectangle(0, 80, 13, 14), 4f);
+      textureComponent3.myID = 996;
+      textureComponent3.downNeighborID = -99998;
+      textureComponent3.leftNeighborID = 111;
+      textureComponent3.rightNeighborID = 994;
+      textureComponent3.upNeighborID = 998;
+      textureComponent3.item = this.startTailoringButton != null ? this.startTailoringButton.item : (Item) null;
+      textureComponent3.fullyImmutable = true;
+      this.startTailoringButton = textureComponent3;
+      this.unforgeButton = new ClickableComponent(new Rectangle(this.xPositionOnScreen + 484, this.yPositionOnScreen + 312, 40, 44), "Unforge")
+      {
+        myID = 994,
+        downNeighborID = -99998,
+        leftNeighborID = 996,
+        rightNeighborID = 995,
+        upNeighborID = 997,
+        fullyImmutable = true
+      };
+      if (this.inventory.inventory != null && this.inventory.inventory.Count >= 12)
+      {
+        for (int index = 0; index < 12; ++index)
+        {
+          if (this.inventory.inventory[index] != null)
+            this.inventory.inventory[index].upNeighborID = -99998;
+        }
+      }
+      ClickableTextureComponent textureComponent4 = new ClickableTextureComponent(new Rectangle(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 660, this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 232, 64, 64), this.forgeTextures, new Rectangle(0, 208, 16, 16), 4f);
+      textureComponent4.myID = 995;
+      textureComponent4.downNeighborID = -99998;
+      textureComponent4.leftNeighborID = 996;
+      textureComponent4.upNeighborID = 997;
+      textureComponent4.item = this.craftResultDisplay != null ? this.craftResultDisplay.item : (Item) null;
+      this.craftResultDisplay = textureComponent4;
+      this.equipmentIcons = new List<ClickableComponent>();
+      this.equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Ring1")
+      {
+        myID = 110,
+        leftNeighborID = -99998,
+        downNeighborID = -99998,
+        upNeighborID = -99998,
+        rightNeighborID = -99998
+      });
+      this.equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Ring2")
+      {
+        myID = 111,
+        upNeighborID = -99998,
+        downNeighborID = -99998,
+        rightNeighborID = -99998,
+        leftNeighborID = -99998
+      });
+      for (int index = 0; index < this.equipmentIcons.Count; ++index)
+      {
+        this.equipmentIcons[index].bounds.X = this.xPositionOnScreen - 64 + 9;
+        this.equipmentIcons[index].bounds.Y = this.yPositionOnScreen + 192 + index * 64;
+      }
+    }
 
-		protected int _sparklingTimer;
+    public override void snapToDefaultClickableComponent()
+    {
+      this.currentlySnappedComponent = this.getComponentWithID(0);
+      this.snapCursorToCurrentSnappedComponent();
+    }
 
-		public const int region_leftIngredient = 998;
+    public bool IsBusy() => this._timeUntilCraft > 0 || this._sparklingTimer > 0;
 
-		public const int region_rightIngredient = 997;
+    public override bool readyToClose() => base.readyToClose() && this.heldItem == null && !this.IsBusy();
 
-		public const int region_startButton = 996;
+    public bool HighlightItems(Item i)
+    {
+      if (i == null || i != null && !this.IsValidCraftIngredient(i))
+        return false;
+      if (this._highlightDictionary == null)
+        this.GenerateHighlightDictionary();
+      if (!this._highlightDictionary.ContainsKey(i))
+      {
+        this._highlightDictionary = (Dictionary<Item, bool>) null;
+        this.GenerateHighlightDictionary();
+      }
+      return this._highlightDictionary[i];
+    }
 
-		public const int region_resultItem = 995;
+    public void GenerateHighlightDictionary()
+    {
+      this._highlightDictionary = new Dictionary<Item, bool>();
+      List<Item> objList = new List<Item>((IEnumerable<Item>) this.inventory.actualInventory);
+      if (Game1.player.leftRing.Value != null)
+        objList.Add((Item) Game1.player.leftRing.Value);
+      if (Game1.player.rightRing.Value != null)
+        objList.Add((Item) Game1.player.rightRing.Value);
+      foreach (Item obj in objList)
+      {
+        if (obj != null)
+        {
+          if (Utility.IsNormalObjectAtParentSheetIndex(obj, 848))
+            this._highlightDictionary[obj] = true;
+          else if (this.leftIngredientSpot.item == null && this.rightIngredientSpot.item == null)
+          {
+            bool flag = false;
+            if (obj is Ring)
+              flag = true;
+            if (obj is Tool && BaseEnchantment.GetAvailableEnchantmentsForItem(obj as Tool).Count > 0)
+              flag = true;
+            if (BaseEnchantment.GetEnchantmentFromItem((Item) null, obj) != null)
+              flag = true;
+            this._highlightDictionary[obj] = flag;
+          }
+          else
+            this._highlightDictionary[obj] = (this.leftIngredientSpot.item == null || this.rightIngredientSpot.item == null) && (this.leftIngredientSpot.item == null ? this.IsValidCraft(obj, this.rightIngredientSpot.item) : this.IsValidCraft(this.leftIngredientSpot.item, obj));
+        }
+      }
+    }
 
-		public const int region_unforgeButton = 994;
+    private void _leftIngredientSpotClicked()
+    {
+      Item obj = this.leftIngredientSpot.item;
+      if (this.heldItem != null && !this.IsValidCraftIngredient(this.heldItem) || this.heldItem != null && !(this.heldItem is Tool) && !(this.heldItem is Ring))
+        return;
+      Game1.playSound("stoneStep");
+      this.leftIngredientSpot.item = this.heldItem;
+      this.heldItem = obj;
+      this._highlightDictionary = (Dictionary<Item, bool>) null;
+      this._ValidateCraft();
+    }
 
-		public ClickableTextureComponent craftResultDisplay;
+    public bool IsValidCraftIngredient(Item item) => item.canBeTrashed() || item is Tool && BaseEnchantment.GetAvailableEnchantmentsForItem(item as Tool).Count > 0;
 
-		public ClickableTextureComponent leftIngredientSpot;
+    private void _rightIngredientSpotClicked()
+    {
+      Item obj = this.rightIngredientSpot.item;
+      if (this.heldItem != null && !this.IsValidCraftIngredient(this.heldItem) || this.heldItem != null && (int) (NetFieldBase<int, NetInt>) this.heldItem.parentSheetIndex == 848)
+        return;
+      Game1.playSound("stoneStep");
+      this.rightIngredientSpot.item = this.heldItem;
+      this.heldItem = obj;
+      this._highlightDictionary = (Dictionary<Item, bool>) null;
+      this._ValidateCraft();
+    }
 
-		public ClickableTextureComponent rightIngredientSpot;
+    public override void receiveKeyPress(Keys key)
+    {
+      if (key == Keys.Delete)
+      {
+        if (this.heldItem == null || !this.IsValidCraftIngredient(this.heldItem))
+          return;
+        Utility.trashItem(this.heldItem);
+        this.heldItem = (Item) null;
+      }
+      else
+        base.receiveKeyPress(key);
+    }
 
-		public ClickableTextureComponent startTailoringButton;
+    public bool IsHoldingEquippedItem()
+    {
+      if (this.heldItem == null)
+        return false;
+      return Game1.player.IsEquippedItem(this.heldItem) || Game1.player.IsEquippedItem(Utility.PerformSpecialItemGrabReplacement(this.heldItem));
+    }
 
-		public ClickableComponent unforgeButton;
+    public override void receiveLeftClick(int x, int y, bool playSound = true)
+    {
+      Item heldItem1 = this.heldItem;
+      Game1.player.IsEquippedItem(heldItem1);
+      base.receiveLeftClick(x, y, true);
+      foreach (ClickableComponent equipmentIcon in this.equipmentIcons)
+      {
+        if (equipmentIcon.containsPoint(x, y))
+        {
+          string name = equipmentIcon.name;
+          if (!(name == "Ring1"))
+          {
+            if (!(name == "Ring2") || !this.HighlightItems((Item) Game1.player.rightRing.Value) && Game1.player.rightRing.Value != null)
+              return;
+            Item heldItem2 = this.heldItem;
+            Item obj = (Item) Game1.player.rightRing.Value;
+            if (obj == this.heldItem)
+              return;
+            switch (heldItem2)
+            {
+              case null:
+              case Ring _:
+                if (Game1.player.rightRing.Value != null)
+                  Game1.player.rightRing.Value.onUnequip(Game1.player, Game1.currentLocation);
+                Game1.player.rightRing.Value = heldItem2 as Ring;
+                this.heldItem = obj;
+                if (Game1.player.rightRing.Value != null)
+                {
+                  Game1.player.rightRing.Value.onEquip(Game1.player, Game1.currentLocation);
+                  Game1.playSound("crit");
+                }
+                else if (this.heldItem != null)
+                  Game1.playSound("dwop");
+                this._highlightDictionary = (Dictionary<Item, bool>) null;
+                this._ValidateCraft();
+                return;
+              default:
+                return;
+            }
+          }
+          else
+          {
+            if (!this.HighlightItems((Item) Game1.player.leftRing.Value) && Game1.player.leftRing.Value != null)
+              return;
+            Item heldItem3 = this.heldItem;
+            Item obj = (Item) Game1.player.leftRing.Value;
+            if (obj == this.heldItem)
+              return;
+            switch (heldItem3)
+            {
+              case null:
+              case Ring _:
+                if (Game1.player.leftRing.Value != null)
+                  Game1.player.leftRing.Value.onUnequip(Game1.player, Game1.currentLocation);
+                Game1.player.leftRing.Value = heldItem3 as Ring;
+                this.heldItem = obj;
+                if (Game1.player.leftRing.Value != null)
+                {
+                  Game1.player.leftRing.Value.onEquip(Game1.player, Game1.currentLocation);
+                  Game1.playSound("crit");
+                }
+                else if (this.heldItem != null)
+                  Game1.playSound("dwop");
+                this._highlightDictionary = (Dictionary<Item, bool>) null;
+                this._ValidateCraft();
+                return;
+              default:
+                return;
+            }
+          }
+        }
+      }
+      KeyboardState keyboardState = Game1.GetKeyboardState();
+      if (keyboardState.IsKeyDown(Keys.LeftShift) && heldItem1 != this.heldItem && this.heldItem != null)
+      {
+        if (this.heldItem is Tool || this.heldItem is Ring && this.leftIngredientSpot.item == null)
+          this._leftIngredientSpotClicked();
+        else
+          this._rightIngredientSpotClicked();
+      }
+      if (this.IsBusy())
+        return;
+      if (this.leftIngredientSpot.containsPoint(x, y))
+      {
+        this._leftIngredientSpotClicked();
+        keyboardState = Game1.GetKeyboardState();
+        if (keyboardState.IsKeyDown(Keys.LeftShift) && this.heldItem != null)
+        {
+          if (Game1.player.IsEquippedItem(this.heldItem))
+            this.heldItem = (Item) null;
+          else
+            this.heldItem = this.inventory.tryToAddItem(this.heldItem, "");
+        }
+      }
+      else if (this.rightIngredientSpot.containsPoint(x, y))
+      {
+        this._rightIngredientSpotClicked();
+        keyboardState = Game1.GetKeyboardState();
+        if (keyboardState.IsKeyDown(Keys.LeftShift) && this.heldItem != null)
+        {
+          if (Game1.player.IsEquippedItem(this.heldItem))
+            this.heldItem = (Item) null;
+          else
+            this.heldItem = this.inventory.tryToAddItem(this.heldItem, "");
+        }
+      }
+      else if (this.startTailoringButton.containsPoint(x, y))
+      {
+        if (this.heldItem == null)
+        {
+          bool flag = false;
+          if (!this.CanFitCraftedItem())
+          {
+            Game1.playSound("cancel");
+            Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
+            this._timeUntilCraft = 0;
+            flag = true;
+          }
+          if (!flag && this.IsValidCraft(this.leftIngredientSpot.item, this.rightIngredientSpot.item) && Game1.player.hasItemInInventory(848, this.GetForgeCost(this.leftIngredientSpot.item, this.rightIngredientSpot.item)))
+          {
+            Game1.playSound("bigSelect");
+            this.startTailoringButton.scale = this.startTailoringButton.baseScale;
+            this._timeUntilCraft = 1600;
+            this._clankEffectTimer = 300;
+            this._UpdateDescriptionText();
+            int forgeCost = this.GetForgeCost(this.leftIngredientSpot.item, this.rightIngredientSpot.item);
+            for (int index = 0; index < forgeCost; ++index)
+              this.tempSprites.Add(new TemporaryAnimatedSprite("", new Rectangle(143, 17, 14, 15), new Vector2((float) (this.xPositionOnScreen + 276), (float) (this.yPositionOnScreen + 300)), false, 0.1f, Color.White)
+              {
+                texture = this.forgeTextures,
+                motion = new Vector2(-4f, -4f),
+                scale = 4f,
+                layerDepth = 1f,
+                startSound = "boulderCrack",
+                delayBeforeAnimationStart = 1400 / forgeCost * index
+              });
+            if (this.rightIngredientSpot.item != null && (int) (NetFieldBase<int, NetInt>) this.rightIngredientSpot.item.parentSheetIndex == 74)
+            {
+              this._sparklingTimer = 900;
+              Rectangle bounds1 = this.leftIngredientSpot.bounds;
+              bounds1.Offset(-32, -32);
+              List<TemporaryAnimatedSprite> temporaryAnimatedSpriteList = Utility.sparkleWithinArea(bounds1, 6, Color.White, 80, 1600);
+              temporaryAnimatedSpriteList.First<TemporaryAnimatedSprite>().startSound = "discoverMineral";
+              this.tempSprites.AddRange((IEnumerable<TemporaryAnimatedSprite>) temporaryAnimatedSpriteList);
+              Rectangle bounds2 = this.rightIngredientSpot.bounds;
+              bounds2.Inflate(-16, -16);
+              Utility.getRandomPositionInThisRectangle(bounds2, Game1.random);
+              int num = 30;
+              for (int index = 0; index < num; ++index)
+                this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 48, 2, 2), Utility.getRandomPositionInThisRectangle(bounds2, Game1.random), false, 0.0f, Color.White)
+                {
+                  motion = new Vector2(-4f, 0.0f),
+                  yPeriodic = true,
+                  yPeriodicRange = 16f,
+                  yPeriodicLoopTime = 1200f,
+                  scale = 4f,
+                  layerDepth = 1f,
+                  animationLength = 12,
+                  interval = (float) Game1.random.Next(20, 40),
+                  totalNumberOfLoops = 1,
+                  delayBeforeAnimationStart = this._clankEffectTimer / num * index
+                });
+            }
+          }
+          else
+            Game1.playSound("sell");
+        }
+        else
+          Game1.playSound("sell");
+      }
+      else if (this.unforgeButton.containsPoint(x, y))
+      {
+        if (this.rightIngredientSpot.item == null)
+        {
+          if (this.IsValidUnforge())
+          {
+            if (this.leftIngredientSpot.item is MeleeWeapon && !Game1.player.couldInventoryAcceptThisObject(848, (this.leftIngredientSpot.item as MeleeWeapon).GetTotalForgeLevels() * 5 + ((this.leftIngredientSpot.item as MeleeWeapon).GetTotalForgeLevels() - 1) * 2))
+            {
+              this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_noroom");
+              Game1.playSound("cancel");
+            }
+            else if (this.leftIngredientSpot.item is CombinedRing && Game1.player.freeSpotsInInventory() < 2)
+            {
+              this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_noroom");
+              Game1.playSound("cancel");
+            }
+            else
+            {
+              this.unforging = true;
+              this._timeUntilCraft = 1600;
+              int num = this.GetForgeCost(this.leftIngredientSpot.item, this.rightIngredientSpot.item) / 2;
+              for (int index = 0; index < num; ++index)
+              {
+                Vector2 vector2 = new Vector2((float) Game1.random.Next(-4, 5), (float) Game1.random.Next(-4, 5));
+                if ((double) vector2.X == 0.0 && (double) vector2.Y == 0.0)
+                  vector2 = new Vector2(-4f, -4f);
+                this.tempSprites.Add(new TemporaryAnimatedSprite("", new Rectangle(143, 17, 14, 15), new Vector2((float) this.leftIngredientSpot.bounds.X, (float) this.leftIngredientSpot.bounds.Y), false, 0.1f, Color.White)
+                {
+                  alpha = 0.01f,
+                  alphaFade = -0.1f,
+                  alphaFadeFade = -0.005f,
+                  texture = this.forgeTextures,
+                  motion = vector2,
+                  scale = 4f,
+                  layerDepth = 1f,
+                  startSound = "boulderCrack",
+                  delayBeforeAnimationStart = 1100 / num * index
+                });
+              }
+              Game1.playSound("debuffHit");
+            }
+          }
+          else
+          {
+            this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_unforge_invalid");
+            Game1.playSound("cancel");
+          }
+        }
+        else
+        {
+          this.displayedDescription = !this.IsValidUnforge(true) ? Game1.content.LoadString("Strings\\UI:Forge_unforge_invalid") : Game1.content.LoadString("Strings\\UI:Forge_unforge_right_slot");
+          Game1.playSound("cancel");
+        }
+      }
+      if (this.heldItem == null || this.isWithinBounds(x, y) || !this.heldItem.canBeTrashed())
+        return;
+      if (Game1.player.IsEquippedItem(this.heldItem))
+      {
+        if (this.heldItem == Game1.player.hat.Value)
+          Game1.player.hat.Value = (Hat) null;
+        else if (this.heldItem == Game1.player.shirtItem.Value)
+          Game1.player.shirtItem.Value = (Clothing) null;
+        else if (this.heldItem == Game1.player.pantsItem.Value)
+          Game1.player.pantsItem.Value = (Clothing) null;
+      }
+      Game1.playSound("throwDownITem");
+      Game1.createItemDebris(this.heldItem, Game1.player.getStandingPosition(), Game1.player.FacingDirection);
+      this.heldItem = (Item) null;
+    }
 
-		public List<ClickableComponent> equipmentIcons = new List<ClickableComponent>();
+    protected virtual bool CheckHeldItem(Func<Item, bool> f = null) => f == null ? this.heldItem != null : f(this.heldItem);
 
-		public const int region_ring_1 = 110;
+    public virtual int GetForgeCostAtLevel(int level) => 10 + level * 5;
 
-		public const int region_ring_2 = 111;
+    public virtual int GetForgeCost(Item left_item, Item right_item)
+    {
+      if (right_item != null && (int) (NetFieldBase<int, NetInt>) right_item.parentSheetIndex == 896 || right_item != null && (int) (NetFieldBase<int, NetInt>) right_item.parentSheetIndex == 74)
+        return 20;
+      if (right_item != null && (int) (NetFieldBase<int, NetInt>) right_item.parentSheetIndex == 72 || left_item is MeleeWeapon && right_item is MeleeWeapon)
+        return 10;
+      if (left_item != null && left_item is Tool)
+        return this.GetForgeCostAtLevel((left_item as Tool).GetTotalForgeLevels());
+      return left_item != null && left_item is Ring && right_item != null && right_item is Ring ? 20 : 1;
+    }
 
-		public const int CRAFT_TIME = 1600;
+    protected void _ValidateCraft()
+    {
+      Item left_item = this.leftIngredientSpot.item;
+      Item right_item = this.rightIngredientSpot.item;
+      if (left_item == null || right_item == null)
+        this._craftState = ForgeMenu.CraftState.MissingIngredients;
+      else if (this.IsValidCraft(left_item, right_item))
+      {
+        this._craftState = ForgeMenu.CraftState.Valid;
+        Item one = left_item.getOne();
+        if (right_item != null && Utility.IsNormalObjectAtParentSheetIndex(right_item, 72))
+        {
+          (one as Tool).AddEnchantment((BaseEnchantment) new DiamondEnchantment());
+          this.craftResultDisplay.item = one;
+        }
+        else
+          this.craftResultDisplay.item = this.CraftItem(one, right_item.getOne());
+      }
+      else
+        this._craftState = ForgeMenu.CraftState.InvalidRecipe;
+      this._UpdateDescriptionText();
+    }
 
-		public Texture2D forgeTextures;
+    protected void _UpdateDescriptionText()
+    {
+      if (this.IsBusy())
+      {
+        if (this.rightIngredientSpot.item != null && (int) (NetFieldBase<int, NetInt>) this.rightIngredientSpot.item.parentSheetIndex == 74)
+          this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_enchanting");
+        else
+          this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_forging");
+      }
+      else if (this._craftState == ForgeMenu.CraftState.MissingIngredients)
+        this.displayedDescription = this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_description1") + Environment.NewLine + Environment.NewLine + Game1.content.LoadString("Strings\\UI:Forge_description2");
+      else if (this._craftState == ForgeMenu.CraftState.MissingShards)
+      {
+        if (this.heldItem != null && this.heldItem.ParentSheetIndex == 848)
+          this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_shards");
+        else
+          this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_notenoughshards");
+      }
+      else if (this._craftState == ForgeMenu.CraftState.Valid)
+      {
+        if (!this.CanFitCraftedItem())
+          this.displayedDescription = Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588");
+        else
+          this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_valid");
+      }
+      else if (this._craftState == ForgeMenu.CraftState.InvalidRecipe)
+        this.displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_wrongorder");
+      else
+        this.displayedDescription = "";
+    }
 
-		protected Dictionary<Item, bool> _highlightDictionary;
+    public bool IsValidCraft(Item left_item, Item right_item) => left_item != null && right_item != null && (left_item is Tool && (left_item as Tool).CanForge(right_item) || left_item is Ring && right_item is Ring && (left_item as Ring).CanCombine(right_item as Ring));
 
-		protected Dictionary<string, Item> _lastValidEquippedItems;
+    public Item CraftItem(Item left_item, Item right_item, bool forReal = false)
+    {
+      if (left_item == null || right_item == null)
+        return (Item) null;
+      switch (left_item)
+      {
+        case Tool _ when !(left_item as Tool).Forge(right_item, forReal):
+          return (Item) null;
+        case Ring _ when right_item is Ring:
+          left_item = (Item) (left_item as Ring).Combine(right_item as Ring);
+          break;
+      }
+      return left_item;
+    }
 
-		protected List<TemporaryAnimatedSprite> tempSprites = new List<TemporaryAnimatedSprite>();
+    public void SpendRightItem()
+    {
+      if (this.rightIngredientSpot.item == null)
+        return;
+      --this.rightIngredientSpot.item.Stack;
+      if (this.rightIngredientSpot.item.Stack > 0 && this.rightIngredientSpot.item.maximumStackSize() != 1)
+        return;
+      this.rightIngredientSpot.item = (Item) null;
+    }
 
-		private bool unforging;
+    public void SpendLeftItem()
+    {
+      if (this.leftIngredientSpot.item == null)
+        return;
+      --this.leftIngredientSpot.item.Stack;
+      if (this.leftIngredientSpot.item.Stack > 0 && this.leftIngredientSpot.item.maximumStackSize() != 1)
+        return;
+      this.leftIngredientSpot.item = (Item) null;
+    }
 
-		protected string displayedDescription = "";
+    public override void receiveRightClick(int x, int y, bool playSound = true)
+    {
+      if (this.IsBusy())
+        return;
+      base.receiveRightClick(x, y, true);
+    }
 
-		protected CraftState _craftState;
+    public override void performHoverAction(int x, int y)
+    {
+      if (this.IsBusy())
+        return;
+      this.hoveredItem = (Item) null;
+      base.performHoverAction(x, y);
+      this.hoverText = "";
+      for (int index = 0; index < this.equipmentIcons.Count; ++index)
+      {
+        if (this.equipmentIcons[index].containsPoint(x, y))
+        {
+          if (this.equipmentIcons[index].name == "Ring1")
+            this.hoveredItem = (Item) Game1.player.leftRing.Value;
+          else if (this.equipmentIcons[index].name == "Ring2")
+            this.hoveredItem = (Item) Game1.player.rightRing.Value;
+        }
+      }
+      if (this.craftResultDisplay.visible && this.craftResultDisplay.containsPoint(x, y) && this.craftResultDisplay.item != null)
+        this.hoveredItem = this.craftResultDisplay.item;
+      if (this.leftIngredientSpot.containsPoint(x, y) && this.leftIngredientSpot.item != null)
+        this.hoveredItem = this.leftIngredientSpot.item;
+      if (this.rightIngredientSpot.containsPoint(x, y) && this.rightIngredientSpot.item != null)
+        this.hoveredItem = this.rightIngredientSpot.item;
+      if (this.unforgeButton.containsPoint(x, y))
+        this.hoverText = Game1.content.LoadString("Strings\\UI:Forge_Unforge");
+      if (this._craftState == ForgeMenu.CraftState.Valid && this.CanFitCraftedItem())
+        this.startTailoringButton.tryHover(x, y, 0.33f);
+      else
+        this.startTailoringButton.tryHover(-999, -999);
+    }
 
-		public Vector2 questionMarkOffset;
+    public bool CanFitCraftedItem() => this.craftResultDisplay.item == null || Utility.canItemBeAddedToThisInventoryList(this.craftResultDisplay.item, this.inventory.actualInventory);
 
-		public ForgeMenu()
-			: base(null, okButton: true, trashCan: true, 12, 132)
-		{
-			Game1.playSound("bigSelect");
-			if (yPositionOnScreen == IClickableMenu.borderWidth + IClickableMenu.spaceToClearTopBorder)
-			{
-				movePosition(0, -IClickableMenu.spaceToClearTopBorder);
-			}
-			inventory.highlightMethod = HighlightItems;
-			forgeTextures = Game1.temporaryContent.Load<Texture2D>("LooseSprites\\ForgeMenu");
-			_CreateButtons();
-			if (trashCan != null)
-			{
-				trashCan.myID = 106;
-			}
-			if (okButton != null)
-			{
-				okButton.leftNeighborID = 11;
-			}
-			if (Game1.options.SnappyMenus)
-			{
-				populateClickableComponentList();
-				snapToDefaultClickableComponent();
-			}
-			_ValidateCraft();
-		}
+    public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
+    {
+      base.gameWindowSizeChanged(oldBounds, newBounds);
+      int yPosition = this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + IClickableMenu.borderWidth + 192 - 16 + 128 + 4;
+      this.inventory = new InventoryMenu(this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 12, yPosition, false, highlightMethod: this.inventory.highlightMethod);
+      this._CreateButtons();
+    }
 
-		protected void _CreateButtons()
-		{
-			leftIngredientSpot = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + 204, yPositionOnScreen + 212, 64, 64), forgeTextures, new Rectangle(142, 0, 16, 16), 4f)
-			{
-				myID = 998,
-				downNeighborID = -99998,
-				leftNeighborID = 110,
-				rightNeighborID = 997,
-				item = ((leftIngredientSpot != null) ? leftIngredientSpot.item : null),
-				fullyImmutable = true
-			};
-			rightIngredientSpot = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + 348, yPositionOnScreen + 212, 64, 64), forgeTextures, new Rectangle(142, 0, 16, 16), 4f)
-			{
-				myID = 997,
-				downNeighborID = 996,
-				leftNeighborID = 998,
-				rightNeighborID = 994,
-				item = ((rightIngredientSpot != null) ? rightIngredientSpot.item : null),
-				fullyImmutable = true
-			};
-			startTailoringButton = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + 204, yPositionOnScreen + 308, 52, 56), forgeTextures, new Rectangle(0, 80, 13, 14), 4f)
-			{
-				myID = 996,
-				downNeighborID = -99998,
-				leftNeighborID = 111,
-				rightNeighborID = 994,
-				upNeighborID = 998,
-				item = ((startTailoringButton != null) ? startTailoringButton.item : null),
-				fullyImmutable = true
-			};
-			unforgeButton = new ClickableComponent(new Rectangle(xPositionOnScreen + 484, yPositionOnScreen + 312, 40, 44), "Unforge")
-			{
-				myID = 994,
-				downNeighborID = -99998,
-				leftNeighborID = 996,
-				rightNeighborID = 995,
-				upNeighborID = 997,
-				fullyImmutable = true
-			};
-			if (inventory.inventory != null && inventory.inventory.Count >= 12)
-			{
-				for (int j = 0; j < 12; j++)
-				{
-					if (inventory.inventory[j] != null)
-					{
-						inventory.inventory[j].upNeighborID = -99998;
-					}
-				}
-			}
-			craftResultDisplay = new ClickableTextureComponent(new Rectangle(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 4 + 660, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + 8 + 232, 64, 64), forgeTextures, new Rectangle(0, 208, 16, 16), 4f)
-			{
-				myID = 995,
-				downNeighborID = -99998,
-				leftNeighborID = 996,
-				upNeighborID = 997,
-				item = ((craftResultDisplay != null) ? craftResultDisplay.item : null)
-			};
-			equipmentIcons = new List<ClickableComponent>();
-			equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Ring1")
-			{
-				myID = 110,
-				leftNeighborID = -99998,
-				downNeighborID = -99998,
-				upNeighborID = -99998,
-				rightNeighborID = -99998
-			});
-			equipmentIcons.Add(new ClickableComponent(new Rectangle(0, 0, 64, 64), "Ring2")
-			{
-				myID = 111,
-				upNeighborID = -99998,
-				downNeighborID = -99998,
-				rightNeighborID = -99998,
-				leftNeighborID = -99998
-			});
-			for (int i = 0; i < equipmentIcons.Count; i++)
-			{
-				equipmentIcons[i].bounds.X = xPositionOnScreen - 64 + 9;
-				equipmentIcons[i].bounds.Y = yPositionOnScreen + 192 + i * 64;
-			}
-		}
+    public override void emergencyShutDown()
+    {
+      this._OnCloseMenu();
+      base.emergencyShutDown();
+    }
 
-		public override void snapToDefaultClickableComponent()
-		{
-			currentlySnappedComponent = getComponentWithID(0);
-			snapCursorToCurrentSnappedComponent();
-		}
+    public override void update(GameTime time)
+    {
+      base.update(time);
+      for (int index = this.tempSprites.Count - 1; index >= 0; --index)
+      {
+        if (this.tempSprites[index].update(time))
+          this.tempSprites.RemoveAt(index);
+      }
+      if (this.leftIngredientSpot.item != null && this.rightIngredientSpot.item != null && !Game1.player.hasItemInInventory(848, this.GetForgeCost(this.leftIngredientSpot.item, this.rightIngredientSpot.item)))
+      {
+        if (this._craftState != ForgeMenu.CraftState.MissingShards)
+        {
+          this._craftState = ForgeMenu.CraftState.MissingShards;
+          this.craftResultDisplay.item = (Item) null;
+          this._UpdateDescriptionText();
+        }
+      }
+      else if (this._craftState == ForgeMenu.CraftState.MissingShards)
+        this._ValidateCraft();
+      this.descriptionText = this.displayedDescription;
+      ref Vector2 local1 = ref this.questionMarkOffset;
+      TimeSpan timeSpan = time.TotalGameTime;
+      double num1 = Math.Sin(timeSpan.TotalSeconds * 2.5) * 4.0;
+      local1.X = (float) num1;
+      ref Vector2 local2 = ref this.questionMarkOffset;
+      timeSpan = time.TotalGameTime;
+      double num2 = Math.Cos(timeSpan.TotalSeconds * 5.0) * -4.0;
+      local2.Y = (float) num2;
+      bool flag = this.CanFitCraftedItem();
+      if (((this._craftState != ForgeMenu.CraftState.Valid ? 0 : (!this.IsBusy() ? 1 : 0)) & (flag ? 1 : 0)) != 0)
+        this.craftResultDisplay.visible = true;
+      else
+        this.craftResultDisplay.visible = false;
+      if (this._timeUntilCraft <= 0 && this._sparklingTimer <= 0)
+        return;
+      this.startTailoringButton.tryHover(this.startTailoringButton.bounds.Center.X, this.startTailoringButton.bounds.Center.Y, 0.33f);
+      int timeUntilCraft = this._timeUntilCraft;
+      timeSpan = time.ElapsedGameTime;
+      int totalMilliseconds1 = (int) timeSpan.TotalMilliseconds;
+      this._timeUntilCraft = timeUntilCraft - totalMilliseconds1;
+      int clankEffectTimer = this._clankEffectTimer;
+      timeSpan = time.ElapsedGameTime;
+      int totalMilliseconds2 = (int) timeSpan.TotalMilliseconds;
+      this._clankEffectTimer = clankEffectTimer - totalMilliseconds2;
+      if (this._timeUntilCraft <= 0 && this._sparklingTimer > 0)
+      {
+        int sparklingTimer = this._sparklingTimer;
+        timeSpan = time.ElapsedGameTime;
+        int totalMilliseconds3 = (int) timeSpan.TotalMilliseconds;
+        this._sparklingTimer = sparklingTimer - totalMilliseconds3;
+      }
+      else if (this._clankEffectTimer <= 0 && !this.unforging)
+      {
+        this._clankEffectTimer = 450;
+        if (this.rightIngredientSpot.item != null && (int) (NetFieldBase<int, NetInt>) this.rightIngredientSpot.item.parentSheetIndex == 74)
+        {
+          Rectangle bounds = this.rightIngredientSpot.bounds;
+          bounds.Inflate(-16, -16);
+          Utility.getRandomPositionInThisRectangle(bounds, Game1.random);
+          int num3 = 30;
+          for (int index = 0; index < num3; ++index)
+            this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 48, 2, 2), Utility.getRandomPositionInThisRectangle(bounds, Game1.random), false, 0.0f, Color.White)
+            {
+              motion = new Vector2(-4f, 0.0f),
+              yPeriodic = true,
+              yPeriodicRange = 16f,
+              yPeriodicLoopTime = 1200f,
+              scale = 4f,
+              layerDepth = 1f,
+              animationLength = 12,
+              interval = (float) Game1.random.Next(20, 40),
+              totalNumberOfLoops = 1,
+              delayBeforeAnimationStart = this._clankEffectTimer / num3 * index
+            });
+        }
+        else
+        {
+          Game1.playSound("crafting");
+          Game1.playSound("clank");
+          Rectangle bounds = this.leftIngredientSpot.bounds;
+          bounds.Inflate(-21, -21);
+          Vector2 positionInThisRectangle = Utility.getRandomPositionInThisRectangle(bounds, Game1.random);
+          this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), positionInThisRectangle, false, 0.015f, Color.White)
+          {
+            motion = new Vector2(-1f, -10f),
+            acceleration = new Vector2(0.0f, 0.6f),
+            scale = 4f,
+            layerDepth = 1f,
+            animationLength = 12,
+            interval = 30f,
+            totalNumberOfLoops = 1
+          });
+          this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), positionInThisRectangle, false, 0.015f, Color.White)
+          {
+            motion = new Vector2(0.0f, -8f),
+            acceleration = new Vector2(0.0f, 0.48f),
+            scale = 4f,
+            layerDepth = 1f,
+            animationLength = 12,
+            interval = 30f,
+            totalNumberOfLoops = 1
+          });
+          this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), positionInThisRectangle, false, 0.015f, Color.White)
+          {
+            motion = new Vector2(1f, -10f),
+            acceleration = new Vector2(0.0f, 0.6f),
+            scale = 4f,
+            layerDepth = 1f,
+            animationLength = 12,
+            interval = 30f,
+            totalNumberOfLoops = 1
+          });
+          this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), positionInThisRectangle, false, 0.015f, Color.White)
+          {
+            motion = new Vector2(-2f, -8f),
+            acceleration = new Vector2(0.0f, 0.6f),
+            scale = 2f,
+            layerDepth = 1f,
+            animationLength = 12,
+            interval = 30f,
+            totalNumberOfLoops = 1
+          });
+          this.tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), positionInThisRectangle, false, 0.015f, Color.White)
+          {
+            motion = new Vector2(2f, -8f),
+            acceleration = new Vector2(0.0f, 0.6f),
+            scale = 2f,
+            layerDepth = 1f,
+            animationLength = 12,
+            interval = 30f,
+            totalNumberOfLoops = 1
+          });
+        }
+      }
+      if (this._timeUntilCraft > 0 || this._sparklingTimer > 0)
+        return;
+      if (this.unforging)
+      {
+        if (this.leftIngredientSpot.item is MeleeWeapon)
+        {
+          MeleeWeapon meleeWeapon = this.leftIngredientSpot.item as MeleeWeapon;
+          int num4 = 0;
+          if (meleeWeapon != null)
+          {
+            int totalForgeLevels = meleeWeapon.GetTotalForgeLevels(true);
+            for (int level = 0; level < totalForgeLevels; ++level)
+              num4 += this.GetForgeCostAtLevel(level);
+            if (meleeWeapon.hasEnchantmentOfType<DiamondEnchantment>())
+              num4 += this.GetForgeCost(this.leftIngredientSpot.item, (Item) new StardewValley.Object(72, 1));
+            for (int index = meleeWeapon.enchantments.Count - 1; index >= 0; --index)
+            {
+              if (meleeWeapon.enchantments[index].IsForge())
+                meleeWeapon.RemoveEnchantment(meleeWeapon.enchantments[index]);
+            }
+            if (meleeWeapon.appearance.Value >= 0)
+            {
+              meleeWeapon.appearance.Value = -1;
+              meleeWeapon.IndexOfMenuItemView = meleeWeapon.getDrawnItemIndex();
+              num4 += 10;
+            }
+            this.leftIngredientSpot.item = (Item) null;
+            Game1.playSound("coin");
+            this.heldItem = (Item) meleeWeapon;
+          }
+          Utility.CollectOrDrop((Item) new StardewValley.Object(848, num4 / 2));
+        }
+        else if (this.leftIngredientSpot.item is CombinedRing)
+        {
+          if (this.leftIngredientSpot.item is CombinedRing combinedRing)
+          {
+            List<Ring> ringList = new List<Ring>((IEnumerable<Ring>) combinedRing.combinedRings);
+            combinedRing.combinedRings.Clear();
+            foreach (Item obj in ringList)
+              Utility.CollectOrDrop(obj);
+            this.leftIngredientSpot.item = (Item) null;
+            Game1.playSound("coin");
+          }
+          Utility.CollectOrDrop((Item) new StardewValley.Object(848, 10));
+        }
+        this.unforging = false;
+        this._timeUntilCraft = 0;
+        this._ValidateCraft();
+      }
+      else
+      {
+        Game1.player.removeItemsFromInventory(848, this.GetForgeCost(this.leftIngredientSpot.item, this.rightIngredientSpot.item));
+        Item i = this.CraftItem(this.leftIngredientSpot.item, this.rightIngredientSpot.item, true);
+        if (i != null && !Utility.canItemBeAddedToThisInventoryList(i, this.inventory.actualInventory))
+        {
+          Game1.playSound("cancel");
+          Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
+          this._timeUntilCraft = 0;
+        }
+        else
+        {
+          if (this.leftIngredientSpot.item == i)
+            this.leftIngredientSpot.item = (Item) null;
+          else
+            this.SpendLeftItem();
+          this.SpendRightItem();
+          Game1.playSound("coin");
+          this.heldItem = i;
+          this._timeUntilCraft = 0;
+          this._ValidateCraft();
+        }
+      }
+    }
 
-		public bool IsBusy()
-		{
-			if (_timeUntilCraft <= 0)
-			{
-				return _sparklingTimer > 0;
-			}
-			return true;
-		}
+    public virtual bool IsValidUnforge(bool ignore_right_slot_occupancy = false) => (ignore_right_slot_occupancy || this.rightIngredientSpot.item == null) && (this.leftIngredientSpot.item != null && this.leftIngredientSpot.item is MeleeWeapon && ((this.leftIngredientSpot.item as MeleeWeapon).GetTotalForgeLevels() > 0 || (this.leftIngredientSpot.item as MeleeWeapon).appearance.Value >= 0) || this.leftIngredientSpot.item != null && this.leftIngredientSpot.item is CombinedRing);
 
-		public override bool readyToClose()
-		{
-			if (base.readyToClose() && heldItem == null)
-			{
-				return !IsBusy();
-			}
-			return false;
-		}
+    public override void draw(SpriteBatch b)
+    {
+      b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.6f);
+      Game1.DrawBox(this.xPositionOnScreen - 64, this.yPositionOnScreen + 128, 128, 201, new Color?(new Color(116, 11, 3)));
+      Game1.player.FarmerRenderer.drawMiniPortrat(b, new Vector2((float) (this.xPositionOnScreen - 64) + 9.6f, (float) (this.yPositionOnScreen + 128)), 0.87f, 4f, 2, Game1.player);
+      this.draw(b, true, true, 116, 11, 3);
+      b.Draw(this.forgeTextures, new Vector2((float) (this.xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 - 4), (float) (this.yPositionOnScreen + IClickableMenu.spaceToClearTopBorder)), new Rectangle?(new Rectangle(0, 0, 142, 80)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
+      Color color = Color.White;
+      if (this._craftState == ForgeMenu.CraftState.MissingShards)
+        color = Color.Gray * 0.75f;
+      b.Draw(this.forgeTextures, new Vector2((float) (this.xPositionOnScreen + 276), (float) (this.yPositionOnScreen + 300)), new Rectangle?(new Rectangle(142, 16, 17, 17)), color, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.1f);
+      if (this.leftIngredientSpot.item != null && this.rightIngredientSpot.item != null && this.IsValidCraft(this.leftIngredientSpot.item, this.rightIngredientSpot.item))
+      {
+        int num = (this.GetForgeCost(this.leftIngredientSpot.item, this.rightIngredientSpot.item) - 10) / 5;
+        switch (num)
+        {
+          case 0:
+          case 1:
+          case 2:
+            b.Draw(this.forgeTextures, new Vector2((float) (this.xPositionOnScreen + 344), (float) (this.yPositionOnScreen + 320)), new Rectangle?(new Rectangle(142, 38 + num * 10, 17, 10)), Color.White * (this._craftState == ForgeMenu.CraftState.MissingShards ? 0.5f : 1f), 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.1f);
+            break;
+        }
+      }
+      if (this.IsValidUnforge())
+        b.Draw(this.forgeTextures, new Vector2((float) this.unforgeButton.bounds.X, (float) this.unforgeButton.bounds.Y), new Rectangle?(new Rectangle(143, 69, 11, 10)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.1f);
+      if (this._craftState == ForgeMenu.CraftState.Valid)
+      {
+        this.startTailoringButton.draw(b, Color.White, 0.96f, (int) Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 200 % 12);
+        this.startTailoringButton.drawItem(b, 16, 16);
+      }
+      Point point = new Point(0, 0);
+      bool flag1 = false;
+      bool flag2 = false;
+      Item obj = this.hoveredItem;
+      if (this.heldItem != null)
+        obj = this.heldItem;
+      if (obj != null && obj != this.leftIngredientSpot.item && obj != this.rightIngredientSpot.item && obj != this.craftResultDisplay.item)
+      {
+        if (obj is Tool)
+        {
+          if (this.leftIngredientSpot.item is Tool)
+            flag2 = true;
+          else
+            flag1 = true;
+        }
+        if (BaseEnchantment.GetEnchantmentFromItem(this.leftIngredientSpot.item, obj) != null)
+          flag2 = true;
+        if (obj is Ring && !(obj is CombinedRing) && (this.leftIngredientSpot.item == null || this.leftIngredientSpot.item is Ring) && (this.rightIngredientSpot.item == null || this.rightIngredientSpot.item is Ring))
+        {
+          flag1 = true;
+          flag2 = true;
+        }
+      }
+      foreach (ClickableComponent equipmentIcon in this.equipmentIcons)
+      {
+        string name = equipmentIcon.name;
+        if (!(name == "Ring1"))
+        {
+          if (name == "Ring2")
+          {
+            if (Game1.player.rightRing.Value != null)
+            {
+              b.Draw(this.forgeTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(0, 96, 16, 16)), Color.White);
+              float transparency = 1f;
+              if (!this.HighlightItems((Item) (Ring) (NetFieldBase<Ring, NetRef<Ring>>) Game1.player.rightRing))
+                transparency = 0.5f;
+              if (Game1.player.rightRing.Value == this.heldItem)
+                transparency = 0.5f;
+              Game1.player.rightRing.Value.drawInMenu(b, new Vector2((float) equipmentIcon.bounds.X, (float) equipmentIcon.bounds.Y), equipmentIcon.scale, transparency, 0.866f, StackDrawType.Hide);
+            }
+            else
+              b.Draw(this.forgeTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(16, 96, 16, 16)), Color.White);
+          }
+        }
+        else if (Game1.player.leftRing.Value != null)
+        {
+          b.Draw(this.forgeTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(0, 96, 16, 16)), Color.White);
+          float transparency = 1f;
+          if (!this.HighlightItems((Item) (Ring) (NetFieldBase<Ring, NetRef<Ring>>) Game1.player.leftRing))
+            transparency = 0.5f;
+          if (Game1.player.leftRing.Value == this.heldItem)
+            transparency = 0.5f;
+          Game1.player.leftRing.Value.drawInMenu(b, new Vector2((float) equipmentIcon.bounds.X, (float) equipmentIcon.bounds.Y), equipmentIcon.scale, transparency, 0.866f, StackDrawType.Hide);
+        }
+        else
+          b.Draw(this.forgeTextures, equipmentIcon.bounds, new Rectangle?(new Rectangle(16, 96, 16, 16)), Color.White);
+      }
+      if (!this.IsBusy())
+      {
+        if (flag1)
+          this.leftIngredientSpot.draw(b, Color.White, 0.87f);
+      }
+      else if (this._clankEffectTimer > 300 || this._timeUntilCraft > 0 && this.unforging)
+      {
+        point.X = Game1.random.Next(-1, 2);
+        point.Y = Game1.random.Next(-1, 2);
+      }
+      this.leftIngredientSpot.drawItem(b, point.X * 4, point.Y * 4);
+      if (this.craftResultDisplay.visible)
+      {
+        string text = Game1.content.LoadString("Strings\\UI:Tailor_MakeResult");
+        Vector2 position = new Vector2((float) this.craftResultDisplay.bounds.Center.X - Game1.smallFont.MeasureString(text).X / 2f, (float) this.craftResultDisplay.bounds.Top - Game1.smallFont.MeasureString(text).Y);
+        Utility.drawTextWithColoredShadow(b, text, Game1.smallFont, position, Game1.textColor * 0.75f, Color.Black * 0.2f);
+        if (this.craftResultDisplay.item != null)
+          this.craftResultDisplay.drawItem(b);
+      }
+      if (!this.IsBusy() && flag2)
+        this.rightIngredientSpot.draw(b, Color.White, 0.87f);
+      this.rightIngredientSpot.drawItem(b);
+      foreach (TemporaryAnimatedSprite tempSprite in this.tempSprites)
+        tempSprite.draw(b, true);
+      if (!this.hoverText.Equals(""))
+        IClickableMenu.drawHoverText(b, this.hoverText, Game1.smallFont, this.heldItem != null ? 32 : 0, this.heldItem != null ? 32 : 0);
+      else if (this.hoveredItem != null)
+      {
+        if (this.hoveredItem == this.craftResultDisplay.item && Utility.IsNormalObjectAtParentSheetIndex(this.rightIngredientSpot.item, 74))
+          BaseEnchantment.hideEnchantmentName = true;
+        IClickableMenu.drawToolTip(b, this.hoveredItem.getDescription(), this.hoveredItem.DisplayName, this.hoveredItem, this.heldItem != null);
+        BaseEnchantment.hideEnchantmentName = false;
+      }
+      if (this.heldItem != null)
+        this.heldItem.drawInMenu(b, new Vector2((float) (Game1.getOldMouseX() + 8), (float) (Game1.getOldMouseY() + 8)), 1f);
+      if (Game1.options.hardwareCursor)
+        return;
+      this.drawMouse(b);
+    }
 
-		public bool HighlightItems(Item i)
-		{
-			if (i == null)
-			{
-				return false;
-			}
-			if (i != null && !IsValidCraftIngredient(i))
-			{
-				return false;
-			}
-			if (_highlightDictionary == null)
-			{
-				GenerateHighlightDictionary();
-			}
-			if (!_highlightDictionary.ContainsKey(i))
-			{
-				_highlightDictionary = null;
-				GenerateHighlightDictionary();
-			}
-			return _highlightDictionary[i];
-		}
+    protected override void cleanupBeforeExit() => this._OnCloseMenu();
 
-		public void GenerateHighlightDictionary()
-		{
-			_highlightDictionary = new Dictionary<Item, bool>();
-			List<Item> item_list = new List<Item>(inventory.actualInventory);
-			if (Game1.player.leftRing.Value != null)
-			{
-				item_list.Add(Game1.player.leftRing.Value);
-			}
-			if (Game1.player.rightRing.Value != null)
-			{
-				item_list.Add(Game1.player.rightRing.Value);
-			}
-			foreach (Item item in item_list)
-			{
-				if (item != null)
-				{
-					if (Utility.IsNormalObjectAtParentSheetIndex(item, 848))
-					{
-						_highlightDictionary[item] = true;
-					}
-					else if (leftIngredientSpot.item == null && rightIngredientSpot.item == null)
-					{
-						bool valid = false;
-						if (item is Ring)
-						{
-							valid = true;
-						}
-						if (item is Tool && BaseEnchantment.GetAvailableEnchantmentsForItem(item as Tool).Count > 0)
-						{
-							valid = true;
-						}
-						if (BaseEnchantment.GetEnchantmentFromItem(null, item) != null)
-						{
-							valid = true;
-						}
-						_highlightDictionary[item] = valid;
-					}
-					else if (leftIngredientSpot.item != null && rightIngredientSpot.item != null)
-					{
-						_highlightDictionary[item] = false;
-					}
-					else if (leftIngredientSpot.item != null)
-					{
-						_highlightDictionary[item] = IsValidCraft(leftIngredientSpot.item, item);
-					}
-					else
-					{
-						_highlightDictionary[item] = IsValidCraft(item, rightIngredientSpot.item);
-					}
-				}
-			}
-		}
+    protected void _OnCloseMenu()
+    {
+      if (!Game1.player.IsEquippedItem(this.heldItem))
+        Utility.CollectOrDrop(this.heldItem, 2);
+      if (!Game1.player.IsEquippedItem(this.leftIngredientSpot.item))
+        Utility.CollectOrDrop(this.leftIngredientSpot.item, 2);
+      if (!Game1.player.IsEquippedItem(this.rightIngredientSpot.item))
+        Utility.CollectOrDrop(this.rightIngredientSpot.item, 2);
+      if (!Game1.player.IsEquippedItem(this.startTailoringButton.item))
+        Utility.CollectOrDrop(this.startTailoringButton.item, 2);
+      this.heldItem = (Item) null;
+      this.leftIngredientSpot.item = (Item) null;
+      this.rightIngredientSpot.item = (Item) null;
+      this.startTailoringButton.item = (Item) null;
+    }
 
-		private void _leftIngredientSpotClicked()
-		{
-			Item old_item = leftIngredientSpot.item;
-			if ((heldItem == null || IsValidCraftIngredient(heldItem)) && (heldItem == null || heldItem is Tool || heldItem is Ring))
-			{
-				Game1.playSound("stoneStep");
-				leftIngredientSpot.item = heldItem;
-				heldItem = old_item;
-				_highlightDictionary = null;
-				_ValidateCraft();
-			}
-		}
-
-		public bool IsValidCraftIngredient(Item item)
-		{
-			if (!item.canBeTrashed() && (!(item is Tool) || BaseEnchantment.GetAvailableEnchantmentsForItem(item as Tool).Count <= 0))
-			{
-				return false;
-			}
-			return true;
-		}
-
-		private void _rightIngredientSpotClicked()
-		{
-			Item old_item = rightIngredientSpot.item;
-			if ((heldItem == null || IsValidCraftIngredient(heldItem)) && (heldItem == null || (int)heldItem.parentSheetIndex != 848))
-			{
-				Game1.playSound("stoneStep");
-				rightIngredientSpot.item = heldItem;
-				heldItem = old_item;
-				_highlightDictionary = null;
-				_ValidateCraft();
-			}
-		}
-
-		public override void receiveKeyPress(Keys key)
-		{
-			if (key == Keys.Delete)
-			{
-				if (heldItem != null && IsValidCraftIngredient(heldItem))
-				{
-					Utility.trashItem(heldItem);
-					heldItem = null;
-				}
-			}
-			else
-			{
-				base.receiveKeyPress(key);
-			}
-		}
-
-		public bool IsHoldingEquippedItem()
-		{
-			if (heldItem == null)
-			{
-				return false;
-			}
-			if (!Game1.player.IsEquippedItem(heldItem))
-			{
-				return Game1.player.IsEquippedItem(Utility.PerformSpecialItemGrabReplacement(heldItem));
-			}
-			return true;
-		}
-
-		public override void receiveLeftClick(int x, int y, bool playSound = true)
-		{
-			Item old_held_item = heldItem;
-			Game1.player.IsEquippedItem(old_held_item);
-			base.receiveLeftClick(x, y, playSound: true);
-			foreach (ClickableComponent c in equipmentIcons)
-			{
-				if (c.containsPoint(x, y))
-				{
-					string name = c.name;
-					if (!(name == "Ring1"))
-					{
-						if (name == "Ring2" && (HighlightItems(Game1.player.rightRing.Value) || Game1.player.rightRing.Value == null))
-						{
-							Item item_to_place2 = heldItem;
-							Item old_item2 = Game1.player.rightRing.Value;
-							if (old_item2 != heldItem && (item_to_place2 == null || item_to_place2 is Ring))
-							{
-								if (Game1.player.rightRing.Value != null)
-								{
-									Game1.player.rightRing.Value.onUnequip(Game1.player, Game1.currentLocation);
-								}
-								Game1.player.rightRing.Value = (item_to_place2 as Ring);
-								heldItem = old_item2;
-								if (Game1.player.rightRing.Value != null)
-								{
-									Game1.player.rightRing.Value.onEquip(Game1.player, Game1.currentLocation);
-									Game1.playSound("crit");
-								}
-								else if (heldItem != null)
-								{
-									Game1.playSound("dwop");
-								}
-								_highlightDictionary = null;
-								_ValidateCraft();
-							}
-						}
-					}
-					else if (HighlightItems(Game1.player.leftRing.Value) || Game1.player.leftRing.Value == null)
-					{
-						Item item_to_place = heldItem;
-						Item old_item = Game1.player.leftRing.Value;
-						if (old_item != heldItem && (item_to_place == null || item_to_place is Ring))
-						{
-							if (Game1.player.leftRing.Value != null)
-							{
-								Game1.player.leftRing.Value.onUnequip(Game1.player, Game1.currentLocation);
-							}
-							Game1.player.leftRing.Value = (item_to_place as Ring);
-							heldItem = old_item;
-							if (Game1.player.leftRing.Value != null)
-							{
-								Game1.player.leftRing.Value.onEquip(Game1.player, Game1.currentLocation);
-								Game1.playSound("crit");
-							}
-							else if (heldItem != null)
-							{
-								Game1.playSound("dwop");
-							}
-							_highlightDictionary = null;
-							_ValidateCraft();
-						}
-					}
-					return;
-				}
-			}
-			if (Game1.GetKeyboardState().IsKeyDown(Keys.LeftShift) && old_held_item != heldItem && heldItem != null)
-			{
-				if (heldItem is Tool || (heldItem is Ring && leftIngredientSpot.item == null))
-				{
-					_leftIngredientSpotClicked();
-				}
-				else
-				{
-					_rightIngredientSpotClicked();
-				}
-			}
-			if (IsBusy())
-			{
-				return;
-			}
-			if (leftIngredientSpot.containsPoint(x, y))
-			{
-				_leftIngredientSpotClicked();
-				if (Game1.GetKeyboardState().IsKeyDown(Keys.LeftShift) && heldItem != null)
-				{
-					if (Game1.player.IsEquippedItem(heldItem))
-					{
-						heldItem = null;
-					}
-					else
-					{
-						heldItem = inventory.tryToAddItem(heldItem, "");
-					}
-				}
-			}
-			else if (rightIngredientSpot.containsPoint(x, y))
-			{
-				_rightIngredientSpotClicked();
-				if (Game1.GetKeyboardState().IsKeyDown(Keys.LeftShift) && heldItem != null)
-				{
-					if (Game1.player.IsEquippedItem(heldItem))
-					{
-						heldItem = null;
-					}
-					else
-					{
-						heldItem = inventory.tryToAddItem(heldItem, "");
-					}
-				}
-			}
-			else if (startTailoringButton.containsPoint(x, y))
-			{
-				if (heldItem == null)
-				{
-					bool fail = false;
-					if (!CanFitCraftedItem())
-					{
-						Game1.playSound("cancel");
-						Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
-						_timeUntilCraft = 0;
-						fail = true;
-					}
-					if (!fail && IsValidCraft(leftIngredientSpot.item, rightIngredientSpot.item) && Game1.player.hasItemInInventory(848, GetForgeCost(leftIngredientSpot.item, rightIngredientSpot.item)))
-					{
-						Game1.playSound("bigSelect");
-						startTailoringButton.scale = startTailoringButton.baseScale;
-						_timeUntilCraft = 1600;
-						_clankEffectTimer = 300;
-						_UpdateDescriptionText();
-						int crystals2 = GetForgeCost(leftIngredientSpot.item, rightIngredientSpot.item);
-						for (int k = 0; k < crystals2; k++)
-						{
-							tempSprites.Add(new TemporaryAnimatedSprite("", new Rectangle(143, 17, 14, 15), new Vector2(xPositionOnScreen + 276, yPositionOnScreen + 300), flipped: false, 0.1f, Color.White)
-							{
-								texture = forgeTextures,
-								motion = new Vector2(-4f, -4f),
-								scale = 4f,
-								layerDepth = 1f,
-								startSound = "boulderCrack",
-								delayBeforeAnimationStart = 1400 / crystals2 * k
-							});
-						}
-						if (rightIngredientSpot.item != null && (int)rightIngredientSpot.item.parentSheetIndex == 74)
-						{
-							_sparklingTimer = 900;
-							Rectangle r2 = leftIngredientSpot.bounds;
-							r2.Offset(-32, -32);
-							List<TemporaryAnimatedSprite> sparkles = Utility.sparkleWithinArea(r2, 6, Color.White, 80, 1600);
-							sparkles.First().startSound = "discoverMineral";
-							tempSprites.AddRange(sparkles);
-							r2 = rightIngredientSpot.bounds;
-							r2.Inflate(-16, -16);
-							Vector2 position2 = Utility.getRandomPositionInThisRectangle(r2, Game1.random);
-							int num = 30;
-							for (int j = 0; j < num; j++)
-							{
-								position2 = Utility.getRandomPositionInThisRectangle(r2, Game1.random);
-								tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 48, 2, 2), position2, flipped: false, 0f, Color.White)
-								{
-									motion = new Vector2(-4f, 0f),
-									yPeriodic = true,
-									yPeriodicRange = 16f,
-									yPeriodicLoopTime = 1200f,
-									scale = 4f,
-									layerDepth = 1f,
-									animationLength = 12,
-									interval = Game1.random.Next(20, 40),
-									totalNumberOfLoops = 1,
-									delayBeforeAnimationStart = _clankEffectTimer / num * j
-								});
-							}
-						}
-					}
-					else
-					{
-						Game1.playSound("sell");
-					}
-				}
-				else
-				{
-					Game1.playSound("sell");
-				}
-			}
-			else if (unforgeButton.containsPoint(x, y))
-			{
-				if (rightIngredientSpot.item == null)
-				{
-					if (IsValidUnforge())
-					{
-						if (leftIngredientSpot.item is MeleeWeapon && !Game1.player.couldInventoryAcceptThisObject(848, (leftIngredientSpot.item as MeleeWeapon).GetTotalForgeLevels() * 5 + ((leftIngredientSpot.item as MeleeWeapon).GetTotalForgeLevels() - 1) * 2))
-						{
-							displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_noroom");
-							Game1.playSound("cancel");
-						}
-						else if (leftIngredientSpot.item is CombinedRing && Game1.player.freeSpotsInInventory() < 2)
-						{
-							displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_noroom");
-							Game1.playSound("cancel");
-						}
-						else
-						{
-							unforging = true;
-							_timeUntilCraft = 1600;
-							int crystals = GetForgeCost(leftIngredientSpot.item, rightIngredientSpot.item) / 2;
-							for (int i = 0; i < crystals; i++)
-							{
-								Vector2 motion = new Vector2(Game1.random.Next(-4, 5), Game1.random.Next(-4, 5));
-								if (motion.X == 0f && motion.Y == 0f)
-								{
-									motion = new Vector2(-4f, -4f);
-								}
-								tempSprites.Add(new TemporaryAnimatedSprite("", new Rectangle(143, 17, 14, 15), new Vector2(leftIngredientSpot.bounds.X, leftIngredientSpot.bounds.Y), flipped: false, 0.1f, Color.White)
-								{
-									alpha = 0.01f,
-									alphaFade = -0.1f,
-									alphaFadeFade = -0.005f,
-									texture = forgeTextures,
-									motion = motion,
-									scale = 4f,
-									layerDepth = 1f,
-									startSound = "boulderCrack",
-									delayBeforeAnimationStart = 1100 / crystals * i
-								});
-							}
-							Game1.playSound("debuffHit");
-						}
-					}
-					else
-					{
-						displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_unforge_invalid");
-						Game1.playSound("cancel");
-					}
-				}
-				else
-				{
-					if (IsValidUnforge(ignore_right_slot_occupancy: true))
-					{
-						displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_unforge_right_slot");
-					}
-					else
-					{
-						displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_unforge_invalid");
-					}
-					Game1.playSound("cancel");
-				}
-			}
-			if (heldItem == null || isWithinBounds(x, y) || !heldItem.canBeTrashed())
-			{
-				return;
-			}
-			if (Game1.player.IsEquippedItem(heldItem))
-			{
-				if (heldItem == Game1.player.hat.Value)
-				{
-					Game1.player.hat.Value = null;
-				}
-				else if (heldItem == Game1.player.shirtItem.Value)
-				{
-					Game1.player.shirtItem.Value = null;
-				}
-				else if (heldItem == Game1.player.pantsItem.Value)
-				{
-					Game1.player.pantsItem.Value = null;
-				}
-			}
-			Game1.playSound("throwDownITem");
-			Game1.createItemDebris(heldItem, Game1.player.getStandingPosition(), Game1.player.FacingDirection);
-			heldItem = null;
-		}
-
-		protected virtual bool CheckHeldItem(Func<Item, bool> f = null)
-		{
-			return f?.Invoke(heldItem) ?? (heldItem != null);
-		}
-
-		public virtual int GetForgeCostAtLevel(int level)
-		{
-			return 10 + level * 5;
-		}
-
-		public virtual int GetForgeCost(Item left_item, Item right_item)
-		{
-			if (right_item != null && (int)right_item.parentSheetIndex == 896)
-			{
-				return 20;
-			}
-			if (right_item != null && (int)right_item.parentSheetIndex == 74)
-			{
-				return 20;
-			}
-			if (right_item != null && (int)right_item.parentSheetIndex == 72)
-			{
-				return 10;
-			}
-			if (left_item is MeleeWeapon && right_item is MeleeWeapon)
-			{
-				return 10;
-			}
-			if (left_item != null && left_item is Tool)
-			{
-				return GetForgeCostAtLevel((left_item as Tool).GetTotalForgeLevels());
-			}
-			if (left_item != null && left_item is Ring && right_item != null && right_item is Ring)
-			{
-				return 20;
-			}
-			return 1;
-		}
-
-		protected void _ValidateCraft()
-		{
-			Item left_item = leftIngredientSpot.item;
-			Item right_item = rightIngredientSpot.item;
-			if (left_item == null || right_item == null)
-			{
-				_craftState = CraftState.MissingIngredients;
-			}
-			else if (IsValidCraft(left_item, right_item))
-			{
-				_craftState = CraftState.Valid;
-				Item left_item_clone = left_item.getOne();
-				if (right_item != null && Utility.IsNormalObjectAtParentSheetIndex(right_item, 72))
-				{
-					(left_item_clone as Tool).AddEnchantment(new DiamondEnchantment());
-					craftResultDisplay.item = left_item_clone;
-				}
-				else
-				{
-					craftResultDisplay.item = CraftItem(left_item_clone, right_item.getOne());
-				}
-			}
-			else
-			{
-				_craftState = CraftState.InvalidRecipe;
-			}
-			_UpdateDescriptionText();
-		}
-
-		protected void _UpdateDescriptionText()
-		{
-			if (IsBusy())
-			{
-				if (rightIngredientSpot.item != null && (int)rightIngredientSpot.item.parentSheetIndex == 74)
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_enchanting");
-				}
-				else
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_forging");
-				}
-			}
-			else if (_craftState == CraftState.MissingIngredients)
-			{
-				displayedDescription = (displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_description1") + Environment.NewLine + Environment.NewLine + Game1.content.LoadString("Strings\\UI:Forge_description2"));
-			}
-			else if (_craftState == CraftState.MissingShards)
-			{
-				if (heldItem != null && heldItem.ParentSheetIndex == 848)
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_shards");
-				}
-				else
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_notenoughshards");
-				}
-			}
-			else if (_craftState == CraftState.Valid)
-			{
-				if (!CanFitCraftedItem())
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588");
-				}
-				else
-				{
-					displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_valid");
-				}
-			}
-			else if (_craftState == CraftState.InvalidRecipe)
-			{
-				displayedDescription = Game1.content.LoadString("Strings\\UI:Forge_wrongorder");
-			}
-			else
-			{
-				displayedDescription = "";
-			}
-		}
-
-		public bool IsValidCraft(Item left_item, Item right_item)
-		{
-			if (left_item == null || right_item == null)
-			{
-				return false;
-			}
-			if (left_item is Tool && (left_item as Tool).CanForge(right_item))
-			{
-				return true;
-			}
-			if (left_item is Ring && right_item is Ring && (left_item as Ring).CanCombine(right_item as Ring))
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public Item CraftItem(Item left_item, Item right_item, bool forReal = false)
-		{
-			if (left_item == null || right_item == null)
-			{
-				return null;
-			}
-			if (left_item is Tool && !(left_item as Tool).Forge(right_item, forReal))
-			{
-				return null;
-			}
-			if (left_item is Ring && right_item is Ring)
-			{
-				left_item = (left_item as Ring).Combine(right_item as Ring);
-			}
-			return left_item;
-		}
-
-		public void SpendRightItem()
-		{
-			if (rightIngredientSpot.item != null)
-			{
-				rightIngredientSpot.item.Stack--;
-				if (rightIngredientSpot.item.Stack <= 0 || rightIngredientSpot.item.maximumStackSize() == 1)
-				{
-					rightIngredientSpot.item = null;
-				}
-			}
-		}
-
-		public void SpendLeftItem()
-		{
-			if (leftIngredientSpot.item != null)
-			{
-				leftIngredientSpot.item.Stack--;
-				if (leftIngredientSpot.item.Stack <= 0 || leftIngredientSpot.item.maximumStackSize() == 1)
-				{
-					leftIngredientSpot.item = null;
-				}
-			}
-		}
-
-		public override void receiveRightClick(int x, int y, bool playSound = true)
-		{
-			if (!IsBusy())
-			{
-				base.receiveRightClick(x, y, playSound: true);
-			}
-		}
-
-		public override void performHoverAction(int x, int y)
-		{
-			if (IsBusy())
-			{
-				return;
-			}
-			hoveredItem = null;
-			base.performHoverAction(x, y);
-			hoverText = "";
-			for (int i = 0; i < equipmentIcons.Count; i++)
-			{
-				if (equipmentIcons[i].containsPoint(x, y))
-				{
-					if (equipmentIcons[i].name == "Ring1")
-					{
-						hoveredItem = Game1.player.leftRing.Value;
-					}
-					else if (equipmentIcons[i].name == "Ring2")
-					{
-						hoveredItem = Game1.player.rightRing.Value;
-					}
-				}
-			}
-			if (craftResultDisplay.visible && craftResultDisplay.containsPoint(x, y) && craftResultDisplay.item != null)
-			{
-				hoveredItem = craftResultDisplay.item;
-			}
-			if (leftIngredientSpot.containsPoint(x, y) && leftIngredientSpot.item != null)
-			{
-				hoveredItem = leftIngredientSpot.item;
-			}
-			if (rightIngredientSpot.containsPoint(x, y) && rightIngredientSpot.item != null)
-			{
-				hoveredItem = rightIngredientSpot.item;
-			}
-			if (unforgeButton.containsPoint(x, y))
-			{
-				hoverText = Game1.content.LoadString("Strings\\UI:Forge_Unforge");
-			}
-			if (_craftState == CraftState.Valid && CanFitCraftedItem())
-			{
-				startTailoringButton.tryHover(x, y, 0.33f);
-			}
-			else
-			{
-				startTailoringButton.tryHover(-999, -999);
-			}
-		}
-
-		public bool CanFitCraftedItem()
-		{
-			if (craftResultDisplay.item != null && !Utility.canItemBeAddedToThisInventoryList(craftResultDisplay.item, inventory.actualInventory))
-			{
-				return false;
-			}
-			return true;
-		}
-
-		public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
-		{
-			base.gameWindowSizeChanged(oldBounds, newBounds);
-			int yPositionForInventory = yPositionOnScreen + IClickableMenu.spaceToClearTopBorder + IClickableMenu.borderWidth + 192 - 16 + 128 + 4;
-			inventory = new InventoryMenu(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 + 12, yPositionForInventory, playerInventory: false, null, inventory.highlightMethod);
-			_CreateButtons();
-		}
-
-		public override void emergencyShutDown()
-		{
-			_OnCloseMenu();
-			base.emergencyShutDown();
-		}
-
-		public override void update(GameTime time)
-		{
-			base.update(time);
-			for (int l = tempSprites.Count - 1; l >= 0; l--)
-			{
-				if (tempSprites[l].update(time))
-				{
-					tempSprites.RemoveAt(l);
-				}
-			}
-			if (leftIngredientSpot.item != null && rightIngredientSpot.item != null && !Game1.player.hasItemInInventory(848, GetForgeCost(leftIngredientSpot.item, rightIngredientSpot.item)))
-			{
-				if (_craftState != CraftState.MissingShards)
-				{
-					_craftState = CraftState.MissingShards;
-					craftResultDisplay.item = null;
-					_UpdateDescriptionText();
-				}
-			}
-			else if (_craftState == CraftState.MissingShards)
-			{
-				_ValidateCraft();
-			}
-			descriptionText = displayedDescription;
-			questionMarkOffset.X = (float)Math.Sin(time.TotalGameTime.TotalSeconds * 2.5) * 4f;
-			questionMarkOffset.Y = (float)Math.Cos(time.TotalGameTime.TotalSeconds * 5.0) * -4f;
-			bool can_fit_crafted_item = CanFitCraftedItem();
-			if ((_craftState == CraftState.Valid && !IsBusy()) & can_fit_crafted_item)
-			{
-				craftResultDisplay.visible = true;
-			}
-			else
-			{
-				craftResultDisplay.visible = false;
-			}
-			if (_timeUntilCraft <= 0 && _sparklingTimer <= 0)
-			{
-				return;
-			}
-			startTailoringButton.tryHover(startTailoringButton.bounds.Center.X, startTailoringButton.bounds.Center.Y, 0.33f);
-			_timeUntilCraft -= (int)time.ElapsedGameTime.TotalMilliseconds;
-			_clankEffectTimer -= (int)time.ElapsedGameTime.TotalMilliseconds;
-			if (_timeUntilCraft <= 0 && _sparklingTimer > 0)
-			{
-				_sparklingTimer -= (int)time.ElapsedGameTime.TotalMilliseconds;
-			}
-			else if (_clankEffectTimer <= 0 && !unforging)
-			{
-				_clankEffectTimer = 450;
-				if (rightIngredientSpot.item != null && (int)rightIngredientSpot.item.parentSheetIndex == 74)
-				{
-					Rectangle r2 = rightIngredientSpot.bounds;
-					r2.Inflate(-16, -16);
-					Vector2 position3 = Utility.getRandomPositionInThisRectangle(r2, Game1.random);
-					int num = 30;
-					for (int k = 0; k < num; k++)
-					{
-						position3 = Utility.getRandomPositionInThisRectangle(r2, Game1.random);
-						tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 48, 2, 2), position3, flipped: false, 0f, Color.White)
-						{
-							motion = new Vector2(-4f, 0f),
-							yPeriodic = true,
-							yPeriodicRange = 16f,
-							yPeriodicLoopTime = 1200f,
-							scale = 4f,
-							layerDepth = 1f,
-							animationLength = 12,
-							interval = Game1.random.Next(20, 40),
-							totalNumberOfLoops = 1,
-							delayBeforeAnimationStart = _clankEffectTimer / num * k
-						});
-					}
-				}
-				else
-				{
-					Game1.playSound("crafting");
-					Game1.playSound("clank");
-					Rectangle r = leftIngredientSpot.bounds;
-					r.Inflate(-21, -21);
-					Vector2 position = Utility.getRandomPositionInThisRectangle(r, Game1.random);
-					tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), position, flipped: false, 0.015f, Color.White)
-					{
-						motion = new Vector2(-1f, -10f),
-						acceleration = new Vector2(0f, 0.6f),
-						scale = 4f,
-						layerDepth = 1f,
-						animationLength = 12,
-						interval = 30f,
-						totalNumberOfLoops = 1
-					});
-					tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), position, flipped: false, 0.015f, Color.White)
-					{
-						motion = new Vector2(0f, -8f),
-						acceleration = new Vector2(0f, 0.48f),
-						scale = 4f,
-						layerDepth = 1f,
-						animationLength = 12,
-						interval = 30f,
-						totalNumberOfLoops = 1
-					});
-					tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), position, flipped: false, 0.015f, Color.White)
-					{
-						motion = new Vector2(1f, -10f),
-						acceleration = new Vector2(0f, 0.6f),
-						scale = 4f,
-						layerDepth = 1f,
-						animationLength = 12,
-						interval = 30f,
-						totalNumberOfLoops = 1
-					});
-					tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), position, flipped: false, 0.015f, Color.White)
-					{
-						motion = new Vector2(-2f, -8f),
-						acceleration = new Vector2(0f, 0.6f),
-						scale = 2f,
-						layerDepth = 1f,
-						animationLength = 12,
-						interval = 30f,
-						totalNumberOfLoops = 1
-					});
-					tempSprites.Add(new TemporaryAnimatedSprite("LooseSprites\\Cursors2", new Rectangle(114, 46, 2, 2), position, flipped: false, 0.015f, Color.White)
-					{
-						motion = new Vector2(2f, -8f),
-						acceleration = new Vector2(0f, 0.6f),
-						scale = 2f,
-						layerDepth = 1f,
-						animationLength = 12,
-						interval = 30f,
-						totalNumberOfLoops = 1
-					});
-				}
-			}
-			if (_timeUntilCraft > 0 || _sparklingTimer > 0)
-			{
-				return;
-			}
-			if (unforging)
-			{
-				if (leftIngredientSpot.item is MeleeWeapon)
-				{
-					MeleeWeapon weapon = leftIngredientSpot.item as MeleeWeapon;
-					int cost = 0;
-					if (weapon != null)
-					{
-						int weapon_forge_levels = weapon.GetTotalForgeLevels(for_unforge: true);
-						for (int j = 0; j < weapon_forge_levels; j++)
-						{
-							cost += GetForgeCostAtLevel(j);
-						}
-						if (weapon.hasEnchantmentOfType<DiamondEnchantment>())
-						{
-							cost += GetForgeCost(leftIngredientSpot.item, new Object(72, 1));
-						}
-						for (int i = weapon.enchantments.Count - 1; i >= 0; i--)
-						{
-							if (weapon.enchantments[i].IsForge())
-							{
-								weapon.RemoveEnchantment(weapon.enchantments[i]);
-							}
-						}
-						if (weapon.appearance.Value >= 0)
-						{
-							weapon.appearance.Value = -1;
-							weapon.IndexOfMenuItemView = weapon.getDrawnItemIndex();
-							cost += 10;
-						}
-						leftIngredientSpot.item = null;
-						Game1.playSound("coin");
-						heldItem = weapon;
-					}
-					Utility.CollectOrDrop(new Object(848, cost / 2));
-				}
-				else if (leftIngredientSpot.item is CombinedRing)
-				{
-					CombinedRing ring = leftIngredientSpot.item as CombinedRing;
-					if (ring != null)
-					{
-						List<Ring> rings = new List<Ring>(ring.combinedRings);
-						ring.combinedRings.Clear();
-						foreach (Ring item in rings)
-						{
-							Utility.CollectOrDrop(item);
-						}
-						leftIngredientSpot.item = null;
-						Game1.playSound("coin");
-					}
-					Utility.CollectOrDrop(new Object(848, 10));
-				}
-				unforging = false;
-				_timeUntilCraft = 0;
-				_ValidateCraft();
-				return;
-			}
-			Game1.player.removeItemsFromInventory(848, GetForgeCost(leftIngredientSpot.item, rightIngredientSpot.item));
-			Item crafted_item = CraftItem(leftIngredientSpot.item, rightIngredientSpot.item, forReal: true);
-			if (crafted_item != null && !Utility.canItemBeAddedToThisInventoryList(crafted_item, inventory.actualInventory))
-			{
-				Game1.playSound("cancel");
-				Game1.showRedMessage(Game1.content.LoadString("Strings\\StringsFromCSFiles:Crop.cs.588"));
-				_timeUntilCraft = 0;
-				return;
-			}
-			if (leftIngredientSpot.item == crafted_item)
-			{
-				leftIngredientSpot.item = null;
-			}
-			else
-			{
-				SpendLeftItem();
-			}
-			SpendRightItem();
-			Game1.playSound("coin");
-			heldItem = crafted_item;
-			_timeUntilCraft = 0;
-			_ValidateCraft();
-		}
-
-		public virtual bool IsValidUnforge(bool ignore_right_slot_occupancy = false)
-		{
-			if (!ignore_right_slot_occupancy && rightIngredientSpot.item != null)
-			{
-				return false;
-			}
-			if (leftIngredientSpot.item != null && leftIngredientSpot.item is MeleeWeapon && ((leftIngredientSpot.item as MeleeWeapon).GetTotalForgeLevels() > 0 || (leftIngredientSpot.item as MeleeWeapon).appearance.Value >= 0))
-			{
-				return true;
-			}
-			if (leftIngredientSpot.item != null && leftIngredientSpot.item is CombinedRing)
-			{
-				return true;
-			}
-			return false;
-		}
-
-		public override void draw(SpriteBatch b)
-		{
-			b.Draw(Game1.fadeToBlackRect, Game1.graphics.GraphicsDevice.Viewport.Bounds, Color.Black * 0.6f);
-			Game1.DrawBox(xPositionOnScreen - 64, yPositionOnScreen + 128, 128, 201, new Color(116, 11, 3));
-			Game1.player.FarmerRenderer.drawMiniPortrat(b, new Vector2((float)(xPositionOnScreen - 64) + 9.6f, yPositionOnScreen + 128), 0.87f, 4f, 2, Game1.player);
-			base.draw(b, drawUpperPortion: true, drawDescriptionArea: true, 116, 11, 3);
-			b.Draw(forgeTextures, new Vector2(xPositionOnScreen + IClickableMenu.spaceToClearSideBorder + IClickableMenu.borderWidth / 2 - 4, yPositionOnScreen + IClickableMenu.spaceToClearTopBorder), new Rectangle(0, 0, 142, 80), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.87f);
-			Color draw_color = Color.White;
-			if (_craftState == CraftState.MissingShards)
-			{
-				draw_color = Color.Gray * 0.75f;
-			}
-			b.Draw(forgeTextures, new Vector2(xPositionOnScreen + 276, yPositionOnScreen + 300), new Rectangle(142, 16, 17, 17), draw_color, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.1f);
-			if (leftIngredientSpot.item != null && rightIngredientSpot.item != null && IsValidCraft(leftIngredientSpot.item, rightIngredientSpot.item))
-			{
-				int source_offset = (GetForgeCost(leftIngredientSpot.item, rightIngredientSpot.item) - 10) / 5;
-				if (source_offset >= 0 && source_offset <= 2)
-				{
-					b.Draw(forgeTextures, new Vector2(xPositionOnScreen + 344, yPositionOnScreen + 320), new Rectangle(142, 38 + source_offset * 10, 17, 10), Color.White * ((_craftState == CraftState.MissingShards) ? 0.5f : 1f), 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.1f);
-				}
-			}
-			if (IsValidUnforge())
-			{
-				b.Draw(forgeTextures, new Vector2(unforgeButton.bounds.X, unforgeButton.bounds.Y), new Rectangle(143, 69, 11, 10), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.1f);
-			}
-			if (_craftState == CraftState.Valid)
-			{
-				startTailoringButton.draw(b, Color.White, 0.96f, (int)Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 200 % 12);
-				startTailoringButton.drawItem(b, 16, 16);
-			}
-			Point random_shaking = new Point(0, 0);
-			bool left_slot_accepts_this_item = false;
-			bool right_slot_accepts_this_item = false;
-			Item highlight_item = hoveredItem;
-			if (heldItem != null)
-			{
-				highlight_item = heldItem;
-			}
-			if (highlight_item != null && highlight_item != leftIngredientSpot.item && highlight_item != rightIngredientSpot.item && highlight_item != craftResultDisplay.item)
-			{
-				if (highlight_item is Tool)
-				{
-					if (leftIngredientSpot.item is Tool)
-					{
-						right_slot_accepts_this_item = true;
-					}
-					else
-					{
-						left_slot_accepts_this_item = true;
-					}
-				}
-				if (BaseEnchantment.GetEnchantmentFromItem(leftIngredientSpot.item, highlight_item) != null)
-				{
-					right_slot_accepts_this_item = true;
-				}
-				if (highlight_item is Ring && !(highlight_item is CombinedRing) && (leftIngredientSpot.item == null || leftIngredientSpot.item is Ring) && (rightIngredientSpot.item == null || rightIngredientSpot.item is Ring))
-				{
-					left_slot_accepts_this_item = true;
-					right_slot_accepts_this_item = true;
-				}
-			}
-			foreach (ClickableComponent c in equipmentIcons)
-			{
-				string name = c.name;
-				if (!(name == "Ring1"))
-				{
-					if (name == "Ring2")
-					{
-						if (Game1.player.rightRing.Value != null)
-						{
-							b.Draw(forgeTextures, c.bounds, new Rectangle(0, 96, 16, 16), Color.White);
-							float transparency2 = 1f;
-							if (!HighlightItems((Ring)Game1.player.rightRing))
-							{
-								transparency2 = 0.5f;
-							}
-							if (Game1.player.rightRing.Value == heldItem)
-							{
-								transparency2 = 0.5f;
-							}
-							Game1.player.rightRing.Value.drawInMenu(b, new Vector2(c.bounds.X, c.bounds.Y), c.scale, transparency2, 0.866f, StackDrawType.Hide);
-						}
-						else
-						{
-							b.Draw(forgeTextures, c.bounds, new Rectangle(16, 96, 16, 16), Color.White);
-						}
-					}
-				}
-				else if (Game1.player.leftRing.Value != null)
-				{
-					b.Draw(forgeTextures, c.bounds, new Rectangle(0, 96, 16, 16), Color.White);
-					float transparency = 1f;
-					if (!HighlightItems((Ring)Game1.player.leftRing))
-					{
-						transparency = 0.5f;
-					}
-					if (Game1.player.leftRing.Value == heldItem)
-					{
-						transparency = 0.5f;
-					}
-					Game1.player.leftRing.Value.drawInMenu(b, new Vector2(c.bounds.X, c.bounds.Y), c.scale, transparency, 0.866f, StackDrawType.Hide);
-				}
-				else
-				{
-					b.Draw(forgeTextures, c.bounds, new Rectangle(16, 96, 16, 16), Color.White);
-				}
-			}
-			if (!IsBusy())
-			{
-				if (left_slot_accepts_this_item)
-				{
-					leftIngredientSpot.draw(b, Color.White, 0.87f);
-				}
-			}
-			else if (_clankEffectTimer > 300 || (_timeUntilCraft > 0 && unforging))
-			{
-				random_shaking.X = Game1.random.Next(-1, 2);
-				random_shaking.Y = Game1.random.Next(-1, 2);
-			}
-			leftIngredientSpot.drawItem(b, random_shaking.X * 4, random_shaking.Y * 4);
-			if (craftResultDisplay.visible)
-			{
-				string make_result_text = Game1.content.LoadString("Strings\\UI:Tailor_MakeResult");
-				Utility.drawTextWithColoredShadow(position: new Vector2((float)craftResultDisplay.bounds.Center.X - Game1.smallFont.MeasureString(make_result_text).X / 2f, (float)craftResultDisplay.bounds.Top - Game1.smallFont.MeasureString(make_result_text).Y), b: b, text: make_result_text, font: Game1.smallFont, color: Game1.textColor * 0.75f, shadowColor: Color.Black * 0.2f);
-				if (craftResultDisplay.item != null)
-				{
-					craftResultDisplay.drawItem(b);
-				}
-			}
-			if (!IsBusy() && right_slot_accepts_this_item)
-			{
-				rightIngredientSpot.draw(b, Color.White, 0.87f);
-			}
-			rightIngredientSpot.drawItem(b);
-			foreach (TemporaryAnimatedSprite tempSprite in tempSprites)
-			{
-				tempSprite.draw(b, localPosition: true);
-			}
-			if (!hoverText.Equals(""))
-			{
-				IClickableMenu.drawHoverText(b, hoverText, Game1.smallFont, (heldItem != null) ? 32 : 0, (heldItem != null) ? 32 : 0);
-			}
-			else if (hoveredItem != null)
-			{
-				if (hoveredItem == craftResultDisplay.item && Utility.IsNormalObjectAtParentSheetIndex(rightIngredientSpot.item, 74))
-				{
-					BaseEnchantment.hideEnchantmentName = true;
-				}
-				IClickableMenu.drawToolTip(b, hoveredItem.getDescription(), hoveredItem.DisplayName, hoveredItem, heldItem != null);
-				BaseEnchantment.hideEnchantmentName = false;
-			}
-			if (heldItem != null)
-			{
-				heldItem.drawInMenu(b, new Vector2(Game1.getOldMouseX() + 8, Game1.getOldMouseY() + 8), 1f);
-			}
-			if (!Game1.options.hardwareCursor)
-			{
-				drawMouse(b);
-			}
-		}
-
-		protected override void cleanupBeforeExit()
-		{
-			_OnCloseMenu();
-		}
-
-		protected void _OnCloseMenu()
-		{
-			if (!Game1.player.IsEquippedItem(heldItem))
-			{
-				Utility.CollectOrDrop(heldItem, 2);
-			}
-			if (!Game1.player.IsEquippedItem(leftIngredientSpot.item))
-			{
-				Utility.CollectOrDrop(leftIngredientSpot.item, 2);
-			}
-			if (!Game1.player.IsEquippedItem(rightIngredientSpot.item))
-			{
-				Utility.CollectOrDrop(rightIngredientSpot.item, 2);
-			}
-			if (!Game1.player.IsEquippedItem(startTailoringButton.item))
-			{
-				Utility.CollectOrDrop(startTailoringButton.item, 2);
-			}
-			heldItem = null;
-			leftIngredientSpot.item = null;
-			rightIngredientSpot.item = null;
-			startTailoringButton.item = null;
-		}
-	}
+    public enum CraftState
+    {
+      MissingIngredients,
+      MissingShards,
+      Valid,
+      InvalidRecipe,
+    }
+  }
 }

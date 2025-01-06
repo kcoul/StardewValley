@@ -1,101 +1,76 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.NetPausableField`3
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
+using System;
 
 namespace StardewValley.Network
 {
-	public class NetPausableField<T, TField, TBaseField> : INetObject<NetFields> where TField : TBaseField, new()where TBaseField : NetFieldBase<T, TBaseField>, new()
-	{
-		private bool paused;
+  public class NetPausableField<T, TField, TBaseField> : INetObject<NetFields>
+    where TField : TBaseField, new()
+    where TBaseField : NetFieldBase<T, TBaseField>, new()
+  {
+    private bool paused;
+    public readonly TField Field;
+    private readonly NetEvent1Field<bool, NetBool> pauseEvent = new NetEvent1Field<bool, NetBool>();
 
-		public readonly TField Field;
+    public T Value
+    {
+      get => this.Get();
+      set => this.Set(value);
+    }
 
-		private readonly NetEvent1Field<bool, NetBool> pauseEvent = new NetEvent1Field<bool, NetBool>();
+    public bool Paused
+    {
+      get
+      {
+        this.pauseEvent.Poll();
+        return this.paused;
+      }
+      set
+      {
+        if (value == this.paused)
+          return;
+        this.pauseEvent.Fire(value);
+        this.pauseEvent.Poll();
+      }
+    }
 
-		public T Value
-		{
-			get
-			{
-				return Get();
-			}
-			set
-			{
-				Set(value);
-			}
-		}
+    public NetFields NetFields { get; } = new NetFields();
 
-		public bool Paused
-		{
-			get
-			{
-				pauseEvent.Poll();
-				return paused;
-			}
-			set
-			{
-				if (value != paused)
-				{
-					pauseEvent.Fire(value);
-					pauseEvent.Poll();
-				}
-			}
-		}
+    public NetPausableField(TField field)
+    {
+      this.Field = field;
+      this.initNetFields();
+    }
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    protected virtual void initNetFields()
+    {
+      this.NetFields.AddFields((INetSerializable) this.Field, (INetSerializable) this.pauseEvent);
+      this.pauseEvent.onEvent += (AbstractNetEvent1<bool>.Event) (newPauseValue => this.paused = newPauseValue);
+    }
 
+    public NetPausableField()
+      : this(new TField())
+    {
+    }
 
-		public NetPausableField(TField field)
-		{
-			Field = field;
-			initNetFields();
-		}
+    public virtual T Get()
+    {
+      if (this.Paused)
+        this.Field.CancelInterpolation();
+      return this.Field.Get();
+    }
 
-		protected virtual void initNetFields()
-		{
-			NetFields.AddFields(Field, pauseEvent);
-			pauseEvent.onEvent += delegate(bool newPauseValue)
-			{
-				paused = newPauseValue;
-			};
-		}
+    public void Set(T value) => this.Field.Set(value);
 
-		public NetPausableField()
-			: this(new TField())
-		{
-		}
+    public bool IsPausePending() => this.pauseEvent.HasPendingEvent((Predicate<bool>) (p => p));
 
-		public virtual T Get()
-		{
-			if (Paused)
-			{
-				Field.CancelInterpolation();
-			}
-			return Field.Get();
-		}
+    public bool IsInterpolating() => this.Field.IsInterpolating() && !this.Paused;
 
-		public void Set(T value)
-		{
-			Field.Set(value);
-		}
-
-		public bool IsPausePending()
-		{
-			return pauseEvent.HasPendingEvent((bool p) => p);
-		}
-
-		public bool IsInterpolating()
-		{
-			if (Field.IsInterpolating())
-			{
-				return !Paused;
-			}
-			return false;
-		}
-
-		public static implicit operator T(NetPausableField<T, TField, TBaseField> field)
-		{
-			return field.Get();
-		}
-	}
+    public static implicit operator T(NetPausableField<T, TField, TBaseField> field) => field.Get();
+  }
 }

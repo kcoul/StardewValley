@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.InputState
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -5,128 +11,95 @@ using System.Collections.Generic;
 
 namespace StardewValley
 {
-	public class InputState
-	{
-		protected Point _simulatedMousePosition = Point.Zero;
+  public class InputState
+  {
+    protected Point _simulatedMousePosition = Point.Zero;
+    protected List<Keys> _ignoredKeys = new List<Keys>();
+    protected List<Keys> _pressedKeys = new List<Keys>();
+    protected KeyboardState? _keyState;
+    protected int _lastKeyStateTick = -1;
+    protected KeyboardState _currentKeyboardState;
+    protected MouseState _currentMouseState;
+    protected GamePadState _currentGamepadState;
 
-		protected List<Keys> _ignoredKeys = new List<Keys>();
+    public virtual void UpdateStates()
+    {
+      this._currentKeyboardState = Keyboard.GetState();
+      this._currentMouseState = Mouse.GetState();
+      if (Game1.playerOneIndex >= PlayerIndex.One)
+        this._currentGamepadState = GamePad.GetState(Game1.playerOneIndex);
+      else
+        this._currentGamepadState = new GamePadState();
+    }
 
-		protected List<Keys> _pressedKeys = new List<Keys>();
+    public virtual void Update()
+    {
+    }
 
-		protected KeyboardState? _keyState;
+    public virtual void IgnoreKeys(Keys[] keys)
+    {
+      if (keys.Length == 0)
+        return;
+      this._ignoredKeys.AddRange((IEnumerable<Keys>) keys);
+      string str = "";
+      foreach (Keys key in keys)
+        str = str + key.ToString() + " ";
+      Console.WriteLine("Ignoring keys: " + str.Trim());
+    }
 
-		protected int _lastKeyStateTick = -1;
+    public virtual KeyboardState GetKeyboardState()
+    {
+      if (!Game1.game1.IsMainInstance || !Game1.game1.HasKeyboardFocus())
+        return new KeyboardState();
+      if (this._lastKeyStateTick != Game1.ticks || !this._keyState.HasValue)
+      {
+        if (this._ignoredKeys.Count == 0)
+        {
+          this._keyState = new KeyboardState?(this._currentKeyboardState);
+        }
+        else
+        {
+          this._pressedKeys.Clear();
+          this._pressedKeys.AddRange((IEnumerable<Keys>) this._currentKeyboardState.GetPressedKeys());
+          for (int index = 0; index < this._ignoredKeys.Count; ++index)
+          {
+            if (!this._pressedKeys.Contains(this._ignoredKeys[index]))
+            {
+              this._ignoredKeys.RemoveAt(index);
+              --index;
+            }
+          }
+          for (int index = 0; index < this._pressedKeys.Count; ++index)
+          {
+            if (this._ignoredKeys.Contains(this._pressedKeys[index]))
+            {
+              this._pressedKeys.RemoveAt(index);
+              --index;
+            }
+          }
+          this._keyState = new KeyboardState?(new KeyboardState(this._pressedKeys.ToArray()));
+        }
+        this._lastKeyStateTick = Game1.ticks;
+      }
+      return this._keyState.Value;
+    }
 
-		protected KeyboardState _currentKeyboardState;
+    public virtual GamePadState GetGamePadState() => Game1.options.gamepadMode == Options.GamepadModes.ForceOff || Game1.playerOneIndex == ~PlayerIndex.One ? new GamePadState() : this._currentGamepadState;
 
-		protected MouseState _currentMouseState;
+    public virtual MouseState GetMouseState() => !Game1.game1.IsMainInstance ? new MouseState(this._simulatedMousePosition.X, this._simulatedMousePosition.Y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released) : this._currentMouseState;
 
-		protected GamePadState _currentGamepadState;
-
-		public virtual void UpdateStates()
-		{
-			_currentKeyboardState = Keyboard.GetState();
-			_currentMouseState = Mouse.GetState();
-			if (Game1.playerOneIndex >= PlayerIndex.One)
-			{
-				_currentGamepadState = GamePad.GetState(Game1.playerOneIndex);
-			}
-			else
-			{
-				_currentGamepadState = default(GamePadState);
-			}
-		}
-
-		public virtual void Update()
-		{
-		}
-
-		public virtual void IgnoreKeys(Keys[] keys)
-		{
-			if (keys.Length != 0)
-			{
-				_ignoredKeys.AddRange(keys);
-				string keys_to_ignore = "";
-				for (int i = 0; i < keys.Length; i++)
-				{
-					Keys key = keys[i];
-					keys_to_ignore = keys_to_ignore + key.ToString() + " ";
-				}
-				Console.WriteLine("Ignoring keys: " + keys_to_ignore.Trim());
-			}
-		}
-
-		public virtual KeyboardState GetKeyboardState()
-		{
-			if (!Game1.game1.IsMainInstance || !Game1.game1.HasKeyboardFocus())
-			{
-				return default(KeyboardState);
-			}
-			if (_lastKeyStateTick != Game1.ticks || !_keyState.HasValue)
-			{
-				if (_ignoredKeys.Count == 0)
-				{
-					_keyState = _currentKeyboardState;
-				}
-				else
-				{
-					_pressedKeys.Clear();
-					_pressedKeys.AddRange(_currentKeyboardState.GetPressedKeys());
-					for (int j = 0; j < _ignoredKeys.Count; j++)
-					{
-						Keys key = _ignoredKeys[j];
-						if (!_pressedKeys.Contains(key))
-						{
-							_ignoredKeys.RemoveAt(j);
-							j--;
-						}
-					}
-					for (int i = 0; i < _pressedKeys.Count; i++)
-					{
-						Keys key2 = _pressedKeys[i];
-						if (_ignoredKeys.Contains(key2))
-						{
-							_pressedKeys.RemoveAt(i);
-							i--;
-						}
-					}
-					_keyState = new KeyboardState(_pressedKeys.ToArray());
-				}
-				_lastKeyStateTick = Game1.ticks;
-			}
-			return _keyState.Value;
-		}
-
-		public virtual GamePadState GetGamePadState()
-		{
-			if (Game1.options.gamepadMode == Options.GamepadModes.ForceOff || Game1.playerOneIndex == (PlayerIndex)(-1))
-			{
-				return default(GamePadState);
-			}
-			return _currentGamepadState;
-		}
-
-		public virtual MouseState GetMouseState()
-		{
-			if (!Game1.game1.IsMainInstance)
-			{
-				return new MouseState(_simulatedMousePosition.X, _simulatedMousePosition.Y, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
-			}
-			return _currentMouseState;
-		}
-
-		public virtual void SetMousePosition(int x, int y)
-		{
-			if (!Game1.game1.IsMainInstance)
-			{
-				_simulatedMousePosition.X = x;
-				_simulatedMousePosition.Y = y;
-			}
-			else
-			{
-				Mouse.SetPosition(x, y);
-				_currentMouseState = new MouseState(x, y, _currentMouseState.ScrollWheelValue, _currentMouseState.LeftButton, _currentMouseState.MiddleButton, _currentMouseState.RightButton, _currentMouseState.XButton1, _currentMouseState.XButton2);
-			}
-		}
-	}
+    public virtual void SetMousePosition(int x, int y)
+    {
+      if (!Game1.game1.IsMainInstance)
+      {
+        this._simulatedMousePosition.X = x;
+        this._simulatedMousePosition.Y = y;
+      }
+      else
+      {
+        Mouse.SetPosition(x, y);
+        this._currentMouseState = new MouseState(x, y, this._currentMouseState.ScrollWheelValue, this._currentMouseState.LeftButton, this._currentMouseState.MiddleButton, this._currentMouseState.RightButton, this._currentMouseState.XButton1, this._currentMouseState.XButton2);
+      }
+    }
+  }
 }

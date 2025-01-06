@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.NetDirection
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using System;
@@ -5,112 +11,76 @@ using System.IO;
 
 namespace StardewValley.Network
 {
-	public sealed class NetDirection : NetField<int, NetInt>
-	{
-		public NetPosition Position;
+  public sealed class NetDirection : NetField<int, NetInt>
+  {
+    public NetPosition Position;
 
-		public NetDirection()
-		{
-			base.InterpolationEnabled = true;
-			base.InterpolationWait = true;
-		}
+    public NetDirection()
+    {
+      this.InterpolationEnabled = true;
+      this.InterpolationWait = true;
+    }
 
-		public NetDirection(int value)
-			: base(value)
-		{
-			base.InterpolationEnabled = true;
-			base.InterpolationWait = true;
-		}
+    public NetDirection(int value)
+      : base(value)
+    {
+      this.InterpolationEnabled = true;
+      this.InterpolationWait = true;
+    }
 
-		public static implicit operator int(NetDirection netField)
-		{
-			if (netField == null)
-			{
-				return 0;
-			}
-			return netField.Get();
-		}
+    public static implicit operator int(NetDirection netField) => (NetFieldBase<int, NetInt>) netField == (NetInt) null ? 0 : netField.Get();
 
-		public override void Set(int newValue)
-		{
-			if (canShortcutSet())
-			{
-				value = newValue;
-			}
-			else if (newValue != value)
-			{
-				cleanSet(newValue);
-				MarkDirty();
-			}
-		}
+    public override void Set(int newValue)
+    {
+      if (this.canShortcutSet())
+      {
+        this.value = newValue;
+      }
+      else
+      {
+        if (newValue == this.value)
+          return;
+        this.cleanSet(newValue);
+        this.MarkDirty();
+      }
+    }
 
-		protected override bool setUpInterpolation(int oldValue, int newValue)
-		{
-			return true;
-		}
+    protected override bool setUpInterpolation(int oldValue, int newValue) => true;
 
-		public int getInterpolatedDirection()
-		{
-			if (Position != null && Position.IsInterpolating() && !Position.IsPausePending())
-			{
-				Vector2 dir = Position.CurrentInterpolationDirection();
-				if (Math.Abs(dir.X) > Math.Abs(dir.Y))
-				{
-					if (dir.X < 0f)
-					{
-						return 3;
-					}
-					return 1;
-				}
-				if (Math.Abs(dir.Y) > Math.Abs(dir.X))
-				{
-					if (dir.Y < 0f)
-					{
-						return 0;
-					}
-					return 2;
-				}
-			}
-			return value;
-		}
+    public int getInterpolatedDirection()
+    {
+      if (this.Position != null && this.Position.IsInterpolating() && !this.Position.IsPausePending())
+      {
+        Vector2 vector2 = this.Position.CurrentInterpolationDirection();
+        if ((double) Math.Abs(vector2.X) > (double) Math.Abs(vector2.Y))
+          return (double) vector2.X < 0.0 ? 3 : 1;
+        if ((double) Math.Abs(vector2.Y) > (double) Math.Abs(vector2.X))
+          return (double) vector2.Y < 0.0 ? 0 : 2;
+      }
+      return this.value;
+    }
 
-		protected override int interpolate(int startValue, int endValue, float factor)
-		{
-			if (Position != null && Position.IsInterpolating() && !Position.IsPausePending())
-			{
-				Vector2 dir = Position.CurrentInterpolationDirection();
-				if (Math.Abs(dir.X) > Math.Abs(dir.Y))
-				{
-					if (dir.X < 0f)
-					{
-						return 3;
-					}
-					return 1;
-				}
-				if (Math.Abs(dir.Y) > Math.Abs(dir.X))
-				{
-					if (dir.Y < 0f)
-					{
-						return 0;
-					}
-					return 2;
-				}
-			}
-			return startValue;
-		}
+    protected override int interpolate(int startValue, int endValue, float factor)
+    {
+      if (this.Position != null && this.Position.IsInterpolating() && !this.Position.IsPausePending())
+      {
+        Vector2 vector2 = this.Position.CurrentInterpolationDirection();
+        if ((double) Math.Abs(vector2.X) > (double) Math.Abs(vector2.Y))
+          return (double) vector2.X < 0.0 ? 3 : 1;
+        if ((double) Math.Abs(vector2.Y) > (double) Math.Abs(vector2.X))
+          return (double) vector2.Y < 0.0 ? 0 : 2;
+      }
+      return startValue;
+    }
 
-		protected override void ReadDelta(BinaryReader reader, NetVersion version)
-		{
-			int newValue = reader.ReadInt32();
-			if (version.IsPriorityOver(ChangeVersion))
-			{
-				setInterpolationTarget(newValue);
-			}
-		}
+    protected override void ReadDelta(BinaryReader reader, NetVersion version)
+    {
+      int newValue = reader.ReadInt32();
+      if (!version.IsPriorityOver(this.ChangeVersion))
+        return;
+      this.setInterpolationTarget(newValue);
+    }
 
-		protected override void WriteDelta(BinaryWriter writer)
-		{
-			writer.Write(value);
-		}
-	}
+    protected override void WriteDelta(BinaryWriter writer) => writer.Write(this.value);
+  }
 }

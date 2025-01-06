@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Locations.IslandShrine
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Netcode;
 using StardewValley.Objects;
@@ -6,232 +12,208 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Locations
 {
-	public class IslandShrine : IslandForestLocation
-	{
-		[XmlIgnore]
-		public ItemPedestal northPedestal = new NetRef<ItemPedestal>();
+  public class IslandShrine : IslandForestLocation
+  {
+    [XmlIgnore]
+    public ItemPedestal northPedestal = (ItemPedestal) (NetFieldBase<ItemPedestal, NetRef<ItemPedestal>>) new NetRef<ItemPedestal>();
+    [XmlIgnore]
+    public ItemPedestal southPedestal = (ItemPedestal) (NetFieldBase<ItemPedestal, NetRef<ItemPedestal>>) new NetRef<ItemPedestal>();
+    [XmlIgnore]
+    public ItemPedestal eastPedestal = (ItemPedestal) (NetFieldBase<ItemPedestal, NetRef<ItemPedestal>>) new NetRef<ItemPedestal>();
+    [XmlIgnore]
+    public ItemPedestal westPedestal = (ItemPedestal) (NetFieldBase<ItemPedestal, NetRef<ItemPedestal>>) new NetRef<ItemPedestal>();
+    [XmlIgnore]
+    public NetEvent0 puzzleFinishedEvent = new NetEvent0();
+    [XmlElement("puzzleFinished")]
+    public NetBool puzzleFinished = new NetBool();
 
-		[XmlIgnore]
-		public ItemPedestal southPedestal = new NetRef<ItemPedestal>();
+    public IslandShrine()
+    {
+    }
 
-		[XmlIgnore]
-		public ItemPedestal eastPedestal = new NetRef<ItemPedestal>();
+    public IslandShrine(string map, string name)
+      : base(map, name)
+    {
+      this.AddMissingPedestals();
+    }
 
-		[XmlIgnore]
-		public ItemPedestal westPedestal = new NetRef<ItemPedestal>();
+    public override List<Vector2> GetAdditionalWalnutBushes() => new List<Vector2>()
+    {
+      new Vector2(23f, 34f)
+    };
 
-		[XmlIgnore]
-		public NetEvent0 puzzleFinishedEvent = new NetEvent0();
+    public virtual void AddMissingPedestals()
+    {
+      Vector2 vector2 = new Vector2(0.0f, 0.0f);
+      vector2.X = 21f;
+      vector2.Y = 27f;
+      Object objectAtTile1 = this.getObjectAtTile((int) vector2.X, (int) vector2.Y);
+      IslandGemBird.GemBirdType birdTypeForLocation1 = IslandGemBird.GetBirdTypeForLocation("IslandWest");
+      if (objectAtTile1 == null)
+      {
+        this.westPedestal = new ItemPedestal(vector2, (Object) null, false, Color.White);
+        this.objects.Add(vector2, (Object) this.westPedestal);
+        this.westPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(birdTypeForLocation1), 1);
+        this.westPedestal.successColor.Value = new Color(0, 0, 0, 0);
+      }
+      else if (objectAtTile1 is ItemPedestal)
+      {
+        ItemPedestal itemPedestal = objectAtTile1 as ItemPedestal;
+        int itemIndex = IslandGemBird.GetItemIndex(birdTypeForLocation1);
+        if (itemPedestal.requiredItem.Value == null || itemPedestal.requiredItem.Value.ParentSheetIndex != itemIndex)
+        {
+          itemPedestal.requiredItem.Value = new Object(Vector2.Zero, itemIndex, 1);
+          if (itemPedestal.heldObject.Value != null && itemPedestal.heldObject.Value.ParentSheetIndex != itemIndex)
+            itemPedestal.heldObject.Value = (Object) null;
+        }
+      }
+      vector2.X = 27f;
+      vector2.Y = 27f;
+      Object objectAtTile2 = this.getObjectAtTile((int) vector2.X, (int) vector2.Y);
+      IslandGemBird.GemBirdType birdTypeForLocation2 = IslandGemBird.GetBirdTypeForLocation("IslandEast");
+      if (objectAtTile2 == null)
+      {
+        this.eastPedestal = new ItemPedestal(vector2, (Object) null, false, Color.White);
+        this.objects.Add(vector2, (Object) this.eastPedestal);
+        this.eastPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(birdTypeForLocation2), 1);
+        this.eastPedestal.successColor.Value = new Color(0, 0, 0, 0);
+      }
+      else if (objectAtTile2 is ItemPedestal)
+      {
+        ItemPedestal itemPedestal = objectAtTile2 as ItemPedestal;
+        int itemIndex = IslandGemBird.GetItemIndex(birdTypeForLocation2);
+        if (itemPedestal.requiredItem.Value == null || itemPedestal.requiredItem.Value.ParentSheetIndex != itemIndex)
+        {
+          itemPedestal.requiredItem.Value = new Object(Vector2.Zero, itemIndex, 1);
+          if (itemPedestal.heldObject.Value != null && itemPedestal.heldObject.Value.ParentSheetIndex != itemIndex)
+            itemPedestal.heldObject.Value = (Object) null;
+        }
+      }
+      vector2.X = 24f;
+      vector2.Y = 28f;
+      Object objectAtTile3 = this.getObjectAtTile((int) vector2.X, (int) vector2.Y);
+      IslandGemBird.GemBirdType birdTypeForLocation3 = IslandGemBird.GetBirdTypeForLocation("IslandSouth");
+      if (objectAtTile3 == null)
+      {
+        this.southPedestal = new ItemPedestal(vector2, (Object) null, false, Color.White);
+        this.objects.Add(vector2, (Object) this.southPedestal);
+        this.southPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(birdTypeForLocation3), 1);
+        this.southPedestal.successColor.Value = new Color(0, 0, 0, 0);
+      }
+      else if (objectAtTile3 is ItemPedestal)
+      {
+        ItemPedestal itemPedestal = objectAtTile3 as ItemPedestal;
+        int itemIndex = IslandGemBird.GetItemIndex(birdTypeForLocation3);
+        if (itemPedestal.requiredItem.Value == null || itemPedestal.requiredItem.Value.ParentSheetIndex != itemIndex)
+        {
+          itemPedestal.requiredItem.Value = new Object(Vector2.Zero, itemIndex, 1);
+          if (itemPedestal.heldObject.Value != null && itemPedestal.heldObject.Value.ParentSheetIndex != itemIndex)
+            itemPedestal.heldObject.Value = (Object) null;
+        }
+      }
+      vector2.X = 24f;
+      vector2.Y = 25f;
+      Object objectAtTile4 = this.getObjectAtTile((int) vector2.X, (int) vector2.Y);
+      IslandGemBird.GemBirdType birdTypeForLocation4 = IslandGemBird.GetBirdTypeForLocation("IslandNorth");
+      if (objectAtTile4 == null)
+      {
+        this.northPedestal = new ItemPedestal(vector2, (Object) null, false, Color.White);
+        this.objects.Add(vector2, (Object) this.northPedestal);
+        this.northPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(birdTypeForLocation4), 1);
+        this.northPedestal.successColor.Value = new Color(0, 0, 0, 0);
+      }
+      else
+      {
+        if (!(objectAtTile4 is ItemPedestal))
+          return;
+        ItemPedestal itemPedestal = objectAtTile4 as ItemPedestal;
+        int itemIndex = IslandGemBird.GetItemIndex(birdTypeForLocation4);
+        if (itemPedestal.requiredItem.Value != null && itemPedestal.requiredItem.Value.ParentSheetIndex == itemIndex)
+          return;
+        itemPedestal.requiredItem.Value = new Object(Vector2.Zero, itemIndex, 1);
+        if (itemPedestal.heldObject.Value == null || itemPedestal.heldObject.Value.ParentSheetIndex == itemIndex)
+          return;
+        itemPedestal.heldObject.Value = (Object) null;
+      }
+    }
 
-		[XmlElement("puzzleFinished")]
-		public NetBool puzzleFinished = new NetBool();
+    protected override void initNetFields()
+    {
+      base.initNetFields();
+      this.NetFields.AddFields((INetSerializable) this.puzzleFinished, (INetSerializable) this.puzzleFinishedEvent);
+      this.puzzleFinishedEvent.onEvent += new NetEvent0.Event(this.OnPuzzleFinish);
+    }
 
-		public IslandShrine()
-		{
-		}
+    protected override void resetLocalState()
+    {
+      base.resetLocalState();
+      if (!Game1.IsMasterGame)
+        return;
+      this.AddMissingPedestals();
+    }
 
-		public IslandShrine(string map, string name)
-			: base(map, name)
-		{
-			AddMissingPedestals();
-		}
+    public override void MakeMapModifications(bool force = false)
+    {
+      base.MakeMapModifications(force);
+      if (!this.puzzleFinished.Value)
+        return;
+      this.ApplyFinishedTiles();
+    }
 
-		public override List<Vector2> GetAdditionalWalnutBushes()
-		{
-			return new List<Vector2>
-			{
-				new Vector2(23f, 34f)
-			};
-		}
+    public override void TransferDataFromSavedLocation(GameLocation l)
+    {
+      base.TransferDataFromSavedLocation(l);
+      if (!(l is IslandShrine))
+        return;
+      IslandShrine islandShrine = l as IslandShrine;
+      this.northPedestal = islandShrine.getObjectAtTile((int) this.northPedestal.TileLocation.X, (int) this.northPedestal.TileLocation.Y) as ItemPedestal;
+      this.southPedestal = islandShrine.getObjectAtTile((int) this.southPedestal.TileLocation.X, (int) this.southPedestal.TileLocation.Y) as ItemPedestal;
+      this.eastPedestal = islandShrine.getObjectAtTile((int) this.eastPedestal.TileLocation.X, (int) this.eastPedestal.TileLocation.Y) as ItemPedestal;
+      this.westPedestal = islandShrine.getObjectAtTile((int) this.westPedestal.TileLocation.X, (int) this.westPedestal.TileLocation.Y) as ItemPedestal;
+      this.puzzleFinished.Value = islandShrine.puzzleFinished.Value;
+    }
 
-		public virtual void AddMissingPedestals()
-		{
-			Vector2 position = new Vector2(0f, 0f);
-			position.X = 21f;
-			position.Y = 27f;
-			IslandGemBird.GemBirdType bird_type5 = IslandGemBird.GemBirdType.Amethyst;
-			Object existing_pedestal4 = getObjectAtTile((int)position.X, (int)position.Y);
-			bird_type5 = IslandGemBird.GetBirdTypeForLocation("IslandWest");
-			if (existing_pedestal4 == null)
-			{
-				westPedestal = new ItemPedestal(position, null, lock_on_success: false, Color.White);
-				objects.Add(position, westPedestal);
-				westPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(bird_type5), 1);
-				westPedestal.successColor.Value = new Color(0, 0, 0, 0);
-			}
-			else if (existing_pedestal4 is ItemPedestal)
-			{
-				ItemPedestal pedestal4 = existing_pedestal4 as ItemPedestal;
-				int item_index4 = IslandGemBird.GetItemIndex(bird_type5);
-				if (pedestal4.requiredItem.Value == null || pedestal4.requiredItem.Value.ParentSheetIndex != item_index4)
-				{
-					pedestal4.requiredItem.Value = new Object(Vector2.Zero, item_index4, 1);
-					if (pedestal4.heldObject.Value != null && pedestal4.heldObject.Value.ParentSheetIndex != item_index4)
-					{
-						pedestal4.heldObject.Value = null;
-					}
-				}
-			}
-			position.X = 27f;
-			position.Y = 27f;
-			existing_pedestal4 = getObjectAtTile((int)position.X, (int)position.Y);
-			bird_type5 = IslandGemBird.GetBirdTypeForLocation("IslandEast");
-			if (existing_pedestal4 == null)
-			{
-				eastPedestal = new ItemPedestal(position, null, lock_on_success: false, Color.White);
-				objects.Add(position, eastPedestal);
-				eastPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(bird_type5), 1);
-				eastPedestal.successColor.Value = new Color(0, 0, 0, 0);
-			}
-			else if (existing_pedestal4 is ItemPedestal)
-			{
-				ItemPedestal pedestal3 = existing_pedestal4 as ItemPedestal;
-				int item_index3 = IslandGemBird.GetItemIndex(bird_type5);
-				if (pedestal3.requiredItem.Value == null || pedestal3.requiredItem.Value.ParentSheetIndex != item_index3)
-				{
-					pedestal3.requiredItem.Value = new Object(Vector2.Zero, item_index3, 1);
-					if (pedestal3.heldObject.Value != null && pedestal3.heldObject.Value.ParentSheetIndex != item_index3)
-					{
-						pedestal3.heldObject.Value = null;
-					}
-				}
-			}
-			position.X = 24f;
-			position.Y = 28f;
-			existing_pedestal4 = getObjectAtTile((int)position.X, (int)position.Y);
-			bird_type5 = IslandGemBird.GetBirdTypeForLocation("IslandSouth");
-			if (existing_pedestal4 == null)
-			{
-				southPedestal = new ItemPedestal(position, null, lock_on_success: false, Color.White);
-				objects.Add(position, southPedestal);
-				southPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(bird_type5), 1);
-				southPedestal.successColor.Value = new Color(0, 0, 0, 0);
-			}
-			else if (existing_pedestal4 is ItemPedestal)
-			{
-				ItemPedestal pedestal2 = existing_pedestal4 as ItemPedestal;
-				int item_index2 = IslandGemBird.GetItemIndex(bird_type5);
-				if (pedestal2.requiredItem.Value == null || pedestal2.requiredItem.Value.ParentSheetIndex != item_index2)
-				{
-					pedestal2.requiredItem.Value = new Object(Vector2.Zero, item_index2, 1);
-					if (pedestal2.heldObject.Value != null && pedestal2.heldObject.Value.ParentSheetIndex != item_index2)
-					{
-						pedestal2.heldObject.Value = null;
-					}
-				}
-			}
-			position.X = 24f;
-			position.Y = 25f;
-			existing_pedestal4 = getObjectAtTile((int)position.X, (int)position.Y);
-			bird_type5 = IslandGemBird.GetBirdTypeForLocation("IslandNorth");
-			if (existing_pedestal4 == null)
-			{
-				northPedestal = new ItemPedestal(position, null, lock_on_success: false, Color.White);
-				objects.Add(position, northPedestal);
-				northPedestal.requiredItem.Value = new Object(Vector2.Zero, IslandGemBird.GetItemIndex(bird_type5), 1);
-				northPedestal.successColor.Value = new Color(0, 0, 0, 0);
-			}
-			else
-			{
-				if (!(existing_pedestal4 is ItemPedestal))
-				{
-					return;
-				}
-				ItemPedestal pedestal = existing_pedestal4 as ItemPedestal;
-				int item_index = IslandGemBird.GetItemIndex(bird_type5);
-				if (pedestal.requiredItem.Value == null || pedestal.requiredItem.Value.ParentSheetIndex != item_index)
-				{
-					pedestal.requiredItem.Value = new Object(Vector2.Zero, item_index, 1);
-					if (pedestal.heldObject.Value != null && pedestal.heldObject.Value.ParentSheetIndex != item_index)
-					{
-						pedestal.heldObject.Value = null;
-					}
-				}
-			}
-		}
+    public void OnPuzzleFinish()
+    {
+      if (Game1.IsMasterGame)
+      {
+        Game1.createItemDebris((Item) new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, (GameLocation) this);
+        Game1.createItemDebris((Item) new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, (GameLocation) this);
+        Game1.createItemDebris((Item) new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, (GameLocation) this);
+        Game1.createItemDebris((Item) new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, (GameLocation) this);
+        Game1.createItemDebris((Item) new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, (GameLocation) this);
+      }
+      if (Game1.currentLocation != this)
+        return;
+      Game1.playSound("boulderBreak");
+      Game1.playSound("secret1");
+      Game1.flashAlpha = 1f;
+      this.ApplyFinishedTiles();
+    }
 
-		protected override void initNetFields()
-		{
-			base.initNetFields();
-			base.NetFields.AddFields(puzzleFinished, puzzleFinishedEvent);
-			puzzleFinishedEvent.onEvent += OnPuzzleFinish;
-		}
+    public virtual void ApplyFinishedTiles()
+    {
+      this.setMapTileIndex(23, 19, 142, "AlwaysFront", 2);
+      this.setMapTileIndex(24, 19, 143, "AlwaysFront", 2);
+      this.setMapTileIndex(25, 19, 144, "AlwaysFront", 2);
+    }
 
-		protected override void resetLocalState()
-		{
-			base.resetLocalState();
-			if (Game1.IsMasterGame)
-			{
-				AddMissingPedestals();
-			}
-		}
-
-		public override void MakeMapModifications(bool force = false)
-		{
-			base.MakeMapModifications(force);
-			if (puzzleFinished.Value)
-			{
-				ApplyFinishedTiles();
-			}
-		}
-
-		public override void TransferDataFromSavedLocation(GameLocation l)
-		{
-			base.TransferDataFromSavedLocation(l);
-			if (l is IslandShrine)
-			{
-				IslandShrine shrine = l as IslandShrine;
-				northPedestal = (shrine.getObjectAtTile((int)northPedestal.TileLocation.X, (int)northPedestal.TileLocation.Y) as ItemPedestal);
-				southPedestal = (shrine.getObjectAtTile((int)southPedestal.TileLocation.X, (int)southPedestal.TileLocation.Y) as ItemPedestal);
-				eastPedestal = (shrine.getObjectAtTile((int)eastPedestal.TileLocation.X, (int)eastPedestal.TileLocation.Y) as ItemPedestal);
-				westPedestal = (shrine.getObjectAtTile((int)westPedestal.TileLocation.X, (int)westPedestal.TileLocation.Y) as ItemPedestal);
-				puzzleFinished.Value = shrine.puzzleFinished.Value;
-			}
-		}
-
-		public void OnPuzzleFinish()
-		{
-			if (Game1.IsMasterGame)
-			{
-				Game1.createItemDebris(new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, this);
-				Game1.createItemDebris(new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, this);
-				Game1.createItemDebris(new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, this);
-				Game1.createItemDebris(new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, this);
-				Game1.createItemDebris(new Object(73, 1), new Vector2(24f, 19f) * 64f, -1, this);
-			}
-			if (Game1.currentLocation == this)
-			{
-				Game1.playSound("boulderBreak");
-				Game1.playSound("secret1");
-				Game1.flashAlpha = 1f;
-				ApplyFinishedTiles();
-			}
-		}
-
-		public virtual void ApplyFinishedTiles()
-		{
-			setMapTileIndex(23, 19, 142, "AlwaysFront", 2);
-			setMapTileIndex(24, 19, 143, "AlwaysFront", 2);
-			setMapTileIndex(25, 19, 144, "AlwaysFront", 2);
-		}
-
-		public override void UpdateWhenCurrentLocation(GameTime time)
-		{
-			base.UpdateWhenCurrentLocation(time);
-			if (Game1.IsMasterGame && !puzzleFinished.Value && northPedestal.match.Value && southPedestal.match.Value && eastPedestal.match.Value && westPedestal.match.Value)
-			{
-				Game1.player.team.MarkCollectedNut("IslandShrinePuzzle");
-				puzzleFinishedEvent.Fire();
-				puzzleFinished.Value = true;
-				northPedestal.locked.Value = true;
-				northPedestal.heldObject.Value = null;
-				southPedestal.locked.Value = true;
-				southPedestal.heldObject.Value = null;
-				eastPedestal.locked.Value = true;
-				eastPedestal.heldObject.Value = null;
-				westPedestal.locked.Value = true;
-				westPedestal.heldObject.Value = null;
-			}
-		}
-	}
+    public override void UpdateWhenCurrentLocation(GameTime time)
+    {
+      base.UpdateWhenCurrentLocation(time);
+      if (!Game1.IsMasterGame || this.puzzleFinished.Value || !this.northPedestal.match.Value || !this.southPedestal.match.Value || !this.eastPedestal.match.Value || !this.westPedestal.match.Value)
+        return;
+      Game1.player.team.MarkCollectedNut("IslandShrinePuzzle");
+      this.puzzleFinishedEvent.Fire();
+      this.puzzleFinished.Value = true;
+      this.northPedestal.locked.Value = true;
+      this.northPedestal.heldObject.Value = (Object) null;
+      this.southPedestal.locked.Value = true;
+      this.southPedestal.heldObject.Value = (Object) null;
+      this.eastPedestal.locked.Value = true;
+      this.eastPedestal.heldObject.Value = (Object) null;
+      this.westPedestal.locked.Value = true;
+      this.westPedestal.heldObject.Value = (Object) null;
+    }
+  }
 }

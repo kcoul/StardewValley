@@ -1,91 +1,79 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.PendingProposalDialog
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
+using Netcode;
 
 namespace StardewValley.Menus
 {
-	public class PendingProposalDialog : ConfirmationDialog
-	{
-		public PendingProposalDialog()
-			: base(Game1.content.LoadString("Strings\\UI:PendingProposal"), null)
-		{
-			okButton.visible = false;
-			onCancel = cancelProposal;
-			setCancelable(cancelable: true);
-		}
+  public class PendingProposalDialog : ConfirmationDialog
+  {
+    public PendingProposalDialog()
+      : base(Game1.content.LoadString("Strings\\UI:PendingProposal"), (ConfirmationDialog.behavior) null)
+    {
+      this.okButton.visible = false;
+      this.onCancel = new ConfirmationDialog.behavior(this.cancelProposal);
+      this.setCancelable(true);
+    }
 
-		public void cancelProposal(Farmer who)
-		{
-			Proposal proposal = Game1.player.team.GetOutgoingProposal();
-			if (proposal != null && proposal.receiver.Value != null && proposal.receiver.Value.isActive())
-			{
-				proposal.canceled.Value = true;
-				message = Game1.content.LoadString("Strings\\UI:PendingProposal_Canceling");
-				setCancelable(cancelable: false);
-			}
-		}
+    public void cancelProposal(Farmer who)
+    {
+      Proposal outgoingProposal = Game1.player.team.GetOutgoingProposal();
+      if (outgoingProposal == null || outgoingProposal.receiver.Value == null || !outgoingProposal.receiver.Value.isActive())
+        return;
+      outgoingProposal.canceled.Value = true;
+      this.message = Game1.content.LoadString("Strings\\UI:PendingProposal_Canceling");
+      this.setCancelable(false);
+    }
 
-		public void setCancelable(bool cancelable)
-		{
-			cancelButton.visible = cancelable;
-			if (Game1.options.SnappyMenus)
-			{
-				populateClickableComponentList();
-				snapToDefaultClickableComponent();
-			}
-		}
+    public void setCancelable(bool cancelable)
+    {
+      this.cancelButton.visible = cancelable;
+      if (!Game1.options.SnappyMenus)
+        return;
+      this.populateClickableComponentList();
+      this.snapToDefaultClickableComponent();
+    }
 
-		public override bool readyToClose()
-		{
-			return false;
-		}
+    public override bool readyToClose() => false;
 
-		private bool consumesItem(ProposalType pt)
-		{
-			if (pt != 0)
-			{
-				return pt == ProposalType.Marriage;
-			}
-			return true;
-		}
+    private bool consumesItem(ProposalType pt) => pt == ProposalType.Gift || pt == ProposalType.Marriage;
 
-		public override void update(GameTime time)
-		{
-			base.update(time);
-			Proposal proposal = Game1.player.team.GetOutgoingProposal();
-			if (proposal == null || proposal.receiver.Value == null || !proposal.receiver.Value.isActive())
-			{
-				Game1.player.team.RemoveOutgoingProposal();
-				closeDialog(Game1.player);
-			}
-			else if (proposal.cancelConfirmed.Value && proposal.response.Value != ProposalResponse.Accepted)
-			{
-				Game1.player.team.RemoveOutgoingProposal();
-				closeDialog(Game1.player);
-			}
-			else
-			{
-				if (proposal.response.Value == ProposalResponse.None)
-				{
-					return;
-				}
-				if (proposal.response.Value == ProposalResponse.Accepted)
-				{
-					if (consumesItem(proposal.proposalType))
-					{
-						Game1.player.reduceActiveItemByOne();
-					}
-					if (proposal.proposalType.Value == ProposalType.Dance)
-					{
-						Game1.player.dancePartner.Value = proposal.receiver.Value;
-					}
-					proposal.receiver.Value.doEmote(20);
-				}
-				Game1.player.team.RemoveOutgoingProposal();
-				closeDialog(Game1.player);
-				if (proposal.responseMessageKey.Value != null)
-				{
-					Game1.drawObjectDialogue(Game1.content.LoadString(proposal.responseMessageKey.Value, proposal.receiver.Value.Name));
-				}
-			}
-		}
-	}
+    public override void update(GameTime time)
+    {
+      base.update(time);
+      Proposal outgoingProposal = Game1.player.team.GetOutgoingProposal();
+      if (outgoingProposal == null || outgoingProposal.receiver.Value == null || !outgoingProposal.receiver.Value.isActive())
+      {
+        Game1.player.team.RemoveOutgoingProposal();
+        this.closeDialog(Game1.player);
+      }
+      else if (outgoingProposal.cancelConfirmed.Value && outgoingProposal.response.Value != ProposalResponse.Accepted)
+      {
+        Game1.player.team.RemoveOutgoingProposal();
+        this.closeDialog(Game1.player);
+      }
+      else
+      {
+        if (outgoingProposal.response.Value == ProposalResponse.None)
+          return;
+        if (outgoingProposal.response.Value == ProposalResponse.Accepted)
+        {
+          if (this.consumesItem((ProposalType) (NetFieldBase<ProposalType, NetEnum<ProposalType>>) outgoingProposal.proposalType))
+            Game1.player.reduceActiveItemByOne();
+          if (outgoingProposal.proposalType.Value == ProposalType.Dance)
+            Game1.player.dancePartner.Value = (Character) outgoingProposal.receiver.Value;
+          outgoingProposal.receiver.Value.doEmote(20);
+        }
+        Game1.player.team.RemoveOutgoingProposal();
+        this.closeDialog(Game1.player);
+        if (outgoingProposal.responseMessageKey.Value == null)
+          return;
+        Game1.drawObjectDialogue(Game1.content.LoadString(outgoingProposal.responseMessageKey.Value, (object) outgoingProposal.receiver.Value.Name));
+      }
+    }
+  }
 }

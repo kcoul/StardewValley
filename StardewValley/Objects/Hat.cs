@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Objects.Hat
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -7,229 +13,192 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Objects
 {
-	public class Hat : Item
-	{
-		public enum HairDrawType
-		{
-			DrawFullHair,
-			DrawObscuredHair,
-			HideHair
-		}
+  public class Hat : Item
+  {
+    public const int widthOfTileSheetSquare = 20;
+    public const int heightOfTileSheetSquare = 20;
+    [XmlElement("which")]
+    public readonly NetInt which = new NetInt();
+    [XmlElement("skipHairDraw")]
+    public bool skipHairDraw;
+    [XmlElement("ignoreHairstyleOffset")]
+    public readonly NetBool ignoreHairstyleOffset = new NetBool();
+    [XmlElement("hairDrawType")]
+    public readonly NetInt hairDrawType = new NetInt();
+    [XmlElement("isPrismatic")]
+    public readonly NetBool isPrismatic = new NetBool(false);
+    [XmlIgnore]
+    protected int _isMask = -1;
+    [XmlIgnore]
+    public string displayName;
+    [XmlIgnore]
+    public string description;
 
-		public const int widthOfTileSheetSquare = 20;
+    [XmlIgnore]
+    public bool isMask
+    {
+      get
+      {
+        if (this._isMask == -1)
+        {
+          this._isMask = !this.Name.Contains("Mask") ? 0 : 1;
+          if ((int) (NetFieldBase<int, NetInt>) this.hairDrawType == 2)
+            this._isMask = 0;
+        }
+        return this._isMask == 1;
+      }
+    }
 
-		public const int heightOfTileSheetSquare = 20;
+    public Hat()
+    {
+      this.NetFields.AddFields((INetSerializable) this.which, (INetSerializable) this.ignoreHairstyleOffset, (INetSerializable) this.hairDrawType, (INetSerializable) this.isPrismatic);
+      this.load((int) (NetFieldBase<int, NetInt>) this.which);
+    }
 
-		[XmlElement("which")]
-		public readonly NetInt which = new NetInt();
+    public void load(int which)
+    {
+      Dictionary<int, string> dictionary = Game1.content.Load<Dictionary<int, string>>("Data\\hats");
+      if (!dictionary.ContainsKey(which))
+        which = 0;
+      string[] strArray = dictionary[which].Split('/');
+      this.Name = strArray[0];
+      if (strArray[2] == "hide")
+        this.hairDrawType.Set(2);
+      else if (Convert.ToBoolean(strArray[2]))
+        this.hairDrawType.Set(0);
+      else
+        this.hairDrawType.Set(1);
+      if (this.skipHairDraw)
+      {
+        this.skipHairDraw = false;
+        this.hairDrawType.Set(0);
+      }
+      if (strArray.Length > 4)
+      {
+        foreach (string str in strArray[4].Split(' '))
+        {
+          if (str == "Prismatic")
+            this.isPrismatic.Value = true;
+        }
+      }
+      this.ignoreHairstyleOffset.Value = Convert.ToBoolean(strArray[3]);
+      this.Category = -95;
+    }
 
-		[XmlElement("skipHairDraw")]
-		public bool skipHairDraw;
+    public Hat(int which)
+      : this()
+    {
+      this.which.Value = which;
+      this.load(which);
+    }
 
-		[XmlElement("ignoreHairstyleOffset")]
-		public readonly NetBool ignoreHairstyleOffset = new NetBool();
+    public override void drawInMenu(
+      SpriteBatch spriteBatch,
+      Vector2 location,
+      float scaleSize,
+      float transparency,
+      float layerDepth,
+      StackDrawType drawStackNumber,
+      Color color,
+      bool drawShadow)
+    {
+      float num = scaleSize;
+      scaleSize *= 0.75f;
+      spriteBatch.Draw(FarmerRenderer.hatsTexture, location + new Vector2(32f, 32f), new Rectangle?(new Rectangle((int) (NetFieldBase<int, NetInt>) this.which * 20 % FarmerRenderer.hatsTexture.Width, (int) (NetFieldBase<int, NetInt>) this.which * 20 / FarmerRenderer.hatsTexture.Width * 20 * 4, 20, 20)), (bool) (NetFieldBase<bool, NetBool>) this.isPrismatic ? Utility.GetPrismaticColor() * transparency : color * transparency, 0.0f, new Vector2(10f, 10f), 4f * scaleSize, SpriteEffects.None, layerDepth);
+      if (((drawStackNumber != StackDrawType.Draw || this.maximumStackSize() <= 1 || this.Stack <= 1) && drawStackNumber != StackDrawType.Draw_OneInclusive || (double) scaleSize <= 0.3 ? 0 : (this.Stack != int.MaxValue ? 1 : 0)) == 0)
+        return;
+      Utility.drawTinyDigits(this.Stack, spriteBatch, location + new Vector2((float) (64 - Utility.getWidthOfTinyDigitString(this.Stack, 3f * num)) + 3f * num, (float) (64.0 - 18.0 * (double) num + 2.0)), 3f * num, 1f, color);
+    }
 
-		[XmlElement("hairDrawType")]
-		public readonly NetInt hairDrawType = new NetInt();
+    public void draw(
+      SpriteBatch spriteBatch,
+      Vector2 location,
+      float scaleSize,
+      float transparency,
+      float layerDepth,
+      int direction)
+    {
+      switch (direction)
+      {
+        case 0:
+          direction = 3;
+          break;
+        case 2:
+          direction = 0;
+          break;
+        case 3:
+          direction = 2;
+          break;
+      }
+      spriteBatch.Draw(FarmerRenderer.hatsTexture, location + new Vector2(10f, 10f), new Rectangle?(new Rectangle((int) (NetFieldBase<int, NetInt>) this.which * 20 % FarmerRenderer.hatsTexture.Width, (int) (NetFieldBase<int, NetInt>) this.which * 20 / FarmerRenderer.hatsTexture.Width * 20 * 4 + direction * 20, 20, 20)), (bool) (NetFieldBase<bool, NetBool>) this.isPrismatic ? Utility.GetPrismaticColor() * transparency : Color.White * transparency, 0.0f, new Vector2(3f, 3f), 3f * scaleSize, SpriteEffects.None, layerDepth);
+    }
 
-		[XmlElement("isPrismatic")]
-		public readonly NetBool isPrismatic = new NetBool(value: false);
+    public override string getDescription()
+    {
+      if (this.description == null)
+        this.loadDisplayFields();
+      return Game1.parseText(this.description, Game1.smallFont, this.getDescriptionWidth());
+    }
 
-		[XmlIgnore]
-		protected int _isMask = -1;
+    public override int maximumStackSize() => 1;
 
-		[XmlIgnore]
-		public string displayName;
+    public override int addToStack(Item stack) => 1;
 
-		[XmlIgnore]
-		public string description;
+    public override bool isPlaceable() => false;
 
-		[XmlIgnore]
-		public bool isMask
-		{
-			get
-			{
-				if (_isMask == -1)
-				{
-					if (Name.Contains("Mask"))
-					{
-						_isMask = 1;
-					}
-					else
-					{
-						_isMask = 0;
-					}
-					if ((int)hairDrawType == 2)
-					{
-						_isMask = 0;
-					}
-				}
-				return _isMask == 1;
-			}
-		}
+    [XmlIgnore]
+    public override string DisplayName
+    {
+      get
+      {
+        if (this.displayName == null)
+          this.loadDisplayFields();
+        return this.displayName;
+      }
+      set => this.displayName = value;
+    }
 
-		[XmlIgnore]
-		public override string DisplayName
-		{
-			get
-			{
-				if (displayName == null)
-				{
-					loadDisplayFields();
-				}
-				return displayName;
-			}
-			set
-			{
-				displayName = value;
-			}
-		}
+    [XmlIgnore]
+    public override int Stack
+    {
+      get => 1;
+      set
+      {
+      }
+    }
 
-		[XmlIgnore]
-		public override int Stack
-		{
-			get
-			{
-				return 1;
-			}
-			set
-			{
-			}
-		}
+    public override Item getOne()
+    {
+      Hat one = new Hat((int) (NetFieldBase<int, NetInt>) this.which);
+      one._GetOneFrom((Item) this);
+      return (Item) one;
+    }
 
-		public Hat()
-		{
-			base.NetFields.AddFields(which, ignoreHairstyleOffset, hairDrawType, isPrismatic);
-			load(which);
-		}
+    private bool loadDisplayFields()
+    {
+      if (this.Name != null)
+      {
+        foreach (KeyValuePair<int, string> keyValuePair in Game1.content.Load<Dictionary<int, string>>("Data\\hats"))
+        {
+          string[] strArray = keyValuePair.Value.Split('/');
+          if (strArray[0] == this.Name)
+          {
+            this.displayName = this.Name;
+            if (LocalizedContentManager.CurrentLanguageCode != LocalizedContentManager.LanguageCode.en)
+              this.displayName = strArray[strArray.Length - 1];
+            this.description = strArray[1];
+            return true;
+          }
+        }
+      }
+      return false;
+    }
 
-		public void load(int which)
-		{
-			Dictionary<int, string> dictionary = Game1.content.Load<Dictionary<int, string>>("Data\\hats");
-			if (!dictionary.ContainsKey(which))
-			{
-				which = 0;
-			}
-			string[] split = dictionary[which].Split('/');
-			Name = split[0];
-			if (split[2] == "hide")
-			{
-				hairDrawType.Set(2);
-			}
-			else if (Convert.ToBoolean(split[2]))
-			{
-				hairDrawType.Set(0);
-			}
-			else
-			{
-				hairDrawType.Set(1);
-			}
-			if (skipHairDraw)
-			{
-				skipHairDraw = false;
-				hairDrawType.Set(0);
-			}
-			if (split.Length > 4)
-			{
-				string[] specialTags = split[4].Split(' ');
-				foreach (string a in specialTags)
-				{
-					if (a == "Prismatic")
-					{
-						isPrismatic.Value = true;
-					}
-				}
-			}
-			ignoreHairstyleOffset.Value = Convert.ToBoolean(split[3]);
-			base.Category = -95;
-		}
-
-		public Hat(int which)
-			: this()
-		{
-			this.which.Value = which;
-			load(which);
-		}
-
-		public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
-		{
-			float originalScale = scaleSize;
-			scaleSize *= 0.75f;
-			spriteBatch.Draw(FarmerRenderer.hatsTexture, location + new Vector2(32f, 32f), new Rectangle((int)which * 20 % FarmerRenderer.hatsTexture.Width, (int)which * 20 / FarmerRenderer.hatsTexture.Width * 20 * 4, 20, 20), isPrismatic ? (Utility.GetPrismaticColor() * transparency) : (color * transparency), 0f, new Vector2(10f, 10f), 4f * scaleSize, SpriteEffects.None, layerDepth);
-			if (((drawStackNumber == StackDrawType.Draw && maximumStackSize() > 1 && Stack > 1) || drawStackNumber == StackDrawType.Draw_OneInclusive) && (double)scaleSize > 0.3 && Stack != int.MaxValue)
-			{
-				Utility.drawTinyDigits(Stack, spriteBatch, location + new Vector2((float)(64 - Utility.getWidthOfTinyDigitString(Stack, 3f * originalScale)) + 3f * originalScale, 64f - 18f * originalScale + 2f), 3f * originalScale, 1f, color);
-			}
-		}
-
-		public void draw(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, int direction)
-		{
-			switch (direction)
-			{
-			case 0:
-				direction = 3;
-				break;
-			case 2:
-				direction = 0;
-				break;
-			case 3:
-				direction = 2;
-				break;
-			}
-			spriteBatch.Draw(FarmerRenderer.hatsTexture, location + new Vector2(10f, 10f), new Rectangle((int)which * 20 % FarmerRenderer.hatsTexture.Width, (int)which * 20 / FarmerRenderer.hatsTexture.Width * 20 * 4 + direction * 20, 20, 20), isPrismatic ? (Utility.GetPrismaticColor() * transparency) : (Color.White * transparency), 0f, new Vector2(3f, 3f), 3f * scaleSize, SpriteEffects.None, layerDepth);
-		}
-
-		public override string getDescription()
-		{
-			if (description == null)
-			{
-				loadDisplayFields();
-			}
-			return Game1.parseText(description, Game1.smallFont, getDescriptionWidth());
-		}
-
-		public override int maximumStackSize()
-		{
-			return 1;
-		}
-
-		public override int addToStack(Item stack)
-		{
-			return 1;
-		}
-
-		public override bool isPlaceable()
-		{
-			return false;
-		}
-
-		public override Item getOne()
-		{
-			Hat hat = new Hat(which);
-			hat._GetOneFrom(this);
-			return hat;
-		}
-
-		private bool loadDisplayFields()
-		{
-			if (Name != null)
-			{
-				foreach (KeyValuePair<int, string> item in Game1.content.Load<Dictionary<int, string>>("Data\\hats"))
-				{
-					string[] split = item.Value.Split('/');
-					if (split[0] == Name)
-					{
-						displayName = Name;
-						if (LocalizedContentManager.CurrentLanguageCode != 0)
-						{
-							displayName = split[split.Length - 1];
-						}
-						description = split[1];
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-	}
+    public enum HairDrawType
+    {
+      DrawFullHair,
+      DrawObscuredHair,
+      HideHair,
+    }
+  }
 }

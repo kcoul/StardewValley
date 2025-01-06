@@ -1,54 +1,42 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Network.NetNPCRef
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Netcode;
 using System;
 
 namespace StardewValley.Network
 {
-	public class NetNPCRef : INetObject<NetFields>
-	{
-		private readonly NetGuid guid = new NetGuid();
+  public class NetNPCRef : INetObject<NetFields>
+  {
+    private readonly NetGuid guid = new NetGuid();
 
-		public NetFields NetFields
-		{
-			get;
-		} = new NetFields();
+    public NetFields NetFields { get; } = new NetFields();
 
+    public NetNPCRef() => this.NetFields.AddFields((INetSerializable) this.guid);
 
-		public NetNPCRef()
-		{
-			NetFields.AddFields(guid);
-		}
+    public NPC Get(GameLocation location)
+    {
+      if (this.guid.Value == Guid.Empty || location == null)
+        return (NPC) null;
+      return !location.characters.ContainsGuid(this.guid.Value) ? (NPC) null : location.characters[this.guid.Value];
+    }
 
-		public NPC Get(GameLocation location)
-		{
-			if (guid.Value == Guid.Empty || location == null)
-			{
-				return null;
-			}
-			if (!location.characters.ContainsGuid(guid.Value))
-			{
-				return null;
-			}
-			return location.characters[guid.Value];
-		}
+    public void Set(GameLocation location, NPC npc)
+    {
+      if (npc == null)
+      {
+        this.guid.Value = Guid.Empty;
+      }
+      else
+      {
+        Guid guid = location.characters.GuidOf(npc);
+        this.guid.Value = !(guid == Guid.Empty) ? guid : throw new ArgumentException();
+      }
+    }
 
-		public void Set(GameLocation location, NPC npc)
-		{
-			if (npc == null)
-			{
-				guid.Value = Guid.Empty;
-				return;
-			}
-			Guid newGuid = location.characters.GuidOf(npc);
-			if (newGuid == Guid.Empty)
-			{
-				throw new ArgumentException();
-			}
-			guid.Value = newGuid;
-		}
-
-		public void Clear()
-		{
-			guid.Value = Guid.Empty;
-		}
-	}
+    public void Clear() => this.guid.Value = Guid.Empty;
+  }
 }

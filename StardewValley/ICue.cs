@@ -1,47 +1,44 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.ICue
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework.Audio;
 using System;
 
 namespace StardewValley
 {
-	public interface ICue : IDisposable
-	{
-		bool IsStopped
-		{
-			get;
-		}
+  public interface ICue : IDisposable
+  {
+    void Play();
 
-		bool IsStopping
-		{
-			get;
-		}
+    void Pause();
 
-		bool IsPlaying
-		{
-			get;
-		}
+    void Resume();
 
-		bool IsPaused
-		{
-			get;
-		}
+    void Stop(AudioStopOptions options);
 
-		string Name
-		{
-			get;
-		}
+    void SetVariable(string var, int val);
 
-		void Play();
+    void SetVariable(string var, float val);
 
-		void Pause();
+    float GetVariable(string var);
 
-		void Resume();
+    bool IsStopped { get; }
 
-		void Stop(AudioStopOptions options);
+    bool IsStopping { get; }
 
-		void SetVariable(string var, int val);
+    bool IsPlaying { get; }
 
-		void SetVariable(string var, float val);
+    bool IsPaused { get; }
 
-		float GetVariable(string var);
-	}
+    string Name { get; }
+
+    float Pitch { get; set; }
+
+    float Volume { get; set; }
+
+    bool IsPitchBeingControlledByRPC { get; }
+  }
 }

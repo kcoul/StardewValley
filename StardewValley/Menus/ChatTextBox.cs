@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Menus.ChatTextBox
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
@@ -5,144 +11,114 @@ using System.Linq;
 
 namespace StardewValley.Menus
 {
-	public class ChatTextBox : TextBox
-	{
-		public IClickableMenu parentMenu;
+  public class ChatTextBox : TextBox
+  {
+    public IClickableMenu parentMenu;
+    public List<ChatSnippet> finalText = new List<ChatSnippet>();
+    public float currentWidth;
 
-		public List<ChatSnippet> finalText = new List<ChatSnippet>();
+    public ChatTextBox(
+      Texture2D textBoxTexture,
+      Texture2D caretTexture,
+      SpriteFont font,
+      Color textColor)
+      : base(textBoxTexture, caretTexture, font, textColor)
+    {
+    }
 
-		public float currentWidth;
+    public void reset()
+    {
+      this.currentWidth = 0.0f;
+      this.finalText.Clear();
+    }
 
-		public ChatTextBox(Texture2D textBoxTexture, Texture2D caretTexture, SpriteFont font, Color textColor)
-			: base(textBoxTexture, caretTexture, font, textColor)
-		{
-		}
+    public void setText(string text)
+    {
+      this.reset();
+      this.RecieveTextInput(text);
+    }
 
-		public void reset()
-		{
-			currentWidth = 0f;
-			finalText.Clear();
-		}
+    public override void RecieveTextInput(string text)
+    {
+      if (this.finalText.Count == 0)
+        this.finalText.Add(new ChatSnippet("", LocalizedContentManager.CurrentLanguageCode));
+      if ((double) this.currentWidth + (double) ChatBox.messageFont(LocalizedContentManager.CurrentLanguageCode).MeasureString(text).X >= (double) (this.Width - 16))
+        return;
+      if (this.finalText.Last<ChatSnippet>().message != null)
+        this.finalText.Last<ChatSnippet>().message += text;
+      else
+        this.finalText.Add(new ChatSnippet(text, LocalizedContentManager.CurrentLanguageCode));
+      this.updateWidth();
+    }
 
-		public void setText(string text)
-		{
-			reset();
-			RecieveTextInput(text);
-		}
+    public override void RecieveTextInput(char inputChar) => this.RecieveTextInput(inputChar.ToString() ?? "");
 
-		public override void RecieveTextInput(string text)
-		{
-			if (finalText.Count == 0)
-			{
-				finalText.Add(new ChatSnippet("", LocalizedContentManager.CurrentLanguageCode));
-			}
-			if (!(currentWidth + ChatBox.messageFont(LocalizedContentManager.CurrentLanguageCode).MeasureString(text).X >= (float)(base.Width - 16)))
-			{
-				if (finalText.Last().message != null)
-				{
-					finalText.Last().message += text;
-				}
-				else
-				{
-					finalText.Add(new ChatSnippet(text, LocalizedContentManager.CurrentLanguageCode));
-				}
-				updateWidth();
-			}
-		}
+    public override void RecieveCommandInput(char command)
+    {
+      if (this.Selected && command == '\b')
+        this.backspace();
+      else
+        base.RecieveCommandInput(command);
+    }
 
-		public override void RecieveTextInput(char inputChar)
-		{
-			RecieveTextInput(inputChar.ToString() ?? "");
-		}
+    public void backspace()
+    {
+      if (this.finalText.Count > 0)
+      {
+        if (this.finalText.Last<ChatSnippet>().message != null)
+        {
+          if (this.finalText.Last<ChatSnippet>().message.Length > 1)
+            this.finalText.Last<ChatSnippet>().message = this.finalText.Last<ChatSnippet>().message.Remove(this.finalText.Last<ChatSnippet>().message.Length - 1);
+          else
+            this.finalText.RemoveAt(this.finalText.Count - 1);
+        }
+        else if (this.finalText.Last<ChatSnippet>().emojiIndex != -1)
+          this.finalText.RemoveAt(this.finalText.Count - 1);
+      }
+      this.updateWidth();
+    }
 
-		public override void RecieveCommandInput(char command)
-		{
-			if (base.Selected && command == '\b')
-			{
-				backspace();
-			}
-			else
-			{
-				base.RecieveCommandInput(command);
-			}
-		}
+    public void receiveEmoji(int emoji)
+    {
+      if ((double) this.currentWidth + 40.0 > (double) (this.Width - 16))
+        return;
+      this.finalText.Add(new ChatSnippet(emoji));
+      this.updateWidth();
+    }
 
-		public void backspace()
-		{
-			if (finalText.Count > 0)
-			{
-				if (finalText.Last().message != null)
-				{
-					if (finalText.Last().message.Length > 1)
-					{
-						finalText.Last().message = finalText.Last().message.Remove(finalText.Last().message.Length - 1);
-					}
-					else
-					{
-						finalText.RemoveAt(finalText.Count - 1);
-					}
-				}
-				else if (finalText.Last().emojiIndex != -1)
-				{
-					finalText.RemoveAt(finalText.Count - 1);
-				}
-			}
-			updateWidth();
-		}
+    public void updateWidth()
+    {
+      this.currentWidth = 0.0f;
+      foreach (ChatSnippet chatSnippet in this.finalText)
+      {
+        if (chatSnippet.message != null)
+          chatSnippet.myLength = ChatBox.messageFont(LocalizedContentManager.CurrentLanguageCode).MeasureString(chatSnippet.message).X;
+        this.currentWidth += chatSnippet.myLength;
+      }
+    }
 
-		public void receiveEmoji(int emoji)
-		{
-			if (!(currentWidth + 40f > (float)(base.Width - 16)))
-			{
-				finalText.Add(new ChatSnippet(emoji));
-				updateWidth();
-			}
-		}
-
-		public void updateWidth()
-		{
-			currentWidth = 0f;
-			foreach (ChatSnippet cs in finalText)
-			{
-				if (cs.message != null)
-				{
-					cs.myLength = ChatBox.messageFont(LocalizedContentManager.CurrentLanguageCode).MeasureString(cs.message).X;
-				}
-				currentWidth += cs.myLength;
-			}
-		}
-
-		public override void Draw(SpriteBatch spriteBatch, bool drawShadow = true)
-		{
-			bool caretVisible2 = true;
-			caretVisible2 = ((!(Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000.0 < 500.0)) ? true : false);
-			if (_textBoxTexture != null)
-			{
-				spriteBatch.Draw(_textBoxTexture, new Rectangle(base.X, base.Y, 16, base.Height), new Rectangle(0, 0, 16, base.Height), Color.White);
-				spriteBatch.Draw(_textBoxTexture, new Rectangle(base.X + 16, base.Y, base.Width - 32, base.Height), new Rectangle(16, 0, 4, base.Height), Color.White);
-				spriteBatch.Draw(_textBoxTexture, new Rectangle(base.X + base.Width - 16, base.Y, 16, base.Height), new Rectangle(_textBoxTexture.Bounds.Width - 16, 0, 16, base.Height), Color.White);
-			}
-			else
-			{
-				Game1.drawDialogueBox(base.X - 32, base.Y - 112 + 10, base.Width + 80, base.Height, speaker: false, drawOnlyBox: true);
-			}
-			if (caretVisible2 && base.Selected)
-			{
-				spriteBatch.Draw(Game1.staminaRect, new Rectangle(base.X + 16 + (int)currentWidth - 2, base.Y + 8, 4, 32), _textColor);
-			}
-			float xPositionSoFar = 0f;
-			for (int i = 0; i < finalText.Count; i++)
-			{
-				if (finalText[i].emojiIndex != -1)
-				{
-					spriteBatch.Draw(ChatBox.emojiTexture, new Vector2((float)base.X + xPositionSoFar + 12f, base.Y + 12), new Rectangle(finalText[i].emojiIndex * 9 % ChatBox.emojiTexture.Width, finalText[i].emojiIndex * 9 / ChatBox.emojiTexture.Width * 9, 9, 9), Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.99f);
-				}
-				else if (finalText[i].message != null)
-				{
-					spriteBatch.DrawString(ChatBox.messageFont(LocalizedContentManager.CurrentLanguageCode), finalText[i].message, new Vector2((float)base.X + xPositionSoFar + 12f, base.Y + 12), ChatMessage.getColorFromName(Game1.player.defaultChatColor), 0f, Vector2.Zero, 1f, SpriteEffects.None, 0.99f);
-				}
-				xPositionSoFar += finalText[i].myLength;
-			}
-		}
-	}
+    public override void Draw(SpriteBatch spriteBatch, bool drawShadow = true)
+    {
+      bool flag = Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 1000.0 >= 500.0;
+      if (this._textBoxTexture != null)
+      {
+        spriteBatch.Draw(this._textBoxTexture, new Rectangle(this.X, this.Y, 16, this.Height), new Rectangle?(new Rectangle(0, 0, 16, this.Height)), Color.White);
+        spriteBatch.Draw(this._textBoxTexture, new Rectangle(this.X + 16, this.Y, this.Width - 32, this.Height), new Rectangle?(new Rectangle(16, 0, 4, this.Height)), Color.White);
+        spriteBatch.Draw(this._textBoxTexture, new Rectangle(this.X + this.Width - 16, this.Y, 16, this.Height), new Rectangle?(new Rectangle(this._textBoxTexture.Bounds.Width - 16, 0, 16, this.Height)), Color.White);
+      }
+      else
+        Game1.drawDialogueBox(this.X - 32, this.Y - 112 + 10, this.Width + 80, this.Height, false, true);
+      if (flag && this.Selected)
+        spriteBatch.Draw(Game1.staminaRect, new Rectangle(this.X + 16 + (int) this.currentWidth - 2, this.Y + 8, 4, 32), this._textColor);
+      float num = 0.0f;
+      for (int index = 0; index < this.finalText.Count; ++index)
+      {
+        if (this.finalText[index].emojiIndex != -1)
+          spriteBatch.Draw(ChatBox.emojiTexture, new Vector2((float) ((double) this.X + (double) num + 12.0), (float) (this.Y + 12)), new Rectangle?(new Rectangle(this.finalText[index].emojiIndex * 9 % ChatBox.emojiTexture.Width, this.finalText[index].emojiIndex * 9 / ChatBox.emojiTexture.Width * 9, 9, 9)), Color.White, 0.0f, Vector2.Zero, 4f, SpriteEffects.None, 0.99f);
+        else if (this.finalText[index].message != null)
+          spriteBatch.DrawString(ChatBox.messageFont(LocalizedContentManager.CurrentLanguageCode), this.finalText[index].message, new Vector2((float) ((double) this.X + (double) num + 12.0), (float) (this.Y + 12)), ChatMessage.getColorFromName(Game1.player.defaultChatColor), 0.0f, Vector2.Zero, 1f, SpriteEffects.None, 0.99f);
+        num += this.finalText[index].myLength;
+      }
+    }
+  }
 }

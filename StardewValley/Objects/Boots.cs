@@ -1,3 +1,9 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: StardewValley.Objects.Boots
+// Assembly: Stardew Valley, Version=1.5.6.22018, Culture=neutral, PublicKeyToken=null
+// MVID: BEBB6D18-4941-4529-AC12-B54F0C61CC20
+// Assembly location: C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley\Stardew Valley.dll
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Netcode;
@@ -8,231 +14,195 @@ using System.Xml.Serialization;
 
 namespace StardewValley.Objects
 {
-	public class Boots : Item
-	{
-		[XmlElement("defenseBonus")]
-		public readonly NetInt defenseBonus = new NetInt();
+  public class Boots : Item
+  {
+    [XmlElement("defenseBonus")]
+    public readonly NetInt defenseBonus = new NetInt();
+    [XmlElement("immunityBonus")]
+    public readonly NetInt immunityBonus = new NetInt();
+    [XmlElement("indexInTileSheet")]
+    public readonly NetInt indexInTileSheet = new NetInt();
+    [XmlElement("price")]
+    public readonly NetInt price = new NetInt();
+    [XmlElement("indexInColorSheet")]
+    public readonly NetInt indexInColorSheet = new NetInt();
+    [XmlElement("appliedBootSheetIndex")]
+    public readonly NetInt appliedBootSheetIndex = new NetInt(-1);
+    [XmlIgnore]
+    public string displayName;
+    [XmlIgnore]
+    public string description;
 
-		[XmlElement("immunityBonus")]
-		public readonly NetInt immunityBonus = new NetInt();
+    public Boots()
+    {
+      this.NetFields.AddFields((INetSerializable) this.defenseBonus, (INetSerializable) this.immunityBonus, (INetSerializable) this.indexInTileSheet, (INetSerializable) this.price, (INetSerializable) this.indexInColorSheet);
+      this.Category = -97;
+    }
 
-		[XmlElement("indexInTileSheet")]
-		public readonly NetInt indexInTileSheet = new NetInt();
+    public Boots(int which)
+      : this()
+    {
+      this.indexInTileSheet.Value = which;
+      this.reloadData();
+      this.Category = -97;
+    }
 
-		[XmlElement("price")]
-		public readonly NetInt price = new NetInt();
+    public virtual void reloadData()
+    {
+      string[] strArray = Game1.content.Load<Dictionary<int, string>>("Data\\Boots")[this.indexInTileSheet.Value].Split('/');
+      this.Name = strArray[0];
+      this.price.Value = Convert.ToInt32(strArray[2]);
+      this.defenseBonus.Value = Convert.ToInt32(strArray[3]);
+      this.immunityBonus.Value = Convert.ToInt32(strArray[4]);
+      this.indexInColorSheet.Value = Convert.ToInt32(strArray[5]);
+    }
 
-		[XmlElement("indexInColorSheet")]
-		public readonly NetInt indexInColorSheet = new NetInt();
+    public void applyStats(Boots applied_boots)
+    {
+      this.reloadData();
+      if (this.defenseBonus.Value == (int) (NetFieldBase<int, NetInt>) applied_boots.defenseBonus && this.immunityBonus.Value == (int) (NetFieldBase<int, NetInt>) applied_boots.immunityBonus)
+        this.appliedBootSheetIndex.Value = -1;
+      else
+        this.appliedBootSheetIndex.Value = applied_boots.getStatsIndex();
+      this.defenseBonus.Value = applied_boots.defenseBonus.Value;
+      this.immunityBonus.Value = applied_boots.immunityBonus.Value;
+      this.price.Value = applied_boots.price.Value;
+      this.loadDisplayFields();
+    }
 
-		[XmlElement("appliedBootSheetIndex")]
-		public readonly NetInt appliedBootSheetIndex = new NetInt(-1);
+    public virtual int getStatsIndex() => this.appliedBootSheetIndex.Value >= 0 ? this.appliedBootSheetIndex.Value : this.indexInTileSheet.Value;
 
-		[XmlIgnore]
-		public string displayName;
+    public override int salePrice() => (int) (NetFieldBase<int, NetInt>) this.defenseBonus * 100 + (int) (NetFieldBase<int, NetInt>) this.immunityBonus * 100;
 
-		[XmlIgnore]
-		public string description;
+    public virtual void onEquip()
+    {
+      Game1.player.resilience += (int) (NetFieldBase<int, NetInt>) this.defenseBonus;
+      Game1.player.immunity += (int) (NetFieldBase<int, NetInt>) this.immunityBonus;
+      Game1.player.changeShoeColor((int) (NetFieldBase<int, NetInt>) this.indexInColorSheet);
+    }
 
-		[XmlIgnore]
-		public override string DisplayName
-		{
-			get
-			{
-				if (displayName == null)
-				{
-					loadDisplayFields();
-				}
-				return displayName;
-			}
-			set
-			{
-				displayName = value;
-			}
-		}
+    public virtual void onUnequip()
+    {
+      Game1.player.resilience -= (int) (NetFieldBase<int, NetInt>) this.defenseBonus;
+      Game1.player.immunity -= (int) (NetFieldBase<int, NetInt>) this.immunityBonus;
+      Game1.player.changeShoeColor(12);
+    }
 
-		[XmlIgnore]
-		public override int Stack
-		{
-			get
-			{
-				return 1;
-			}
-			set
-			{
-			}
-		}
+    public int getNumberOfDescriptionCategories() => (int) (NetFieldBase<int, NetInt>) this.immunityBonus > 0 && (int) (NetFieldBase<int, NetInt>) this.defenseBonus > 0 ? 2 : 1;
 
-		public Boots()
-		{
-			base.NetFields.AddFields(defenseBonus, immunityBonus, indexInTileSheet, price, indexInColorSheet);
-			base.Category = -97;
-		}
+    public override void drawTooltip(
+      SpriteBatch spriteBatch,
+      ref int x,
+      ref int y,
+      SpriteFont font,
+      float alpha,
+      StringBuilder overrideText)
+    {
+      Utility.drawTextWithShadow(spriteBatch, Game1.parseText(this.description, Game1.smallFont, this.getDescriptionWidth()), font, new Vector2((float) (x + 16), (float) (y + 16 + 4)), Game1.textColor);
+      y += (int) font.MeasureString(Game1.parseText(this.description, Game1.smallFont, this.getDescriptionWidth())).Y;
+      if ((int) (NetFieldBase<int, NetInt>) this.defenseBonus > 0)
+      {
+        Utility.drawWithShadow(spriteBatch, Game1.mouseCursors, new Vector2((float) (x + 16 + 4), (float) (y + 16 + 4)), new Rectangle(110, 428, 10, 10), Color.White, 0.0f, Vector2.Zero, 4f, layerDepth: 1f);
+        Utility.drawTextWithShadow(spriteBatch, Game1.content.LoadString("Strings\\UI:ItemHover_DefenseBonus", (object) this.defenseBonus), font, new Vector2((float) (x + 16 + 52), (float) (y + 16 + 12)), Game1.textColor * 0.9f * alpha);
+        y += (int) Math.Max(font.MeasureString("TT").Y, 48f);
+      }
+      if ((int) (NetFieldBase<int, NetInt>) this.immunityBonus <= 0)
+        return;
+      Utility.drawWithShadow(spriteBatch, Game1.mouseCursors, new Vector2((float) (x + 16 + 4), (float) (y + 16 + 4)), new Rectangle(150, 428, 10, 10), Color.White, 0.0f, Vector2.Zero, 4f, layerDepth: 1f);
+      Utility.drawTextWithShadow(spriteBatch, Game1.content.LoadString("Strings\\UI:ItemHover_ImmunityBonus", (object) this.immunityBonus), font, new Vector2((float) (x + 16 + 52), (float) (y + 16 + 12)), Game1.textColor * 0.9f * alpha);
+      y += (int) Math.Max(font.MeasureString("TT").Y, 48f);
+    }
 
-		public Boots(int which)
-			: this()
-		{
-			indexInTileSheet.Value = which;
-			reloadData();
-			base.Category = -97;
-		}
+    public override Point getExtraSpaceNeededForTooltipSpecialIcons(
+      SpriteFont font,
+      int minWidth,
+      int horizontalBuffer,
+      int startingHeight,
+      StringBuilder descriptionText,
+      string boldTitleText,
+      int moneyAmountToDisplayAtBottom)
+    {
+      int sub1 = 9999;
+      Point tooltipSpecialIcons = new Point(0, startingHeight);
+      tooltipSpecialIcons.Y -= (int) font.MeasureString(descriptionText).Y;
+      tooltipSpecialIcons.Y += (int) ((double) (this.getNumberOfDescriptionCategories() * 4 * 12) + (double) font.MeasureString(Game1.parseText(this.description, Game1.smallFont, this.getDescriptionWidth())).Y);
+      tooltipSpecialIcons.X = (int) Math.Max((float) minWidth, Math.Max(font.MeasureString(Game1.content.LoadString("Strings\\UI:ItemHover_DefenseBonus", (object) sub1)).X + (float) horizontalBuffer, font.MeasureString(Game1.content.LoadString("Strings\\UI:ItemHover_ImmunityBonus", (object) sub1)).X + (float) horizontalBuffer));
+      return tooltipSpecialIcons;
+    }
 
-		public virtual void reloadData()
-		{
-			string[] data = Game1.content.Load<Dictionary<int, string>>("Data\\Boots")[indexInTileSheet.Value].Split('/');
-			Name = data[0];
-			price.Value = Convert.ToInt32(data[2]);
-			defenseBonus.Value = Convert.ToInt32(data[3]);
-			immunityBonus.Value = Convert.ToInt32(data[4]);
-			indexInColorSheet.Value = Convert.ToInt32(data[5]);
-		}
+    public override void drawInMenu(
+      SpriteBatch spriteBatch,
+      Vector2 location,
+      float scaleSize,
+      float transparency,
+      float layerDepth,
+      StackDrawType drawStackNumber,
+      Color color,
+      bool drawShadow)
+    {
+      spriteBatch.Draw(Game1.objectSpriteSheet, location + new Vector2(32f, 32f) * scaleSize, new Rectangle?(Game1.getSourceRectForStandardTileSheet(Game1.objectSpriteSheet, this.indexInTileSheet.Value, 16, 16)), color * transparency, 0.0f, new Vector2(8f, 8f) * scaleSize, scaleSize * 4f, SpriteEffects.None, layerDepth);
+    }
 
-		public void applyStats(Boots applied_boots)
-		{
-			reloadData();
-			if (defenseBonus.Value == (int)applied_boots.defenseBonus && immunityBonus.Value == (int)applied_boots.immunityBonus)
-			{
-				appliedBootSheetIndex.Value = -1;
-			}
-			else
-			{
-				appliedBootSheetIndex.Value = applied_boots.getStatsIndex();
-			}
-			defenseBonus.Value = applied_boots.defenseBonus.Value;
-			immunityBonus.Value = applied_boots.immunityBonus.Value;
-			price.Value = applied_boots.price.Value;
-			loadDisplayFields();
-		}
+    public override int maximumStackSize() => 1;
 
-		public virtual int getStatsIndex()
-		{
-			if (appliedBootSheetIndex.Value >= 0)
-			{
-				return appliedBootSheetIndex.Value;
-			}
-			return indexInTileSheet.Value;
-		}
+    public override int addToStack(Item stack) => 1;
 
-		public override int salePrice()
-		{
-			return (int)defenseBonus * 100 + (int)immunityBonus * 100;
-		}
+    public override string getCategoryName() => Game1.content.LoadString("Strings\\StringsFromCSFiles:Boots.cs.12501");
 
-		public void onEquip()
-		{
-			Game1.player.resilience += defenseBonus;
-			Game1.player.immunity += immunityBonus;
-			Game1.player.changeShoeColor(indexInColorSheet);
-		}
+    public override string getDescription()
+    {
+      if (this.description == null)
+        this.loadDisplayFields();
+      return Game1.parseText(this.description + Environment.NewLine + Environment.NewLine + Game1.content.LoadString("Strings\\StringsFromCSFiles:Boots.cs.12500", (object) ((int) (NetFieldBase<int, NetInt>) this.immunityBonus + (int) (NetFieldBase<int, NetInt>) this.defenseBonus)), Game1.smallFont, this.getDescriptionWidth());
+    }
 
-		public void onUnequip()
-		{
-			Game1.player.resilience -= defenseBonus;
-			Game1.player.immunity -= immunityBonus;
-			Game1.player.changeShoeColor(12);
-		}
+    public override bool isPlaceable() => false;
 
-		public int getNumberOfDescriptionCategories()
-		{
-			if ((int)immunityBonus > 0 && (int)defenseBonus > 0)
-			{
-				return 2;
-			}
-			return 1;
-		}
+    [XmlIgnore]
+    public override string DisplayName
+    {
+      get
+      {
+        if (this.displayName == null)
+          this.loadDisplayFields();
+        return this.displayName;
+      }
+      set => this.displayName = value;
+    }
 
-		public override void drawTooltip(SpriteBatch spriteBatch, ref int x, ref int y, SpriteFont font, float alpha, StringBuilder overrideText)
-		{
-			Utility.drawTextWithShadow(spriteBatch, Game1.parseText(description, Game1.smallFont, getDescriptionWidth()), font, new Vector2(x + 16, y + 16 + 4), Game1.textColor);
-			y += (int)font.MeasureString(Game1.parseText(description, Game1.smallFont, getDescriptionWidth())).Y;
-			if ((int)defenseBonus > 0)
-			{
-				Utility.drawWithShadow(spriteBatch, Game1.mouseCursors, new Vector2(x + 16 + 4, y + 16 + 4), new Rectangle(110, 428, 10, 10), Color.White, 0f, Vector2.Zero, 4f, flipped: false, 1f);
-				Utility.drawTextWithShadow(spriteBatch, Game1.content.LoadString("Strings\\UI:ItemHover_DefenseBonus", defenseBonus), font, new Vector2(x + 16 + 52, y + 16 + 12), Game1.textColor * 0.9f * alpha);
-				y += (int)Math.Max(font.MeasureString("TT").Y, 48f);
-			}
-			if ((int)immunityBonus > 0)
-			{
-				Utility.drawWithShadow(spriteBatch, Game1.mouseCursors, new Vector2(x + 16 + 4, y + 16 + 4), new Rectangle(150, 428, 10, 10), Color.White, 0f, Vector2.Zero, 4f, flipped: false, 1f);
-				Utility.drawTextWithShadow(spriteBatch, Game1.content.LoadString("Strings\\UI:ItemHover_ImmunityBonus", immunityBonus), font, new Vector2(x + 16 + 52, y + 16 + 12), Game1.textColor * 0.9f * alpha);
-				y += (int)Math.Max(font.MeasureString("TT").Y, 48f);
-			}
-		}
+    [XmlIgnore]
+    public override int Stack
+    {
+      get => 1;
+      set
+      {
+      }
+    }
 
-		public override Point getExtraSpaceNeededForTooltipSpecialIcons(SpriteFont font, int minWidth, int horizontalBuffer, int startingHeight, StringBuilder descriptionText, string boldTitleText, int moneyAmountToDisplayAtBottom)
-		{
-			int maxStat = 9999;
-			Point dimensions = new Point(0, startingHeight);
-			dimensions.Y -= (int)font.MeasureString(descriptionText).Y;
-			dimensions.Y += (int)((float)(getNumberOfDescriptionCategories() * 4 * 12) + font.MeasureString(Game1.parseText(description, Game1.smallFont, getDescriptionWidth())).Y);
-			dimensions.X = (int)Math.Max(minWidth, Math.Max(font.MeasureString(Game1.content.LoadString("Strings\\UI:ItemHover_DefenseBonus", maxStat)).X + (float)horizontalBuffer, font.MeasureString(Game1.content.LoadString("Strings\\UI:ItemHover_ImmunityBonus", maxStat)).X + (float)horizontalBuffer));
-			return dimensions;
-		}
+    public override Item getOne()
+    {
+      Boots one = new Boots((int) (NetFieldBase<int, NetInt>) this.indexInTileSheet);
+      one.appliedBootSheetIndex.Value = this.appliedBootSheetIndex.Value;
+      one.indexInColorSheet.Value = this.indexInColorSheet.Value;
+      one.defenseBonus.Value = this.defenseBonus.Value;
+      one.immunityBonus.Value = this.immunityBonus.Value;
+      one.loadDisplayFields();
+      one._GetOneFrom((Item) this);
+      return (Item) one;
+    }
 
-		public override void drawInMenu(SpriteBatch spriteBatch, Vector2 location, float scaleSize, float transparency, float layerDepth, StackDrawType drawStackNumber, Color color, bool drawShadow)
-		{
-			spriteBatch.Draw(Game1.objectSpriteSheet, location + new Vector2(32f, 32f) * scaleSize, Game1.getSourceRectForStandardTileSheet(Game1.objectSpriteSheet, indexInTileSheet.Value, 16, 16), color * transparency, 0f, new Vector2(8f, 8f) * scaleSize, scaleSize * 4f, SpriteEffects.None, layerDepth);
-		}
-
-		public override int maximumStackSize()
-		{
-			return 1;
-		}
-
-		public override int addToStack(Item stack)
-		{
-			return 1;
-		}
-
-		public override string getCategoryName()
-		{
-			return Game1.content.LoadString("Strings\\StringsFromCSFiles:Boots.cs.12501");
-		}
-
-		public override string getDescription()
-		{
-			if (description == null)
-			{
-				loadDisplayFields();
-			}
-			return Game1.parseText(description + Environment.NewLine + Environment.NewLine + Game1.content.LoadString("Strings\\StringsFromCSFiles:Boots.cs.12500", (int)immunityBonus + (int)defenseBonus), Game1.smallFont, getDescriptionWidth());
-		}
-
-		public override bool isPlaceable()
-		{
-			return false;
-		}
-
-		public override Item getOne()
-		{
-			Boots boots = new Boots(indexInTileSheet);
-			boots.appliedBootSheetIndex.Value = appliedBootSheetIndex.Value;
-			boots.indexInColorSheet.Value = indexInColorSheet.Value;
-			boots.defenseBonus.Value = defenseBonus.Value;
-			boots.immunityBonus.Value = immunityBonus.Value;
-			boots.loadDisplayFields();
-			boots._GetOneFrom(this);
-			return boots;
-		}
-
-		private bool loadDisplayFields()
-		{
-			if (indexInTileSheet != null)
-			{
-				string[] data = Game1.content.Load<Dictionary<int, string>>("Data\\Boots")[indexInTileSheet].Split('/');
-				displayName = Name;
-				if (LocalizedContentManager.CurrentLanguageCode != 0)
-				{
-					displayName = data[data.Length - 1];
-				}
-				if (appliedBootSheetIndex.Value >= 0)
-				{
-					displayName = Game1.content.LoadString("Strings\\StringsFromCSFiles:CustomizedBootItemName", DisplayName);
-				}
-				description = data[1];
-				return true;
-			}
-			return false;
-		}
-	}
+    protected virtual bool loadDisplayFields()
+    {
+      if (!((NetFieldBase<int, NetInt>) this.indexInTileSheet != (NetInt) null))
+        return false;
+      string[] strArray = Game1.content.Load<Dictionary<int, string>>("Data\\Boots")[(int) (NetFieldBase<int, NetInt>) this.indexInTileSheet].Split('/');
+      this.displayName = this.Name;
+      if (LocalizedContentManager.CurrentLanguageCode != LocalizedContentManager.LanguageCode.en)
+        this.displayName = strArray[strArray.Length - 1];
+      if (this.appliedBootSheetIndex.Value >= 0)
+        this.displayName = Game1.content.LoadString("Strings\\StringsFromCSFiles:CustomizedBootItemName", (object) this.DisplayName);
+      this.description = strArray[1];
+      return true;
+    }
+  }
 }
